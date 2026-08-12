@@ -1,0 +1,5 @@
+# 临时文件
+.tools/
+node.zip
+*.wav
+__pycache__/
