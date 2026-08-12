@@ -508,40 +508,33 @@ window.addEventListener('unhandledrejection', function (e) {
     return (n * sxy - sx * sy) / denom;
   }
   function shiftProfile(prof, root) { var out = new Array(12); for (var i = 0; i < 12; i++) out[(i + root) % 12] = prof[i]; return out; }
-  // 关系大小调裁判：4 条规则（导音解决/落点音/主和弦骨架/大调优先）
+  // 关系大小调裁判（DeepSeek 四级裁判，强制唯一）：L1终点一票否决 L2骨架 L3导音 L4大调
   function judgeRelative(notes, majorPC, minorPC) {
-    function histOf(notes, endBoost) {
-      var h = new Array(12).fill(0), tot = 0;
-      for (var i = 0; i < notes.length; i++) {
-        var d = notes[i].dur || 0.25;
-        var w = (endBoost && i >= notes.length - 2) ? d * 5 : d;
-        h[pc(notes[i].midi)] += w; tot += w;
-      }
-      if (tot <= 0) return h;
-      for (var j = 0; j < 12; j++) h[j] /= tot;
-      return h;
-    }
-    var lead = 0;
-    for (var i = 1; i < notes.length; i++) {
-      var prev = notes[i - 1].midi, cur = notes[i].midi, step = cur - prev;
-      if (Math.abs(step - 1) <= 0.5 && Math.abs(pc(cur) - majorPC) <= 0.5) lead += 1;
-      if (Math.abs(step - 1) <= 0.5 && Math.abs(pc(cur) - minorPC) <= 0.5) lead -= 1;
-    }
-    if (lead > 2) lead = 2; if (lead < -2) lead = -2;
-    var E_lead = lead / 2;
-    var hEnd = histOf(notes, true);
-    var majEnd = corr(hEnd, shiftProfile(MAJOR_PROF, majorPC)) + SCALE_BONUS * scaleMembership(hEnd, majorPC, 'major');
-    var minEnd = corr(hEnd, shiftProfile(MINOR_PROF, minorPC)) + SCALE_BONUS * scaleMembership(hEnd, minorPC, 'minor');
-    var E_end = Math.max(-1, Math.min(1, (majEnd - minEnd) / 0.30));
-    var hBase = histOf(notes, false);
-    var majTri = [majorPC % 12, (majorPC + 4) % 12, (majorPC + 7) % 12];
-    var minTri = [minorPC % 12, (minorPC + 3) % 12, (minorPC + 7) % 12];
-    var mTri = 0, nTri = 0;
-    for (var t = 0; t < 3; t++) { mTri += hBase[majTri[t]]; nTri += hBase[minTri[t]]; }
-    var E_triad = Math.max(-1, Math.min(1, (mTri - nTri) / 0.40));
-    var E_major = 0.05;
-    var score = 0.40 * E_lead + 0.30 * E_end + 0.25 * E_triad + E_major;
-    return { score: score, verdict: score >= 0 ? 'major' : 'minor' };
+    var candA = { pc: majorPC, mode: 'major' }, candB = { pc: minorPC, mode: 'minor' }, evidence = [];
+    var hist = new Array(12).fill(0);
+    for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
+    // L1 终点审判（一票否决）
+    var lastNote = notes[notes.length - 1], lastPC = pc(Math.round(lastNote.midi)), lastDur = lastNote.dur || 0.25;
+    var tail = notes.slice(-2), tailBest = { pc: lastPC, dur: lastDur, isLast: true };
+    for (var ti = 0; ti < tail.length; ti++) { var tpc = pc(Math.round(tail[ti].midi)); if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote }; }
+    function endHit(cand) { if (lastPC === cand.pc) return true; if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 1.5) return true; return false; }
+    if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+    if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+    evidence.push('L1:结尾音' + SPELL[lastPC] + '不是任一主音');
+    // L2 主和弦骨架
+    function triadW(rootPc, isMajor) { var sems = isMajor ? [0, 4, 7] : [0, 3, 7]; var w = 0; for (var s = 0; s < 3; s++) w += hist[(rootPc + sems[s]) % 12] || 0; return w; }
+    var sA = triadW(candA.pc, candA.mode === 'major'), sB = triadW(candB.pc, candB.mode === 'major');
+    evidence.push('L2骨架:' + SPELL[candA.pc] + '大=' + sA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + sB.toFixed(2));
+    if (sA > sB * 1.3) { evidence.push('L2:大调骨架显著占优'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.9, source: 'L2' }; }
+    if (sB > sA * 1.3) { evidence.push('L2:小调骨架显著占优'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.9, source: 'L2' }; }
+    // L3 导音半音解决
+    var leadA = 0, leadB = 0;
+    for (var li = 1; li < notes.length; li++) { var prev = notes[li - 1].midi, cur = notes[li].midi, step = cur - prev; if (Math.abs(step - 1) <= 0.5) { if (pc(Math.round(cur)) === candA.pc) leadA++; if (pc(Math.round(cur)) === candB.pc) leadB++; } }
+    evidence.push('L3导音: 到' + SPELL[candA.pc] + '=' + leadA + '次 到' + SPELL[candB.pc] + '=' + leadB + '次');
+    if (leadA !== leadB) { if (leadA > leadB) { evidence.push('L3:导音倾向大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; } evidence.push('L3:导音倾向小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; }
+    // L4 大调优先
+    evidence.push('L4:前三级无法区分，默认偏大调');
+    return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
   }
   function distFromTonic(midi, pcT) { var d = ((midi - (60 + pcT)) % 12 + 12) % 12; if (d > 6) d -= 12; return d; }
 
@@ -597,14 +590,30 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var ri = 0; ri < ranked.length; ri++) {
       if (ranked[ri].mode === relMode && ranked[ri].root === relRoot) { relScore = ranked[ri].score; break; }
     }
-    var judge = null, origMinor = null;
+    var judge = null, origDetected = null;
     if (best.mode === 'minor') {
-      judge = judgeRelative(notes, relRoot, best.root);
+      // minor 与关系大调仲裁
+      var relMajRoot = (best.root + 3) % 12;
+      judge = judgeRelative(notes, relMajRoot, best.root);
       if (judge.verdict === 'major') {
-        origMinor = { root: best.root, score: best.score };
-        best = { mode: 'major', root: relRoot, score: relScore, shift: shiftCents };
-        relMode = 'minor'; relRoot = origMinor.root; relScore = origMinor.score;
+        origDetected = { mode: 'minor', root: best.root, score: best.score };
+        best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
       }
+    } else {
+      // major 与关系小调仲裁（如检测到 D大调，排除"其实是 B小调"）
+      var relMinRoot = (best.root + 9) % 12;
+      judge = judgeRelative(notes, best.root, relMinRoot);
+      if (judge.verdict === 'minor') {
+        origDetected = { mode: 'major', root: best.root, score: best.score };
+        best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
+      }
+    }
+    // 重新计算关系调（best 可能已翻转）
+    var relMode = (best.mode === 'minor') ? 'major' : 'minor';
+    var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
+    var relScore = 0;
+    for (var ri2 = 0; ri2 < ranked.length; ri2++) {
+      if (ranked[ri2].mode === relMode && ranked[ri2].root === relRoot) { relScore = ranked[ri2].score; break; }
     }
     return {
       mode: best.mode, rootPC: best.root, score: best.score, second: second,
@@ -613,8 +622,8 @@ window.addEventListener('unhandledrejection', function (e) {
       keyName: (best.mode === 'major' ? SPELL[best.root] + '大调' : SPELL[best.root] + '小调'),
       relMode: relMode, relRoot: relRoot, relScore: relScore,
       relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
-      judge: judge ? { score: judge.score, verdict: judge.verdict } : null,
-      origMinor: origMinor,
+      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: judge.evidence } : null,
+      origDetected: origDetected,
       noteCount: notes.length,
       totalDur: notes.reduce(function (s, n) { return s + (n.dur || 0.25); }, 0)
     };
@@ -693,9 +702,11 @@ window.addEventListener('unhandledrejection', function (e) {
       return;
     }
     var AC = window.AudioContext || window.webkitAudioContext;
-    if (!state.audioCtx || state.audioCtx.state === 'closed') {
-      state.audioCtx = new AC();
-    }
+    // 关键：每次录音都用全新 AudioContext，彻底释放上一次的节点和挂起状态。
+    // 若复用同一个 context，旧 MediaStreamSource 节点会累积，且 Chrome 在录音停后
+    // 会挂起(suspend)它，第二次 resume 不及时就导致 onaudioprocess 不触发（没波形/录不到）。
+    try { if (state.audioCtx && state.audioCtx.state !== 'closed') state.audioCtx.close(); } catch (e) {}
+    state.audioCtx = new AC();
     diag.ctxState = state.audioCtx.state;
     if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
     diag.mic = '请求中…';
@@ -716,6 +727,7 @@ window.addEventListener('unhandledrejection', function (e) {
         recordedNotes = null;
 
         var sr = state.audioCtx.sampleRate;
+        state.recordedSr = sr; // 录音时锁定采样率，供回放/分析（context 可能被重建）
         var recStartT = state.audioCtx.currentTime;
         state.callCount = 0;
         state.waveCap = Math.floor(sr * 0.6);
@@ -855,7 +867,8 @@ window.addEventListener('unhandledrejection', function (e) {
   function analyze() {
     try {
       var pcm = concatBuffers(state.buf);
-      var sr = state.audioCtx.sampleRate;
+      // 用录音时锁定的采样率（context 可能已被重建，旧的 sampleRate 不可靠）
+      var sr = state.recordedSr || 44100;
       var FRAME = 2048, HOP = 1024;
 
       // 保存原始 PCM 供"听自己唱的"回放（copy，因为下面会原地归一化）
@@ -945,12 +958,13 @@ window.addEventListener('unhandledrejection', function (e) {
       else if (pct >= 40) $('confText').textContent = '识别中等。如果觉得哪里不对，可能这首歌是关系大小调（音阶相同），试试再唱完整点。';
       else $('confText').textContent = '这次信心不足（可能偏低/偏高或太短）。建议重唱一次，尽量唱完整一句，每个音稳住 0.5 秒以上。';
 
-      // 关系调提示 + 切换按钮
+      // 关系调提示：改为显示裁判判定依据（确定结果，不再给"也可能是"的模糊暗示）
       var rh = $('relHint');
-      if (key.relKeyName && key.relKeyName !== key.keyName) {
-        var otherName = useRelKey ? key.keyName : key.relKeyName;
+      if (key.judge && key.judge.evidence && key.judge.evidence.length) {
+        var ev = key.judge.evidence.map(function (s) { return s.replace(/^L\d[:：]/, ''); }).join('；');
         rh.style.display = 'block';
-        rh.innerHTML = '这首歌也完全可能是 <b>' + otherName + '</b>（关系' + (key.relMode === 'major' ? '大' : '小') + '调，和弦一样）。<br><button id="relToggleBtn">按 ' + otherName + ' 弹</button>';
+        rh.innerHTML = '判定依据：<b>' + ev + '</b>' +
+          '<br><button id="relToggleBtn">换成 ' + key.relKeyName + ' 记</button><span style="color:var(--muted)">（若你确定是另一个调）</span>';
         var tbtn = $('relToggleBtn');
         if (tbtn) tbtn.addEventListener('click', function () { useRelKey = !useRelKey; if (lastKeyResult && recordedNotes) renderResult(lastKeyResult, recordedNotes); });
       } else {

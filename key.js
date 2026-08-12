@@ -71,60 +71,74 @@
   }
 
   // ============================================================
-  // 关系大小调裁判模块
-  // 当检测到小调时，用 4 条规则判断它"真的是小调"还是"其实是关系大调"：
-  //   1) 导音解决（最有力）：X→主音 的小二度上行解决
-  //   2) 落点音：曲末音符权重×5 后重算相关性
-  //   3) 主和弦骨架音：大调三和弦 vs 小调三和弦的权重差
-  //   4) 大调优先：兜底偏 major（流行歌/哼唱多是大调）
-  // 返回 {score, verdict:'major'|'minor'}
+  // 关系大小调裁判模块（DeepSeek 四级裁判，强制唯一结果）
+  // 当检测到小调时，在它和关系大调之间强制判定唯一主音：
+  //   L1 终点审判（一票否决）：最后 1-2 个音的强拍长音 = 主音
+  //   L2 主和弦骨架审判：大调骨架(主音/大三/纯五) vs 小调骨架(主音/小三/纯五)
+  //   L3 导音半音解决：小二度上行到主音（小调导音需临时升高半音）
+  //   L4 文化模板：默认偏大调（兜底）
+  // 返回 {verdict:'major'|'minor', pc, evidence, confidence, source}
   // ============================================================
   function judgeRelative(notes, majorPC, minorPC) {
-    // 时长加权 pitch-class 直方图（裁判用，简单量化即可）
-    function histOf(notes, endBoost) {
-      var h = new Array(12).fill(0), tot = 0;
-      for (var i = 0; i < notes.length; i++) {
-        var d = notes[i].dur || 0.25;
-        var w = (endBoost && i >= notes.length - 2) ? d * 5 : d; // 规则2：落点音×5
-        h[pc(notes[i].midi)] += w; tot += w;
+    var candA = { pc: majorPC, mode: 'major' };
+    var candB = { pc: minorPC, mode: 'minor' };
+    var evidence = [];
+    // 时值加权直方图
+    var hist = new Array(12).fill(0);
+    for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
+
+    // ---- L1 终点审判（一票否决）----
+    var lastNote = notes[notes.length - 1];
+    var lastPC = pc(Math.round(lastNote.midi));
+    var lastDur = lastNote.dur || 0.25;
+    var tail = notes.slice(-2);
+    var tailBest = { pc: lastPC, dur: lastDur, isLast: true };
+    for (var ti = 0; ti < tail.length; ti++) {
+      var tpc = pc(Math.round(tail[ti].midi));
+      if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote };
+    }
+    function endHit(cand) {
+      // 最后一个音即主音 → 一票；或最后一个音是主音 ± 微小偏差
+      if (lastPC === cand.pc) return true;
+      // 重拍长音是主音且明显更长 → 一票
+      if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 1.5) return true;
+      return false;
+    }
+    if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+    if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+    evidence.push('L1:结尾音' + SPELL[lastPC] + '不是任一主音');
+
+    // ---- L2 主和弦骨架审判 ----
+    function triadW(rootPc, isMajor) {
+      var sems = isMajor ? [0, 4, 7] : [0, 3, 7];
+      var w = 0;
+      for (var s = 0; s < 3; s++) w += hist[(rootPc + sems[s]) % 12] || 0;
+      return w;
+    }
+    var sA = triadW(candA.pc, candA.mode === 'major');
+    var sB = triadW(candB.pc, candB.mode === 'major');
+    evidence.push('L2骨架:' + SPELL[candA.pc] + '大=' + sA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + sB.toFixed(2));
+    if (sA > sB * 1.3) { evidence.push('L2:大调骨架显著占优'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.9, source: 'L2' }; }
+    if (sB > sA * 1.3) { evidence.push('L2:小调骨架显著占优'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.9, source: 'L2' }; }
+
+    // ---- L3 导音半音解决 ----
+    var leadA = 0, leadB = 0;
+    for (var li = 1; li < notes.length; li++) {
+      var prev = notes[li - 1].midi, cur = notes[li].midi, step = cur - prev;
+      if (Math.abs(step - 1) <= 0.5) { // 小二度上行
+        if (pc(Math.round(cur)) === candA.pc) leadA++;
+        if (pc(Math.round(cur)) === candB.pc) leadB++;
       }
-      if (tot <= 0) return h;
-      for (var j = 0; j < 12; j++) h[j] /= tot;
-      return h;
+    }
+    evidence.push('L3导音: 到' + SPELL[candA.pc] + '=' + leadA + '次 到' + SPELL[candB.pc] + '=' + leadB + '次');
+    if (leadA !== leadB) {
+      if (leadA > leadB) { evidence.push('L3:导音解决倾向大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; }
+      evidence.push('L3:导音解决倾向小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.85, source: 'L3' };
     }
 
-    // 规则1：导音解决（最有力）
-    var lead = 0;
-    for (var i = 1; i < notes.length; i++) {
-      var prev = notes[i - 1].midi, cur = notes[i].midi;
-      var step = cur - prev; // 音高差（半音）
-      // 大调导音：prev 比主音低半音，上行解决到主音
-      if (Math.abs(step - 1) <= 0.5 && Math.abs(pc(cur) - majorPC) <= 0.5) lead += 1;
-      // 小调导音：prev 比主音低半音，上行解决到主音（调外音特意升高）
-      if (Math.abs(step - 1) <= 0.5 && Math.abs(pc(cur) - minorPC) <= 0.5) lead -= 1;
-    }
-    if (lead > 2) lead = 2; if (lead < -2) lead = -2;
-    var E_lead = lead / 2;
-
-    // 规则2：落点音×5 后重算相关性
-    var hEnd = histOf(notes, true);
-    var majEnd = corr(hEnd, shiftProfile(MAJOR_PROF, majorPC)) + SCALE_BONUS * scaleMembership(hEnd, majorPC, 'major');
-    var minEnd = corr(hEnd, shiftProfile(MINOR_PROF, minorPC)) + SCALE_BONUS * scaleMembership(hEnd, minorPC, 'minor');
-    var E_end = Math.max(-1, Math.min(1, (majEnd - minEnd) / 0.30));
-
-    // 规则3：主和弦骨架音
-    var hBase = histOf(notes, false);
-    var majTri = [majorPC % 12, (majorPC + 4) % 12, (majorPC + 7) % 12];
-    var minTri = [minorPC % 12, (minorPC + 3) % 12, (minorPC + 7) % 12];
-    var mTri = 0, nTri = 0;
-    for (var t = 0; t < 3; t++) { mTri += hBase[majTri[t]]; nTri += hBase[minTri[t]]; }
-    var E_triad = Math.max(-1, Math.min(1, (mTri - nTri) / 0.40));
-
-    // 规则4：大调优先（兜底）
-    var E_major = 0.05;
-
-    var score = 0.40 * E_lead + 0.30 * E_end + 0.25 * E_triad + E_major;
-    return { score: score, verdict: score >= 0 ? 'major' : 'minor', E_lead: E_lead, E_end: E_end, E_triad: E_triad };
+    // ---- L4 文化模板：偏大调 ----
+    evidence.push('L4:前三级均无法区分，默认偏大调');
+    return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
   }
 
   /**
@@ -211,23 +225,36 @@
     }
 
     // ============================================================
-    // 关系大小调裁判：检测到小调时，用 4 条规则判断它"真的是小调"
-    // 还是"其实是关系大调"。若是后者，翻转为大调（do 落在关系大调主音）。
-    // 真小调会被保留（裁判给负分）。原始小调信息保留供 UI 切换。
+    // 关系大小调裁判（DeepSeek 四级裁判）：检测出的调 与 它的关系调 强制仲裁唯一结果。
+    // 关系大小调共享音阶（如 D大调/B小调），K-S 无法区分，必须靠终点/骨架/导音。
+    // 无论 best 是大调还是小调，都运行裁判；若裁判选的是关系调，则翻转为关系调。
     // ============================================================
     var judge = null;
-    var origMinor = null;
+    var origDetected = null; // 被裁判覆盖的原始检测结果（保留供 UI/调试）
     if (best.mode === 'minor') {
-      judge = judgeRelative(notes, relRoot, best.root); // (majorPC=relRoot, minorPC=best.root)
+      // minor 与它的关系大调仲裁
+      var relMajRoot = (best.root + 3) % 12;
+      judge = judgeRelative(notes, relMajRoot, best.root);
       if (judge.verdict === 'major') {
-        origMinor = { root: best.root, score: best.score };
-        // 翻转为关系大调
-        best = { mode: 'major', root: relRoot, score: relScore, shift: shiftCents };
-        // 翻转后，关系调变为原小调
-        relMode = 'minor';
-        relRoot = origMinor.root;
-        relScore = origMinor.score;
+        origDetected = { mode: 'minor', root: best.root, score: best.score };
+        best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
       }
+    } else {
+      // major 与它的关系小调仲裁（如检测到 D大调，需排除"其实是 B小调"）
+      var relMinRoot = (best.root + 9) % 12;
+      judge = judgeRelative(notes, best.root, relMinRoot);
+      if (judge.verdict === 'minor') {
+        origDetected = { mode: 'major', root: best.root, score: best.score };
+        best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
+      }
+    }
+
+    // 重新计算关系调（best 可能已被翻转）
+    var relMode = (best.mode === 'minor') ? 'major' : 'minor';
+    var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
+    var relScore = 0;
+    for (var ri2 = 0; ri2 < ranked.length; ri2++) {
+      if (ranked[ri2].mode === relMode && ranked[ri2].root === relRoot) { relScore = ranked[ri2].score; break; }
     }
 
     var doName = SPELL[best.root];
@@ -247,8 +274,8 @@
       relRoot: relRoot,
       relScore: relScore,
       relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
-      judge: judge ? { score: judge.score, verdict: judge.verdict, E_lead: judge.E_lead, E_end: judge.E_end, E_triad: judge.E_triad } : null,
-      origMinor: origMinor,
+      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: judge.evidence } : null,
+      origDetected: origDetected,
       noteCount: notes.length,
       totalDur: notes.reduce(function (s, n) { return s + (n.dur || 0.25); }, 0)
     };
