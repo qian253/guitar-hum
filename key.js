@@ -79,7 +79,7 @@
   //   L4 文化模板：默认偏大调（兜底）
   // 返回 {verdict:'major'|'minor', pc, evidence, confidence, source}
   // ============================================================
-  function judgeRelative(notes, majorPC, minorPC) {
+  function judgeRelative(notes, majorPC, minorPC, skipVeto) {
     var candA = { pc: majorPC, mode: 'major' };
     var candB = { pc: minorPC, mode: 'minor' };
     var evidence = [];
@@ -87,7 +87,11 @@
     var hist = new Array(12).fill(0);
     for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
 
-    // ---- L1 终点审判（一票否决）----
+    // ---- L1 终点审判（护盾化的一票否决）----
+    // 研究结论：业余哼唱常落在5级/3级/导音上收尾，硬性一票否决正是"每次不一样"的元凶。
+    // 护盾：只有落尾音持续≥300ms且是主音才一票；否则降级给 L2/L3 综合判断。
+    // skipVeto=true（跨次累计定调）时直接跳过：累计后的"落尾"是最后一次哼的收尾，不是歌的结尾。
+    if (!skipVeto) {
     var lastNote = notes[notes.length - 1];
     var lastPC = pc(Math.round(lastNote.midi));
     var lastDur = lastNote.dur || 0.25;
@@ -98,15 +102,18 @@
       if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote };
     }
     function endHit(cand) {
-      // 最后一个音即主音 → 一票；或最后一个音是主音 ± 微小偏差
-      if (lastPC === cand.pc) return true;
-      // 重拍长音是主音且明显更长 → 一票
-      if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 1.5) return true;
+      // 落尾音持续≥300ms 且是主音 → 一票（强收尾证据）
+      if (lastDur >= 0.30 && lastPC === cand.pc) return true;
+      // 倒数第二个音是明显更长的重拍长音(≥2×落尾)且是主音 → 也作强收尾
+      if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 2.0 && tailBest.isLast) return true;
       return false;
     }
-    if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-    if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-    evidence.push('L1:结尾音' + SPELL[lastPC] + '不是任一主音');
+    if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调,长音确认)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+    if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调,长音确认)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+    evidence.push('L1:结尾音' + SPELL[lastPC] + '非主音或太短，交给L2/L3');
+    } else {
+      evidence.push('L1:跨次累计，跳过终点一票否决');
+    }
 
     // ---- L2 主和弦骨架审判 ----
     function triadW(rootPc, isMajor) {
@@ -136,19 +143,40 @@
       evidence.push('L3:导音解决倾向小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.85, source: 'L3' };
     }
 
-    // ---- L4 文化模板：偏大调 ----
-    evidence.push('L4:前三级均无法区分，默认偏大调');
+    // ---- L4 情绪与形态模板 ----
+    // 研究/DeepSeek：整体下行 + 连续小三度跳进 → 小调倾向；上行 + 明亮收尾 → 大调倾向
+    var down = 0, up = 0, minThird = 0;
+    for (var mi = 1; mi < notes.length; mi++) {
+      var d = notes[mi].midi - notes[mi - 1].midi;
+      if (d < 0) down++; else if (d > 0) up++;
+      if (Math.abs(Math.abs(d) - 3) <= 0.5) minThird++; // 小三度(3半音)
+    }
+    var totalMove = down + up;
+    var shape = totalMove > 0 ? (down - up) / totalMove : 0; // +1全下行 -1全上行
+    var minThirdRatio = notes.length > 1 ? minThird / (notes.length - 1) : 0;
+    // 综合形态分：>0 偏小调（下行+小三度）
+    var morphScore = 0.5 * shape + 0.5 * (minThirdRatio * 2 - 0.5);
+    // 大调色彩：上行占优
+    var bright = totalMove > 0 && up / totalMove > 0.6;
+    if (morphScore > 0.15 && !bright) {
+      evidence.push('L4形态:下行+小三度(' + shape.toFixed(2) + '/' + minThirdRatio.toFixed(2) + ')偏小调');
+      return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.65, source: 'L4' };
+    }
+    evidence.push('L4形态:偏大调或中性(' + shape.toFixed(2) + '/' + minThirdRatio.toFixed(2) + ')');
     return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
   }
 
   /**
    * 分析一段音符的调性。
    * @param notes [{midi, dur}]  midi 可为浮点
+   * @param opts {skipVeto?:boolean} 跨次累计定调时设为 true：跳过一次落尾一票否决
+   *         （累计后的"落尾"是最后一次哼唱的落尾，不是歌的结尾，不应主导）
    * @returns {mode:'major'|'minor', rootPC, score, margin, confidence,
    *           doName, keyName, noteCount, totalDur}
    */
-  function detectKey(notes) {
+  function detectKey(notes, opts) {
     if (!notes || notes.length < 2) return null;
+    var skipVeto = opts && opts.skipVeto;
 
     // 整体音分偏移补偿：业余演唱常整体偏低/偏高（低 15-30 音分）。
     // 用"各音对最近半音偏差的中位数"一次性补偿，而不是暴力搜索每个 shift
@@ -164,18 +192,26 @@
     var shiftCents = -medianCents; // 补偿到中位数归零
 
     // 1) 时长加权 pitch-class 直方图（软量化，避免跑音被硬切到错误半音）
+    // 稳定性优化（研究结论）：
+    //   - 时长用 log 压缩：单音权重 = log2(1+dur)，防止一个长尾音主导整个直方图
+    //   - 每个音类加平滑伪计数(+0.5)：短句(5音)不会因一个音缺席/多余而翻转
+    //   - 相关前做 L2 归一化（corr 已做 Pearson，天然归一，这里主要针对伪计数后）
     var hist = new Array(12).fill(0);
     var total = 0;
     for (var i = 0; i < notes.length; i++) {
       var d = notes[i].dur || 0.25;
+      var w = Math.log2(1 + d); // log 压缩时长，长音不再一票独大
       var m = notes[i].midi + shiftCents / 100;
       var nearest = Math.round(m);
       var cent = (m - nearest) * 100; // -50..+50
       var wNear = 1 - Math.abs(cent) / 50; // 0..1
-      hist[((nearest % 12) + 12) % 12] += d * wNear;
-      hist[((Math.round(m + (cent >= 0 ? 1 : -1)) % 12) + 12) % 12] += d * (1 - wNear);
-      total += d;
+      hist[((nearest % 12) + 12) % 12] += w * wNear;
+      hist[((Math.round(m + (cent >= 0 ? 1 : -1)) % 12) + 12) % 12] += w * (1 - wNear);
+      total += w;
     }
+    // 平滑伪计数：给每个音类一个小的正基底，短句不会因某音缺席导致直方图退化
+    for (var pc0 = 0; pc0 < 12; pc0++) hist[pc0] += 0.5;
+    total += 12 * 0.5;
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
 
@@ -234,7 +270,7 @@
     if (best.mode === 'minor') {
       // minor 与它的关系大调仲裁
       var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root);
+      judge = judgeRelative(notes, relMajRoot, best.root, skipVeto);
       if (judge.verdict === 'major') {
         origDetected = { mode: 'minor', root: best.root, score: best.score };
         best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
@@ -242,7 +278,7 @@
     } else {
       // major 与它的关系小调仲裁（如检测到 D大调，需排除"其实是 B小调"）
       var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot);
+      judge = judgeRelative(notes, best.root, relMinRoot, skipVeto);
       if (judge.verdict === 'minor') {
         origDetected = { mode: 'major', root: best.root, score: best.score };
         best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };

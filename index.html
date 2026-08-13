@@ -91,6 +91,7 @@
   .analyze-bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
   .analyze-bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #7ec1ff); border-radius: 4px; transition: width 0.1s linear; }
   .analyze-text { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  #analyzeAnim { width: 100%; max-width: 300px; height: 120px; display: block; margin: 8px auto 0; }
   .cards { display: none; flex-direction: column; gap: 14px; margin-top: 16px; }
   .cards.show { display: flex; animation: fadeUp 0.3s ease; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -115,6 +116,17 @@
     padding: 4px 10px; border-radius: 999px; cursor: pointer; margin: 0 3px;
   }
   .rel-hint button:active { opacity: 0.7; }
+
+  /* 简谱 */
+  .jianpu-box { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .jianpu-line { display: flex; flex-wrap: wrap; gap: 2px 6px; font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .jianpu-line .jp { position: relative; min-width: 18px; text-align: center; transition: transform 0.15s, color 0.15s; }
+  .jianpu-line .jp.hl { color: var(--accent); transform: scale(1.25); }
+  .jianpu-line .jp .hi-dot, .jianpu-line .jp .lo-dot { position: absolute; left: 0; right: 0; font-size: 10px; color: var(--muted); font-weight: 400; }
+  .jianpu-line .jp .hi-dot { top: -12px; }
+  .jianpu-line .jp .lo-dot { bottom: -12px; }
+  .jianpu-note { font-size: 12px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
+
   .melody-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .mel-note { font-family: var(--font); font-size: 13px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--line); padding: 6px 10px; border-radius: 8px; color: var(--ink-2); display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 40px; }
   .mel-note .sj { font-size: 16px; color: var(--ink); font-weight: 800; }
@@ -195,6 +207,56 @@
   #diag .panel .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; color: var(--ink-2); }
   #diag .panel .row b { color: var(--ink); font-weight: 600; }
   #diag .panel .k { color: var(--muted); }
+
+  /* ========== UI/UX 升级：液态玻璃 + 霓虹 ========== */
+  #bgCanvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.7; }
+  body { position: relative; }
+  .rec-area, .cards, .status, .analyze-box, header, footer, #browserWarn, #diag { position: relative; z-index: 2; }
+  .card {
+    background: rgba(26, 30, 38, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(127, 193, 255, 0.12);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 10px 40px rgba(0,0,0,0.25);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .card:hover { border-color: rgba(127, 193, 255, 0.28); box-shadow: 0 0 24px rgba(57,135,229,0.15), 0 10px 40px rgba(0,0,0,0.3); }
+  #keyBig { animation: breathe 3s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { text-shadow: 0 0 10px rgba(57,135,229,0.5), 0 0 30px rgba(57,135,229,0.2); }
+    50% { text-shadow: 0 0 18px rgba(57,135,229,0.9), 0 0 50px rgba(57,135,229,0.4); }
+  }
+  body.result-major #keyBig { animation-name: breathe-major; }
+  body.result-minor #keyBig { animation-name: breathe-minor; }
+  @keyframes breathe-major {
+    0%, 100% { text-shadow: 0 0 12px rgba(255,180,60,0.5), 0 0 36px rgba(255,150,40,0.2); }
+    50% { text-shadow: 0 0 22px rgba(255,200,80,0.95), 0 0 60px rgba(255,150,40,0.4); }
+  }
+  @keyframes breathe-minor {
+    0%, 100% { text-shadow: 0 0 12px rgba(160,100,255,0.5), 0 0 36px rgba(120,60,255,0.2); }
+    50% { text-shadow: 0 0 22px rgba(190,130,255,0.95), 0 0 60px rgba(120,60,255,0.4); }
+  }
+  .capo-opt, .play-box { background: rgba(34,39,52,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .rel-hint button, .rhythm-play, .btn { transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+  .rel-hint button:hover, .btn:hover { transform: scale(1.05); box-shadow: 0 0 16px rgba(57,135,229,0.35); }
+  .btn.primary:hover { box-shadow: 0 0 22px rgba(57,135,229,0.6); }
+  #fretboard line { stroke: rgba(127,193,255,0.35) !important; }
+  #fretboard circle[fill="#3987e5"] { filter: drop-shadow(0 0 4px rgba(57,135,229,0.8)); }
+  .cards.show .card { animation: cardIn 0.4s ease both; }
+  .cards.show .card:nth-child(2) { animation-delay: 0.05s; }
+  .cards.show .card:nth-child(3) { animation-delay: 0.1s; }
+  .cards.show .card:nth-child(4) { animation-delay: 0.15s; }
+  .cards.show .card:nth-child(5) { animation-delay: 0.2s; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .mic-wrap::before, .mic-wrap::after {
+    content: ''; position: absolute; inset: -22px; border-radius: 50%;
+    border: 1.5px solid rgba(57,135,229,0.25); pointer-events: none;
+  }
+  .mic-wrap::after { inset: -40px; border-color: rgba(57,135,229,0.12); }
+  .mic { box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,0.1), 0 0 24px rgba(57,135,229,0.25); }
+  .mic.recording { box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,0.1), 0 0 calc(20px + var(--micGlow, 0px)) rgba(80,190,255,0.55); }
+  .burst { position: fixed; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; z-index: 99; animation: burstAnim 0.5s ease-out forwards; }
+  @keyframes burstAnim { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0); } }
 </style>
 </head>
 <body>
@@ -207,6 +269,8 @@ window.addEventListener('unhandledrejection', function (e) {
   try { var eb = document.getElementById('errBox'); if (eb) eb.innerHTML = '<div class="err" style="border:1px solid rgba(227,73,72,.5);background:rgba(227,73,72,.08);padding:10px;border-radius:10px"><b>⚠ 出错：</b>' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</div>'; } catch (ex) {}
 });
 </script>
+
+<canvas id="bgCanvas"></canvas>
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
@@ -246,6 +310,8 @@ window.addEventListener('unhandledrejection', function (e) {
 <div class="analyze-box" id="analyzeBox">
   <div class="analyze-bar"><i id="analyzeFill"></i></div>
   <div class="analyze-text" id="analyzeText">正在分析…</div>
+  <canvas id="analyzeAnim" width="300" height="120"></canvas>
+</div>
 </div>
 
 <div class="cards" id="cards">
@@ -261,6 +327,11 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="conf-text" id="confText"></div>
     <div class="rel-hint" id="relHint" style="display:none"></div>
     <div class="melody-line" id="melodyLine"></div>
+    <div class="jianpu-box" id="jianpuBox" style="display:none">
+      <div class="card-title" style="margin-bottom:6px">简谱 <span class="tag" id="jianpuTag"></span></div>
+      <div class="jianpu-line" id="jianpuLine"></div>
+      <div class="jianpu-note" id="jianpuNoteInfo"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -311,6 +382,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
   <div class="actions">
     <button class="btn" id="againBtn">↻ 再唱一次</button>
+    <button class="btn" id="newSongBtn">🆕 新歌</button>
     <button class="btn" id="hearSelfBtn" style="display:none">🎧 听自己唱的</button>
     <button class="btn" id="singBtn" style="display:none">🔊 唱名跟读</button>
     <button class="btn primary" id="replayBtn">♪ 听旋律</button>
@@ -428,55 +500,153 @@ window.addEventListener('unhandledrejection', function (e) {
     return out;
   }
 
-  function segmentNotes(frames, opts) {
-    opts = opts || {};
-    var minConf = opts.minConf !== undefined ? opts.minConf : 0.7;
-    var maxNoteDur = opts.maxNoteDur || 2.5;
-    var mergeSlop = opts.mergeSlop || 0.5;
-    var minLen = opts.minLen || 0.12;
-    var cutCents = opts.cutCents || 0.6;
-    if (!frames || frames.length < 4) return [];
-    var valid = frames.filter(function (f) { return f.conf >= minConf; });
-    if (valid.length < 4) return [];
-    var pitches = valid.map(function (f) { return f.pitch; });
-    var med = medFilter(pitches, 5);
-    var cuts = [0];
-    for (var i = 1; i < valid.length; i++) if (Math.abs(med[i] - med[i - 1]) > cutCents) cuts.push(i);
-    if (cuts[cuts.length - 1] !== valid.length - 1) cuts.push(valid.length - 1);
-    var notes = [];
-    for (var k = 0; k < cuts.length - 1; k++) {
-      var a = cuts[k], b = cuts[k + 1], seg = valid.slice(a, b + 1);
-      if (seg.length < 2) continue;
-      var t0 = seg[0].t, t1 = seg[seg.length - 1].t, dur = t1 - t0;
-      if (dur < minLen) continue;
-      var sp = seg.map(function (f) { return f.pitch; }).sort(function (x, y) { return x - y; });
-      var m = sp[Math.floor(sp.length / 2)];
-      notes.push({ start: t0, end: t1, midi: m, freq: midiToFreq(m), dur: dur, conf: segAvg(seg) });
-    }
-    var merged = [];
-    for (var m2 = 0; m2 < notes.length; m2++) {
-      var cur = notes[m2];
-      if (merged.length > 0) {
-        var prev = merged[merged.length - 1];
-        if (cur.start - prev.end < mergeSlop && Math.abs(cur.midi - prev.midi) < 0.5) {
-          prev.end = cur.end; prev.dur = prev.end - prev.start;
-          prev.midi = prev.dur > cur.dur ? prev.midi : cur.midi;
-          prev.conf = Math.max(prev.conf, cur.conf); continue;
+/* ---------- 音符分段（滞回状态机，稳定边界） ----------
+ * 研究结论：单阈值切分在业余演唱（振动±30-50音分、边界抖动）下会误切，
+ * 导致"同一段旋律每次边界不同 → 调翻转"。滞回（hysteresis）解决：
+ *   - 离开当前音符需偏离 > leaveCents(0.7) 且持续 leaveMs(80ms) —— 大阈值防振动误切
+ *   - 只要仍在 enterCents(0.4) 内即视为同一音符 —— 小阈值容忍微抖
+ * 连续低置信（无声/气声）持续 unvoicedMs 视为乐句停顿，结束当前音符。
+ */
+  /* ---------- 音符分段（滞回状态机，稳定边界） ----------
+     * 研究结论：单阈值切分在业余演唱（振动±30-50音分、边界抖动）下会误切，
+     * 导致"同一段旋律每次边界不同 → 调翻转"。滞回（hysteresis）解决：
+     *   - 离开当前音符需偏离 > leaveCents(0.7) 且持续 leaveMs(80ms) —— 大阈值防振动误切
+     *   - 只要仍在 enterCents(0.4) 内即视为同一音符 —— 小阈值容忍微抖
+     * 连续低置信（无声/气声）持续 unvoicedMs 视为乐句停顿，结束当前音符。
+     */
+    function segmentNotes(frames, opts) {
+      opts = opts || {};
+      var minConf = opts.minConf !== undefined ? opts.minConf : 0.55;
+      var maxNoteDur = opts.maxNoteDur || 2.5;
+      var mergeSlop = opts.mergeSlop || 0.5;
+      var minLen = opts.minLen || 0.12;
+      var leaveCents = opts.leaveCents || 0.7;   // 离开阈值（半音）
+      var enterCents = opts.enterCents || 0.4;   // 保持阈值（半音）
+      var leaveMs = opts.leaveMs || 80;          // 离开需持续(ms)
+      var unvoicedMs = opts.unvoicedMs || 120;   // 无声持续(ms)视为停顿
+      var refWindow = opts.refWindow || 7;       // 当前音符参考音高中值窗
+
+      if (!frames || frames.length < 4) return [];
+
+      // 1) 门控：保留可信帧（YIN 置信度）
+      var valid = frames.filter(function (f) { return f.conf >= minConf; });
+      if (valid.length < 4) return [];
+
+      // 2) 中值滤波(窗口5)：平滑帧间微抖
+      var pitches = valid.map(function (f) { return f.pitch; });
+      var med = medFilter(pitches, 5);
+
+      // 3) 滞回状态机切分
+      // 核心：参考音高 refP 在音符建立时锁定（取该段前几帧中值），音符内不滑动更新，
+      // 否则新音符刚开始几帧 refP 就追上它，偏离检测被重置，永远切不出边界。
+      var segments = [];      // [{start,end,frames:[...]}]
+      var cur = null;         // {start,end,frames,refP}
+      var leaveSince = null;  // 最近一次连续离开的开始(帧序号)
+      var unvoicedSince = null;
+
+      for (var i = 0; i < valid.length; i++) {
+        var t = valid[i].t;
+        var m = med[i];
+        var voiced = valid[i].conf >= 0.5;
+
+        if (!voiced) {
+          if (unvoicedSince === null) unvoicedSince = i;
+          if (cur && (t - valid[unvoicedSince].t) >= unvoicedMs / 1000) {
+            closeSeg(cur);
+            cur = null;
+            leaveSince = null;
+          }
+          continue;
+        }
+        unvoicedSince = null;
+
+        if (!cur) {
+          // 建音符：refP 用前 5 帧中值锁定（首帧可能抖）
+          var seed = med.slice(i, i + 5).slice().sort(function (a, b) { return a - b; });
+          cur = { start: t, end: t, frames: [m], refP: seed[Math.floor(seed.length / 2)] };
+          leaveSince = null;
+          continue;
+        }
+
+        var dev = Math.abs(m - cur.refP); // refP 锁定，不再滑动
+
+        if (dev > leaveCents) {
+          // 离开候选：记录首次离开时间；持续满 leaveMs 才真切断
+          if (leaveSince === null) leaveSince = i;
+          cur.frames.push(m); cur.end = t;
+          if ((t - valid[leaveSince].t) >= leaveMs / 1000) {
+            closeSeg(cur);
+            // 新段从离开候选处起，refP 用新段前 5 帧中值
+            var seed2 = med.slice(leaveSince, leaveSince + 5).slice().sort(function (a, b) { return a - b; });
+            cur = { start: valid[leaveSince].t, end: t, frames: [m], refP: seed2[Math.floor(seed2.length / 2)] };
+            leaveSince = null;
+          }
+        } else if (dev > enterCents) {
+          // 滞回区：不切断、不重置离开候选（保持现状）
+          cur.frames.push(m); cur.end = t;
+        } else {
+          // 回到音符内：清空离开候选（之前的偏离是振动）
+          leaveSince = null;
+          cur.frames.push(m); cur.end = t;
         }
       }
-      merged.push({ start: cur.start, end: cur.end, midi: cur.midi, freq: midiToFreq(cur.midi), dur: cur.dur, conf: cur.conf });
+      if (cur) closeSeg(cur);
+
+      function closeSeg(seg) {
+        if (seg.frames.length >= 2) {
+          var sp = seg.frames.slice().sort(function (a, b) { return a - b; });
+          var mid = sp[Math.floor(sp.length / 2)];
+          segments.push({ start: seg.start, end: seg.end, midi: mid, frames: seg.frames });
+        }
+      }
+
+      // 4) 组段 → 音符（取段内中值音高，时长=首尾帧时间差）
+      var notes = [];
+      for (var k = 0; k < segments.length; k++) {
+        var seg = segments[k];
+        var dur = seg.end - seg.start;
+        if (dur < minLen) continue;
+        notes.push({ start: seg.start, end: seg.end, midi: seg.midi, freq: midiToFreq(seg.midi), dur: dur, conf: 0.9 });
+      }
+
+      // 5) 合并极短时相邻同音（装饰音/气息分裂）
+      var merged = [];
+      for (var m2 = 0; m2 < notes.length; m2++) {
+        var cur2 = notes[m2];
+        if (merged.length > 0) {
+          var prev = merged[merged.length - 1];
+          var gap = cur2.start - prev.end;
+          if (gap < mergeSlop && Math.abs(cur2.midi - prev.midi) < 0.5) {
+            prev.end = cur2.end;
+            prev.dur = prev.end - prev.start;
+            prev.midi = prev.dur > cur2.dur ? prev.midi : cur2.midi;
+            prev.conf = Math.max(prev.conf, cur2.conf);
+            continue;
+          }
+        }
+        merged.push({
+          start: cur2.start, end: cur2.end,
+          midi: cur2.midi, freq: midiToFreq(cur2.midi),
+          dur: cur2.dur, conf: cur2.conf
+        });
+      }
+
+      // 6) 限制单音符过长（整段一个长音属异常）
+      var capped = [];
+      for (var c = 0; c < merged.length; c++) {
+        var nn = merged[c];
+        if (nn.dur > maxNoteDur) {
+          capped.push({ start: nn.start, end: nn.start + maxNoteDur, midi: nn.midi, freq: nn.freq, dur: maxNoteDur, conf: nn.conf });
+          var rest = nn.dur - maxNoteDur;
+          if (rest > minLen) {
+            capped.push({ start: nn.start + maxNoteDur, end: nn.end, midi: nn.midi, freq: nn.freq, dur: rest, conf: nn.conf });
+          }
+        } else {
+          capped.push(nn);
+        }
+      }
+      return capped;
     }
-    var capped = [];
-    for (var c = 0; c < merged.length; c++) {
-      var nn = merged[c];
-      if (nn.dur > maxNoteDur) {
-        capped.push({ start: nn.start, end: nn.start + maxNoteDur, midi: nn.midi, freq: nn.freq, dur: maxNoteDur, conf: nn.conf });
-        var rest = nn.dur - maxNoteDur;
-        if (rest > minLen) capped.push({ start: nn.start + maxNoteDur, end: nn.end, midi: nn.midi, freq: nn.freq, dur: rest, conf: nn.conf });
-      } else capped.push(nn);
-    }
-    return capped;
-  }
 
   global.DSP = { yinPitchFrame: yinPitchFrame, segmentNotes: segmentNotes, midiToFreq: midiToFreq };
 })(window);
@@ -509,18 +679,20 @@ window.addEventListener('unhandledrejection', function (e) {
   }
   function shiftProfile(prof, root) { var out = new Array(12); for (var i = 0; i < 12; i++) out[(i + root) % 12] = prof[i]; return out; }
   // 关系大小调裁判（DeepSeek 四级裁判，强制唯一）：L1终点一票否决 L2骨架 L3导音 L4大调
-  function judgeRelative(notes, majorPC, minorPC) {
+  function judgeRelative(notes, majorPC, minorPC, skipVeto) {
     var candA = { pc: majorPC, mode: 'major' }, candB = { pc: minorPC, mode: 'minor' }, evidence = [];
     var hist = new Array(12).fill(0);
     for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
-    // L1 终点审判（一票否决）
-    var lastNote = notes[notes.length - 1], lastPC = pc(Math.round(lastNote.midi)), lastDur = lastNote.dur || 0.25;
-    var tail = notes.slice(-2), tailBest = { pc: lastPC, dur: lastDur, isLast: true };
-    for (var ti = 0; ti < tail.length; ti++) { var tpc = pc(Math.round(tail[ti].midi)); if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote }; }
-    function endHit(cand) { if (lastPC === cand.pc) return true; if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 1.5) return true; return false; }
-    if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-    if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-    evidence.push('L1:结尾音' + SPELL[lastPC] + '不是任一主音');
+    // L1 终点审判（护盾化：仅单次哼唱且落尾≥300ms长音时一票；跨次累计则跳过）
+    if (!skipVeto) {
+      var lastNote = notes[notes.length - 1], lastPC = pc(Math.round(lastNote.midi)), lastDur = lastNote.dur || 0.25;
+      var tail = notes.slice(-2), tailBest = { pc: lastPC, dur: lastDur, isLast: true };
+      for (var ti = 0; ti < tail.length; ti++) { var tpc = pc(Math.round(tail[ti].midi)); if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote }; }
+      function endHit(cand) { if (lastDur >= 0.30 && lastPC === cand.pc) return true; if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 2.0 && tailBest.isLast) return true; return false; }
+      if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调,长音确认)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+      if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调,长音确认)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
+      evidence.push('L1:结尾音' + SPELL[lastPC] + '非主音或太短，交给L2/L3');
+    } else { evidence.push('L1:跨次累计，跳过终点一票否决'); }
     // L2 主和弦骨架
     function triadW(rootPc, isMajor) { var sems = isMajor ? [0, 4, 7] : [0, 3, 7]; var w = 0; for (var s = 0; s < 3; s++) w += hist[(rootPc + sems[s]) % 12] || 0; return w; }
     var sA = triadW(candA.pc, candA.mode === 'major'), sB = triadW(candB.pc, candB.mode === 'major');
@@ -532,13 +704,29 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var li = 1; li < notes.length; li++) { var prev = notes[li - 1].midi, cur = notes[li].midi, step = cur - prev; if (Math.abs(step - 1) <= 0.5) { if (pc(Math.round(cur)) === candA.pc) leadA++; if (pc(Math.round(cur)) === candB.pc) leadB++; } }
     evidence.push('L3导音: 到' + SPELL[candA.pc] + '=' + leadA + '次 到' + SPELL[candB.pc] + '=' + leadB + '次');
     if (leadA !== leadB) { if (leadA > leadB) { evidence.push('L3:导音倾向大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; } evidence.push('L3:导音倾向小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; }
-    // L4 大调优先
-    evidence.push('L4:前三级无法区分，默认偏大调');
+    // L4 情绪与形态模板：下行+小三度→小调；上行+明亮→大调
+    var down4 = 0, up4 = 0, minThird = 0;
+    for (var mi = 1; mi < notes.length; mi++) {
+      var dd = notes[mi].midi - notes[mi - 1].midi;
+      if (dd < 0) down4++; else if (dd > 0) up4++;
+      if (Math.abs(Math.abs(dd) - 3) <= 0.5) minThird++;
+    }
+    var totalMove = down4 + up4;
+    var shape = totalMove > 0 ? (down4 - up4) / totalMove : 0;
+    var minThirdRatio = notes.length > 1 ? minThird / (notes.length - 1) : 0;
+    var morphScore = 0.5 * shape + 0.5 * (minThirdRatio * 2 - 0.5);
+    var bright = totalMove > 0 && up4 / totalMove > 0.6;
+    if (morphScore > 0.15 && !bright) {
+      evidence.push('L4形态:下行+小三度(' + shape.toFixed(2) + '/' + minThirdRatio.toFixed(2) + ')偏小调');
+      return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.65, source: 'L4' };
+    }
+    evidence.push('L4形态:偏大调或中性(' + shape.toFixed(2) + '/' + minThirdRatio.toFixed(2) + ')');
     return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
   }
   function distFromTonic(midi, pcT) { var d = ((midi - (60 + pcT)) % 12 + 12) % 12; if (d > 6) d -= 12; return d; }
 
-  function detectKey(notes) {
+  function detectKey(notes, opts) {
+    var skipVeto = opts && opts.skipVeto;
     if (!notes || notes.length < 2) return null;
     // 整体音分偏移补偿：用"各音对最近半音偏差的中位数"一次性补偿，
     // 不暴力搜索 shift（避免过拟合到相邻调）
@@ -549,18 +737,22 @@ window.addEventListener('unhandledrejection', function (e) {
     if (Math.abs(medianCents) > 50) medianCents = medianCents > 0 ? 50 : -50;
     var shiftCents = -medianCents;
 
+    // 稳定性优化：log压缩时长 + 平滑伪计数，防止短句/长尾音翻转
     var hist = new Array(12).fill(0), total = 0;
     for (var i = 0; i < notes.length; i++) {
       var d = notes[i].dur || 0.25;
+      var w = Math.log2(1 + d); // log 压缩时长，长音不再一票独大
       var m = notes[i].midi + shiftCents / 100;
       // 软量化：按音分距离同时投给相邻两个半音，避免跑音被硬切到错误半音
       var nearest = Math.round(m);
       var cents2 = (m - nearest) * 100;
       var wNear = 1 - Math.abs(cents2) / 50;
-      hist[((nearest % 12) + 12) % 12] += d * wNear;
-      hist[((Math.round(m + (cents2 >= 0 ? 1 : -1)) % 12) + 12) % 12] += d * (1 - wNear);
-      total += d;
+      hist[((nearest % 12) + 12) % 12] += w * wNear;
+      hist[((Math.round(m + (cents2 >= 0 ? 1 : -1)) % 12) + 12) % 12] += w * (1 - wNear);
+      total += w;
     }
+    for (var pc0 = 0; pc0 < 12; pc0++) hist[pc0] += 0.5; // 平滑伪计数
+    total += 12 * 0.5;
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
     var last = notes[notes.length - 1];
@@ -594,7 +786,7 @@ window.addEventListener('unhandledrejection', function (e) {
     if (best.mode === 'minor') {
       // minor 与关系大调仲裁
       var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root);
+      judge = judgeRelative(notes, relMajRoot, best.root, skipVeto);
       if (judge.verdict === 'major') {
         origDetected = { mode: 'minor', root: best.root, score: best.score };
         best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
@@ -602,7 +794,7 @@ window.addEventListener('unhandledrejection', function (e) {
     } else {
       // major 与关系小调仲裁（如检测到 D大调，排除"其实是 B小调"）
       var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot);
+      judge = judgeRelative(notes, best.root, relMinRoot, skipVeto);
       if (judge.verdict === 'minor') {
         origDetected = { mode: 'major', root: best.root, score: best.score };
         best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
@@ -633,6 +825,97 @@ window.addEventListener('unhandledrejection', function (e) {
 
 (function () {
   'use strict';
+
+  /* ---------- UI 动效：背景粒子 + 点击爆裂 + 音量光晕 ---------- */
+  var bgCanvas = $('bgCanvas');
+  if (bgCanvas && bgCanvas.getContext) {
+    var bctx = bgCanvas.getContext('2d');
+    var parts = [];
+    function resizeBg() { bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight; }
+    resizeBg();
+    window.addEventListener('resize', resizeBg);
+    for (var pi = 0; pi < 28; pi++) {
+      parts.push({ x: Math.random(), y: Math.random(), r: Math.random() * 2 + 0.5, vx: (Math.random() - 0.5) * 0.0004, vy: (Math.random() - 0.5) * 0.0004, a: Math.random() * 0.5 + 0.2 });
+    }
+    var bgEnergy = 0; // 0..1，随哼唱音量
+    function animBg() {
+      bctx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      var W = bgCanvas.width, H = bgCanvas.height;
+      parts.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
+        if (p.y < 0) p.y = 1; if (p.y > 1) p.y = 0;
+        // 音量活跃时粒子更亮、略放大
+        var glow = p.a + bgEnergy * 0.5;
+        bctx.beginPath();
+        bctx.arc(p.x * W, p.y * H, p.r + bgEnergy * 1.5, 0, Math.PI * 2);
+        bctx.fillStyle = 'rgba(127,193,255,' + Math.min(0.9, glow) + ')';
+        bctx.fill();
+      });
+      // 音量高时加淡淡光晕
+      if (bgEnergy > 0.3) {
+        var grd = bctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * (0.3 + bgEnergy * 0.3));
+        grd.addColorStop(0, 'rgba(80,190,255,' + (bgEnergy * 0.12) + ')');
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        bctx.fillStyle = grd;
+        bctx.fillRect(0, 0, W, H);
+      }
+      bgEnergy *= 0.94;
+      requestAnimationFrame(animBg);
+    }
+    animBg();
+    // 暴露给 updateLive 设置音量
+    window.__setBgEnergy = function (v) { bgEnergy = Math.max(bgEnergy, v); };
+  }
+
+  // 按钮点击粒子爆裂
+  function burstAt(x, y) {
+    for (var b = 0; b < 10; b++) {
+      var el = document.createElement('div');
+      el.className = 'burst';
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+      document.body.appendChild(el);
+      (function (e3) { setTimeout(function () { e3.remove(); }, 550); })(el);
+    }
+  }
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('.btn, .rhythm-play, .rel-hint button')) burstAt(e.clientX, e.clientY);
+  });
+
+  // 麦克风音量光晕：updateLive 会调 __setMicGlow
+  window.__setMicGlow = function (v) { micBtn.style.setProperty('--micGlow', Math.round(v * 40) + 'px'); };
+
+  /* ---------- 分析动画：粒子汇聚成音高曲线 ---------- */
+  var aAnimCv = null, aAnimCtx = null, aPts = [], aAnimRaf = null;
+  function ensureAAnim() {
+    if (aAnimCv) return;
+    aAnimCv = $('analyzeAnim');
+    if (aAnimCv) aAnimCtx = aAnimCv.getContext('2d');
+  }
+  function startAAnim() {
+    ensureAAnim();
+    if (!aAnimCtx) return;
+    var W = aAnimCv.width, H = aAnimCv.height;
+    aPts = [];
+    for (var i = 0; i < 26; i++) {
+      aPts.push({ x: W / 2 + (Math.random() - 0.5) * W * 0.7, y: H + Math.random() * H * 0.3, r: Math.random() * 2 + 1, vy: -(Math.random() * 1.5 + 0.5), vx: (Math.random() - 0.5) * 0.6, hue: Math.random() * 60 + 190 });
+    }
+    cancelAnimationFrame(aAnimRaf);
+    (function tick() {
+      aAnimCtx.clearRect(0, 0, W, H);
+      aPts.forEach(function (p) {
+        p.y += p.vy; p.x += p.vx;
+        // 汇聚到中心偏上的音高线，然后收束
+        if (p.y < H * 0.25) { p.vy *= -0.3; p.x += (W / 2 - p.x) * 0.05; }
+        aAnimCtx.beginPath();
+        aAnimCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        aAnimCtx.fillStyle = 'hsla(' + p.hue + ',90%,65%,0.8)';
+        aAnimCtx.fill();
+      });
+      aAnimRaf = requestAnimationFrame(tick);
+    })();
+  }
+  function stopAAnim() { if (aAnimRaf) cancelAnimationFrame(aAnimRaf); aAnimRaf = null; if (aAnimCtx) aAnimCtx.clearRect(0, 0, aAnimCv.width, aAnimCv.height); }
 
   var $ = function (id) { return document.getElementById(id); };
   var micBtn = $('micBtn'), statusEl = $('status'), cards = $('cards'), errBox = $('errBox');
@@ -821,6 +1104,9 @@ window.addEventListener('unhandledrejection', function (e) {
 
   function updateLive(pitch, level) {
     levelBar.style.width = (level * 100).toFixed(0) + '%';
+    // 音量驱动背景粒子活跃度 + 麦克风光晕
+    if (window.__setBgEnergy) window.__setBgEnergy(level);
+    if (window.__setMicGlow) window.__setMicGlow(level);
     if (pitch.pitch < 0 || pitch.conf < 0.5) {
       liveNote.textContent = '…';
       liveCents.textContent = '';
@@ -860,9 +1146,9 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var j = 0; j < chunks.length; j++) { out.set(chunks[j], off); off += chunks[j].length; }
     return out;
   }
-  function showAnalyze() { $('analyzeBox').classList.add('show'); $('analyzeFill').style.width = '0%'; $('analyzeText').textContent = '正在分析…'; }
+  function showAnalyze() { $('analyzeBox').classList.add('show'); $('analyzeFill').style.width = '0%'; $('analyzeText').textContent = '正在分析…'; startAAnim(); }
   function setAnalyzeProgress(pct, note) { $('analyzeFill').style.width = pct.toFixed(0) + '%'; $('analyzeText').textContent = note || ('正在分析… ' + pct.toFixed(0) + '%'); }
-  function hideAnalyze() { $('analyzeBox').classList.remove('show'); }
+  function hideAnalyze() { $('analyzeBox').classList.remove('show'); stopAAnim(); }
 
   function analyze() {
     try {
@@ -912,12 +1198,17 @@ window.addEventListener('unhandledrejection', function (e) {
           if (allFrames.length < 8) { hideAnalyze(); showError('没听到足够的旋律。<br>再唱一次，<b>唱完整一句</b>（4~8 秒）。'); return; }
           var notes = window.DSP.segmentNotes(allFrames);
           if (!notes || notes.length < 2) { hideAnalyze(); showError('没分出清晰的音符。<br>尽量<b>一个音一个音</b>地唱，别拖太长。'); return; }
-          var keyRes = window.KeyDetect.detectKey(notes);
+          // 跨次累加：每次哼唱的音符合并到累计池，用累计集定调（音集越攒越完整，结果收敛）
+          state.accNotes = (state.accNotes || []).concat(notes);
+          state.takeCount = (state.takeCount || 0) + 1;
+          // 累计后"落尾"是最后一次哼的收尾，不是歌的结尾 → 跳过落尾一票否决
+          var skipVeto = state.takeCount > 1;
+          var keyRes = window.KeyDetect.detectKey(state.accNotes, { skipVeto: skipVeto });
           if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
-          recordedNotes = notes;
+          recordedNotes = state.accNotes;
           lastKeyResult = keyRes;
           hideAnalyze();
-          renderResult(keyRes, notes);
+          renderResult(keyRes, state.accNotes);
         } catch (e) { console.error('分析出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
       }
 
@@ -947,7 +1238,10 @@ window.addEventListener('unhandledrejection', function (e) {
       var badge = $('modeBadge');
       badge.textContent = dmode === 'major' ? '大调 · 明亮' : '小调 · 忧郁';
       badge.className = 'mode-badge ' + dmode;
-      $('metaTag').textContent = '识别出 ' + notes.length + ' 个音';
+      // 大调→暖金呼吸光，小调→冷紫呼吸光（body 类驱动）
+      document.body.classList.remove('result-major', 'result-minor');
+      document.body.classList.add('result-' + dmode);
+      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次哼唱 · 累计 ' + notes.length + ' 个音';
 
       var pct = Math.round(key.confidence * 100);
       $('confBar').style.width = pct + '%';
@@ -955,8 +1249,8 @@ window.addEventListener('unhandledrejection', function (e) {
       var confRow = $('confRow');
       confRow.className = 'conf' + (pct < 40 ? ' low' : '');
       if (pct >= 70) $('confText').textContent = '识别很稳，放心按这个调弹。';
-      else if (pct >= 40) $('confText').textContent = '识别中等。如果觉得哪里不对，可能这首歌是关系大小调（音阶相同），试试再唱完整点。';
-      else $('confText').textContent = '这次信心不足（可能偏低/偏高或太短）。建议重唱一次，尽量唱完整一句，每个音稳住 0.5 秒以上。';
+      else if (pct >= 40) $('confText').textContent = '识别中等。再哼同一句一遍，会自动累加更准（右上角会显示第 N 次）。';
+      else $('confText').textContent = '信心不足。建议再哼同一句一遍，音会累加、结果会收敛（右上角显示第 N 次哼唱）。';
 
       // 关系调提示：改为显示裁判判定依据（确定结果，不再给"也可能是"的模糊暗示）
       var rh = $('relHint');
@@ -1026,6 +1320,9 @@ window.addEventListener('unhandledrejection', function (e) {
       // 显示回放/唱名按钮（前提：有录音数据）
       if (state.recordedPcm) $('hearSelfBtn').style.display = 'block';
       $('singBtn').style.display = 'block';
+
+      // 简谱视图（用当前显示调 dmode/droot，含关系调切换）
+      renderJianpu(notes, droot, dmode);
     } catch (e) {
       console.error('renderResult 出错:', e);
       showError('渲染结果时出错：' + (e && e.message ? e.message : e));
@@ -1098,6 +1395,52 @@ window.addEventListener('unhandledrejection', function (e) {
     });
   }
 
+  /* ---------- 简谱生成（大调主音=1，小调主音=6；高低八度加点） ---------- */
+  function buildJianpu(notes, rootPC, mode) {
+    var scale = mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
+    var deg = mode === 'major' ? [1, 2, 3, 4, 5, 6, 7] : [6, 7, 1, 2, 3, 4, 5];
+    // 主音基准：音符中心附近最近的 rootPC 音高，贴近用户实际音区
+    var mids = notes.map(function (n) { return Math.round(n.midi); }).sort(function (a, b) { return a - b; });
+    var center = mids[Math.floor(mids.length / 2)];
+    var tonicMid = Math.round((center - rootPC) / 12) * 12 + rootPC;
+    if (tonicMid - center > 6) tonicMid -= 12;
+    else if (tonicMid - center < -6) tonicMid += 12;
+    return notes.map(function (n) {
+      var midi = Math.round(n.midi);
+      var diff = ((midi % 12) - (tonicMid % 12) + 12) % 12;
+      var bestDeg = 0, bestDist = 99;
+      for (var i = 0; i < 7; i++) {
+        var d = Math.abs(scale[i] - diff); if (d > 6) d = 12 - d;
+        if (d < bestDist) { bestDist = d; bestDeg = i; }
+      }
+      var num = deg[bestDeg];
+      var oct = Math.floor((midi - tonicMid) / 12);
+      return { num: num, oct: oct };
+    });
+  }
+  function renderJianpu(notes, rootPC, mode) {
+    var box = $('jianpuBox');
+    if (!notes || notes.length < 2) { box.style.display = 'none'; return; }
+    var jp = buildJianpu(notes, rootPC, mode);
+    var line = $('jianpuLine'); line.innerHTML = '';
+    var tones = mode === 'major' ? ['1', '2', '3', '4', '5', '6', '7'] : ['6', '7', '1', '2', '3', '4', '5'];
+    jp.forEach(function (j) {
+      var el = document.createElement('span');
+      el.className = 'jp';
+      var hi = '', lo = '';
+      if (j.oct > 0) hi = '<span class="hi-dot">' + '·'.repeat(j.oct) + '</span>';
+      if (j.oct < 0) lo = '<span class="lo-dot">' + '·'.repeat(-j.oct) + '</span>';
+      el.innerHTML = hi + tones[j.num - 1] + lo;
+      line.appendChild(el);
+    });
+    $('jianpuTag').textContent = (mode === 'major' ? '主音' : '主音') + '=' + window.GuitarMap.midiName(60 + rootPC);
+    // 音名信息
+    var info = '每个音：';
+    notes.forEach(function (n) { info += midiName(Math.round(n.midi)) + ' '; });
+    $('jianpuNoteInfo').textContent = info.trim();
+    box.style.display = 'block';
+  }
+
   function drawFretboard(doPositions) {
     var svg = $('fretboard');
     var W = 340, H = 200, L = 44, R = 12, T = 24, B = 30;
@@ -1139,6 +1482,11 @@ window.addEventListener('unhandledrejection', function (e) {
     if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); if (state.recording) stopRecording(); else startRecording(); }
   });
   $('againBtn').addEventListener('click', function () { cards.classList.remove('show'); $('capoCard').style.display = 'none'; setStatus(''); });
+  $('newSongBtn').addEventListener('click', function () {
+    // 换新歌：清空跨次累加池
+    state.accNotes = []; state.takeCount = 0;
+    cards.classList.remove('show'); $('capoCard').style.display = 'none'; setStatus('');
+  });
   $('capoSrcSel').addEventListener('change', renderCapo);
   $('capoDstSel').addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
@@ -1194,7 +1542,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var ctx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
     var t = ctx.currentTime + 0.05;
-    recordedNotes.forEach(function (n) {
+    recordedNotes.forEach(function (n, idx) {
       var osc = ctx.createOscillator(), g = ctx.createGain();
       osc.type = 'sine'; osc.frequency.value = 440 * Math.pow(2, (Math.round(n.midi) - 69) / 12);
       g.gain.setValueAtTime(0.0001, t);
@@ -1202,6 +1550,14 @@ window.addEventListener('unhandledrejection', function (e) {
       g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.12, n.dur));
       osc.connect(g); g.connect(ctx.destination);
       osc.start(t); osc.stop(t + Math.max(0.12, n.dur) + 0.05);
+      // 简谱字幕高亮：音符响起时高亮对应的 .jp 数字
+      (function (i) {
+        setTimeout(function () {
+          var els = $('jianpuLine').querySelectorAll('.jp');
+          for (var e = 0; e < els.length; e++) els[e].classList.remove('hl');
+          if (els[i]) els[i].classList.add('hl');
+        }, Math.max(0, (t - ctx.currentTime) * 1000));
+      })(idx);
       t += Math.max(0.18, n.dur) + 0.06;
     });
   }

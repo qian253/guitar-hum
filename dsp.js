@@ -89,67 +89,127 @@
     return 69 + 12 * Math.log2(f / 440);
   }
 
-  /* ---------- 音符分段（中值滤波 + 跳变切分） ---------- */
-  // frames: [{t, pitch (midi float), conf}] 已按时间排序
-  // 输出: [{start, end, midi, freq, dur, conf}]  (midi 为浮点中值)
+  /* ---------- 音符分段（滞回状态机，稳定边界） ----------
+   * 研究结论：单阈值切分在业余演唱（振动±30-50音分、边界抖动）下会误切，
+   * 导致"同一段旋律每次边界不同 → 调翻转"。滞回（hysteresis）解决：
+   *   - 离开当前音符需偏离 > leaveCents(0.7) 且持续 leaveMs(80ms) —— 大阈值防振动误切
+   *   - 只要仍在 enterCents(0.4) 内即视为同一音符 —— 小阈值容忍微抖
+   * 连续低置信（无声/气声）持续 unvoicedMs 视为乐句停顿，结束当前音符。
+   */
   function segmentNotes(frames, opts) {
     opts = opts || {};
-    var minConf = opts.minConf !== undefined ? opts.minConf : 0.7;
-    var maxNoteDur = opts.maxNoteDur || 2.5;   // 单音符最长(秒)
-    var mergeSlop = opts.mergeSlop || 0.5;     // 粘连/装饰音容忍(秒)
-    var minLen = opts.minLen || 0.12;          // 最短音符(秒)
-    var cutCents = opts.cutCents || 0.6;       // 切分跳变阈值(半音)
+    var minConf = opts.minConf !== undefined ? opts.minConf : 0.55;
+    var maxNoteDur = opts.maxNoteDur || 2.5;
+    var mergeSlop = opts.mergeSlop || 0.5;
+    var minLen = opts.minLen || 0.12;
+    var leaveCents = opts.leaveCents || 0.7;   // 离开阈值（半音）
+    var enterCents = opts.enterCents || 0.4;   // 保持阈值（半音）
+    var leaveMs = opts.leaveMs || 80;          // 离开需持续(ms)
+    var unvoicedMs = opts.unvoicedMs || 120;   // 无声持续(ms)视为停顿
+    var refWindow = opts.refWindow || 7;       // 当前音符参考音高中值窗
 
     if (!frames || frames.length < 4) return [];
 
-    // 1) 门控：保留可信帧
+    // 1) 门控：保留可信帧（YIN 置信度）
     var valid = frames.filter(function (f) { return f.conf >= minConf; });
     if (valid.length < 4) return [];
 
-    // 2) 中值滤波(窗口5)：平滑帧间微抖，保留真实音阶跳变
+    // 2) 中值滤波(窗口5)：平滑帧间微抖
     var pitches = valid.map(function (f) { return f.pitch; });
     var med = medFilter(pitches, 5);
 
-    // 3) 切分：相邻滤波后音高差 > cutCents 即断开
-    var cuts = [0];
-    for (var i = 1; i < valid.length; i++) {
-      if (Math.abs(med[i] - med[i - 1]) > cutCents) cuts.push(i);
-    }
-    if (cuts[cuts.length - 1] !== valid.length - 1) cuts.push(valid.length - 1);
+    // 3) 滞回状态机切分
+    // 核心：参考音高 refP 在音符建立时锁定（取该段前几帧中值），音符内不滑动更新，
+    // 否则新音符刚开始几帧 refP 就追上它，偏离检测被重置，永远切不出边界。
+    var segments = [];      // [{start,end,frames:[...]}]
+    var cur = null;         // {start,end,frames,refP}
+    var leaveSince = null;  // 最近一次连续离开的开始(帧序号)
+    var unvoicedSince = null;
 
-    // 4) 组段 => 音符（取中值音高，时长 = 首尾帧时间差）
+    for (var i = 0; i < valid.length; i++) {
+      var t = valid[i].t;
+      var m = med[i];
+      var voiced = valid[i].conf >= 0.5;
+
+      if (!voiced) {
+        if (unvoicedSince === null) unvoicedSince = i;
+        if (cur && (t - valid[unvoicedSince].t) >= unvoicedMs / 1000) {
+          closeSeg(cur);
+          cur = null;
+          leaveSince = null;
+        }
+        continue;
+      }
+      unvoicedSince = null;
+
+      if (!cur) {
+        // 建音符：refP 用前 5 帧中值锁定（首帧可能抖）
+        var seed = med.slice(i, i + 5).slice().sort(function (a, b) { return a - b; });
+        cur = { start: t, end: t, frames: [m], refP: seed[Math.floor(seed.length / 2)] };
+        leaveSince = null;
+        continue;
+      }
+
+      var dev = Math.abs(m - cur.refP); // refP 锁定，不再滑动
+
+      if (dev > leaveCents) {
+        // 离开候选：记录首次离开时间；持续满 leaveMs 才真切断
+        if (leaveSince === null) leaveSince = i;
+        cur.frames.push(m); cur.end = t;
+        if ((t - valid[leaveSince].t) >= leaveMs / 1000) {
+          closeSeg(cur);
+          // 新段从离开候选处起，refP 用新段前 5 帧中值
+          var seed2 = med.slice(leaveSince, leaveSince + 5).slice().sort(function (a, b) { return a - b; });
+          cur = { start: valid[leaveSince].t, end: t, frames: [m], refP: seed2[Math.floor(seed2.length / 2)] };
+          leaveSince = null;
+        }
+      } else if (dev > enterCents) {
+        // 滞回区：不切断、不重置离开候选（保持现状）
+        cur.frames.push(m); cur.end = t;
+      } else {
+        // 回到音符内：清空离开候选（之前的偏离是振动）
+        leaveSince = null;
+        cur.frames.push(m); cur.end = t;
+      }
+    }
+    if (cur) closeSeg(cur);
+
+    function closeSeg(seg) {
+      if (seg.frames.length >= 2) {
+        var sp = seg.frames.slice().sort(function (a, b) { return a - b; });
+        var mid = sp[Math.floor(sp.length / 2)];
+        segments.push({ start: seg.start, end: seg.end, midi: mid, frames: seg.frames });
+      }
+    }
+
+    // 4) 组段 → 音符（取段内中值音高，时长=首尾帧时间差）
     var notes = [];
-    for (var k = 0; k < cuts.length - 1; k++) {
-      var a = cuts[k], b = cuts[k + 1];
-      var seg = valid.slice(a, b + 1);
-      if (seg.length < 2) continue;
-      var t0 = seg[0].t, t1 = seg[seg.length - 1].t;
-      var dur = t1 - t0;
+    for (var k = 0; k < segments.length; k++) {
+      var seg = segments[k];
+      var dur = seg.end - seg.start;
       if (dur < minLen) continue;
-      var segP = seg.map(function (f) { return f.pitch; }).sort(function (x, y) { return x - y; });
-      var m = segP[Math.floor(segP.length / 2)];
-      notes.push({ start: t0, end: t1, midi: m, freq: midiToFreq(m), dur: dur, conf: segAvg(seg) });
+      notes.push({ start: seg.start, end: seg.end, midi: seg.midi, freq: midiToFreq(seg.midi), dur: dur, conf: 0.9 });
     }
 
     // 5) 合并极短时相邻同音（装饰音/气息分裂）
     var merged = [];
     for (var m2 = 0; m2 < notes.length; m2++) {
-      var cur = notes[m2];
+      var cur2 = notes[m2];
       if (merged.length > 0) {
         var prev = merged[merged.length - 1];
-        var gap = cur.start - prev.end;
-        if (gap < mergeSlop && Math.abs(cur.midi - prev.midi) < 0.5) {
-          prev.end = cur.end;
+        var gap = cur2.start - prev.end;
+        if (gap < mergeSlop && Math.abs(cur2.midi - prev.midi) < 0.5) {
+          prev.end = cur2.end;
           prev.dur = prev.end - prev.start;
-          prev.midi = prev.dur > cur.dur ? prev.midi : cur.midi;
-          prev.conf = Math.max(prev.conf, cur.conf);
+          prev.midi = prev.dur > cur2.dur ? prev.midi : cur2.midi;
+          prev.conf = Math.max(prev.conf, cur2.conf);
           continue;
         }
       }
       merged.push({
-        start: cur.start, end: cur.end,
-        midi: cur.midi, freq: midiToFreq(cur.midi),
-        dur: cur.dur, conf: cur.conf
+        start: cur2.start, end: cur2.end,
+        midi: cur2.midi, freq: midiToFreq(cur2.midi),
+        dur: cur2.dur, conf: cur2.conf
       });
     }
 
