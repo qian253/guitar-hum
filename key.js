@@ -71,12 +71,50 @@
   }
 
   // ============================================================
+  // 试唱解决感评分（模拟人类"唱 do 找归属感"）
+  // 对给定主音 rootPC，评估旋律的"回家感"：
+  //   落尾是否落在主音 / 导音(主音-1半音) / 属音 —— 落主音=回家最强
+  //   旋律内有没有 7→1 半音解决（导音回家）
+  //   主和弦音(主音/三音/五音)占整体时长比例 —— 越稳越像主音
+  // 关系大小调对（如 D大调 vs B小调）各自算一次，归属感强的胜出。
+  // 返回 0..1 分数
+  // ============================================================
+  function singResolutionScore(notes, rootPC) {
+    var last = pc(Math.round(notes[notes.length - 1].midi));
+    var diff = (last - rootPC + 12) % 12;
+    var cadence = 0;
+    if (diff === 0) cadence = 1.0;          // 落在主音：回家感最强
+    else if (diff === 11) cadence = 0.85;   // 导音：强烈想解决到主音
+    else if (diff === 7) cadence = 0.5;     // 属音：半终止感
+    else if (diff === 4 || diff === 3) cadence = 0.35; // 三音
+
+    // 旋律内 7→1 半音解决次数（导音→主音）
+    var lead = 0;
+    for (var i = 1; i < notes.length; i++) {
+      var p1 = pc(Math.round(notes[i - 1].midi));
+      var p2 = pc(Math.round(notes[i].midi));
+      if (p1 === (rootPC + 11) % 12 && p2 === rootPC) lead++;
+    }
+
+    // 主和弦音（主音/三音/五音）时长占比
+    var stab = 0, total = 0;
+    for (var j = 0; j < notes.length; j++) {
+      var d = (pc(Math.round(notes[j].midi)) - rootPC + 12) % 12;
+      if (d === 0 || d === 3 || d === 4 || d === 7) stab += (notes[j].dur || 0.25);
+      total += (notes[j].dur || 0.25);
+    }
+    stab = total > 0 ? stab / total : 0;
+
+    return cadence * 0.5 + Math.min(1, lead * 0.5) * 0.3 + stab * 0.2;
+  }
+
+  // ============================================================
   // 关系大小调裁判模块（DeepSeek 四级裁判，强制唯一结果）
   // 当检测到小调时，在它和关系大调之间强制判定唯一主音：
   //   L1 终点审判（一票否决）：最后 1-2 个音的强拍长音 = 主音
   //   L2 主和弦骨架审判：大调骨架(主音/大三/纯五) vs 小调骨架(主音/小三/纯五)
   //   L3 导音半音解决：小二度上行到主音（小调导音需临时升高半音）
-  //   L4 文化模板：默认偏大调（兜底）
+  //   L4 试唱解决感：模拟"唱 do 找归属感"，归属感强的胜出
   // 返回 {verdict:'major'|'minor', pc, evidence, confidence, source}
   // ============================================================
   function judgeRelative(notes, majorPC, minorPC, skipVeto) {
@@ -143,26 +181,22 @@
       evidence.push('L3:导音解决倾向小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.85, source: 'L3' };
     }
 
-    // ---- L4 情绪与形态模板 ----
-    // 研究/DeepSeek：整体下行 + 连续小三度跳进 → 小调倾向；上行 + 明亮收尾 → 大调倾向
-    var down = 0, up = 0, minThird = 0;
-    for (var mi = 1; mi < notes.length; mi++) {
-      var d = notes[mi].midi - notes[mi - 1].midi;
-      if (d < 0) down++; else if (d > 0) up++;
-      if (Math.abs(Math.abs(d) - 3) <= 0.5) minThird++; // 小三度(3半音)
-    }
-    var totalMove = down + up;
-    var shape = totalMove > 0 ? (down - up) / totalMove : 0; // +1全下行 -1全上行
-    var minThirdRatio = notes.length > 1 ? minThird / (notes.length - 1) : 0;
-    // 综合形态分：>0 偏小调（下行+小三度）
-    var morphScore = 0.5 * shape + 0.5 * (minThirdRatio * 2 - 0.5);
-    // 大调色彩：上行占优
-    var bright = totalMove > 0 && up / totalMove > 0.6;
-    if (morphScore > 0.15 && !bright) {
-      evidence.push('L4形态:下行+小三度(' + shape.toFixed(2) + '/' + minThirdRatio.toFixed(2) + ')偏小调');
-      return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.65, source: 'L4' };
-    }
-    evidence.push('L4形态:偏大调或中性(' + shape.toFixed(2) + '/' + minThirdRatio.toFixed(2) + ')');
+    // ---- L4 试唱解决感 + K-S 全局评分（综合"归属感"）----
+    // 试唱解决感：模拟"唱 do 找归属感"（落尾/导音/主和弦稳定）
+    // K-S 相关：整段旋律对候选调的贴合度（已含时长/音级分布）
+    // 两者结合，避免单信号误判。
+    var fitA = singResolutionScore(notes, candA.pc);
+    var fitB = singResolutionScore(notes, candB.pc);
+    // K-S 相关（复用现有 hist）
+    var ksA = corr(hist, shiftProfile(MAJOR_PROF, candA.pc)) + SCALE_BONUS * scaleMembership(hist, candA.pc, 'major');
+    var ksB = corr(hist, shiftProfile(MINOR_PROF, candB.pc)) + SCALE_BONUS * scaleMembership(hist, candB.pc, 'minor');
+    // 归一化到相近量级：fit ∈[0,1]，ks ∈[-1,1] → 用 0.6*fit + 0.4*ks
+    var totalA = 0.6 * fitA + 0.4 * Math.max(0, ksA);
+    var totalB = 0.6 * fitB + 0.4 * Math.max(0, ksB);
+    evidence.push('L4试唱: ' + SPELL[candA.pc] + '大=' + fitA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + fitB.toFixed(2) + ' | KS ' + SPELL[candA.pc] + '=' + ksA.toFixed(2) + ' ' + SPELL[candB.pc] + '=' + ksB.toFixed(2) + ' | 合计 ' + totalA.toFixed(2) + ' vs ' + totalB.toFixed(2));
+    if (totalA > totalB + 0.08) { evidence.push('L4:旋律向' + SPELL[candA.pc] + '归属/贴合强'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
+    if (totalB > totalA + 0.08) { evidence.push('L4:旋律向' + SPELL[candB.pc] + '归属/贴合强'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
+    evidence.push('L4:归属接近，默认偏大调');
     return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
   }
 
