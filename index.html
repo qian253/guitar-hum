@@ -826,7 +826,9 @@ window.addEventListener('unhandledrejection', function (e) {
 (function () {
   'use strict';
 
-  /* ---------- UI 动效：背景粒子 + 点击爆裂 + 音量光晕 ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  /* ---------- UI 动效（增强层：任何动效错误都不影响核心功能） ---------- */
+  try {
   var bgCanvas = $('bgCanvas');
   if (bgCanvas && bgCanvas.getContext) {
     var bctx = bgCanvas.getContext('2d');
@@ -884,6 +886,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
   // 麦克风音量光晕：updateLive 会调 __setMicGlow
   window.__setMicGlow = function (v) { micBtn.style.setProperty('--micGlow', Math.round(v * 40) + 'px'); };
+  } catch (e) { console.error('UI 动效初始化失败（不影响核心）:', e); }
 
   /* ---------- 分析动画：粒子汇聚成音高曲线 ---------- */
   var aAnimCv = null, aAnimCtx = null, aPts = [], aAnimRaf = null;
@@ -917,7 +920,6 @@ window.addEventListener('unhandledrejection', function (e) {
   }
   function stopAAnim() { if (aAnimRaf) cancelAnimationFrame(aAnimRaf); aAnimRaf = null; if (aAnimCtx) aAnimCtx.clearRect(0, 0, aAnimCv.width, aAnimCv.height); }
 
-  var $ = function (id) { return document.getElementById(id); };
   var micBtn = $('micBtn'), statusEl = $('status'), cards = $('cards'), errBox = $('errBox');
   var liveNote = $('liveNote'), liveCents = $('liveCents'), liveStamp = $('liveStamp'), levelBar = $('levelBar');
 
@@ -1146,9 +1148,9 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var j = 0; j < chunks.length; j++) { out.set(chunks[j], off); off += chunks[j].length; }
     return out;
   }
-  function showAnalyze() { $('analyzeBox').classList.add('show'); $('analyzeFill').style.width = '0%'; $('analyzeText').textContent = '正在分析…'; startAAnim(); }
+  function showAnalyze() { $('analyzeBox').classList.add('show'); $('analyzeFill').style.width = '0%'; $('analyzeText').textContent = '正在分析…'; try { startAAnim(); } catch (e) {} }
   function setAnalyzeProgress(pct, note) { $('analyzeFill').style.width = pct.toFixed(0) + '%'; $('analyzeText').textContent = note || ('正在分析… ' + pct.toFixed(0) + '%'); }
-  function hideAnalyze() { $('analyzeBox').classList.remove('show'); stopAAnim(); }
+  function hideAnalyze() { $('analyzeBox').classList.remove('show'); try { stopAAnim(); } catch (e) {} }
 
   function analyze() {
     try {
