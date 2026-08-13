@@ -335,7 +335,7 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 
   <div class="card">
-    <div class="card-title">do 在吉他的位置</div>
+    <div class="card-title">do 在吉他的位置 <span class="tag" id="doNameTag"></span></div>
     <div class="do-list" id="doList"></div>
     <svg id="fretboard" viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="fb-note">低音 do 是最常用的定位点；练习：先把食指放上去，再顺着唱一遍 do 的位置。</div>
@@ -1264,15 +1264,17 @@ window.addEventListener('unhandledrejection', function (e) {
       var dmode = key.mode, droot = key.rootPC;
       if (useRelKey && key.relMode) { dmode = key.relMode; droot = key.relRoot; }
       var entry = (dmode === 'major' ? GM.MAJOR : GM.MINOR)[droot];
+      var doNoteName = GM.midiName(60 + droot).replace(/\d+$/, ''); // 根音音名（去掉八度号）
 
-      $('keyBig').innerHTML = entry.key.replace(/大调|小调/, '') + '<small>' + (dmode === 'major' ? '大调' : '小调') + '</small>';
+      // 调名 = 根音音名 + 大小调，与 do 位置严格一致（不再用 entry.key 的 Bm 记法）
+      $('keyBig').innerHTML = doNoteName + '<small>' + (dmode === 'major' ? '大调' : '小调') + '</small>';
       var badge = $('modeBadge');
       badge.textContent = dmode === 'major' ? '大调 · 明亮' : '小调 · 忧郁';
       badge.className = 'mode-badge ' + dmode;
       // 大调→暖金呼吸光，小调→冷紫呼吸光（body 类驱动）
       document.body.classList.remove('result-major', 'result-minor');
       document.body.classList.add('result-' + dmode);
-      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次哼唱 · 累计 ' + notes.length + ' 个音';
+      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次哼唱 · do = ' + doNoteName;
 
       var pct = Math.round(key.confidence * 100);
       $('confBar').style.width = pct + '%';
@@ -1306,6 +1308,7 @@ window.addEventListener('unhandledrejection', function (e) {
       });
 
       var dl = $('doList'); dl.innerHTML = '';
+      $('doNameTag').textContent = 'do = ' + doNoteName;
       entry.doPositions.forEach(function (dp) {
         var row = document.createElement('div'); row.className = 'do-row';
         row.innerHTML = '<div class="do-badge">♩</div><div><div class="lbl">' + dp.label + '</div><div class="pos">' + dp.pos + '</div></div>';
@@ -1464,7 +1467,9 @@ window.addEventListener('unhandledrejection', function (e) {
       el.innerHTML = hi + tones[j.num - 1] + lo;
       line.appendChild(el);
     });
-    $('jianpuTag').textContent = (mode === 'major' ? '主音' : '主音') + '=' + window.GuitarMap.midiName(60 + rootPC);
+    // 简谱：大调 do=1，小调 la=6。标注"do 在 X 音名"（与调名一致）
+    var doPc = mode === 'major' ? rootPC : (rootPC + 3) % 12;
+    $('jianpuTag').textContent = 'do = ' + window.GuitarMap.midiName(60 + doPc).replace(/\d+$/, '');
     // 音名信息
     var info = '每个音：';
     notes.forEach(function (n) { info += midiName(Math.round(n.midi)) + ' '; });
@@ -1512,12 +1517,14 @@ window.addEventListener('unhandledrejection', function (e) {
   document.addEventListener('keydown', function (e) {
     if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); if (state.recording) stopRecording(); else startRecording(); }
   });
-  $('againBtn').addEventListener('click', function () { cards.classList.remove('show'); $('capoCard').style.display = 'none'; setStatus(''); });
-  $('newSongBtn').addEventListener('click', function () {
-    // 换新歌：清空跨次累加池
-    state.accNotes = []; state.takeCount = 0;
+  function resetSession() {
+    // 换歌/重唱：清空跨次累加池 + 关系调切换状态，避免上次记忆污染
+    state.accNotes = []; state.takeCount = 0; state.recordedPcm = null;
+    useRelKey = false;
     cards.classList.remove('show'); $('capoCard').style.display = 'none'; setStatus('');
-  });
+  }
+  $('againBtn').addEventListener('click', resetSession);
+  $('newSongBtn').addEventListener('click', resetSession);
   $('capoSrcSel').addEventListener('change', renderCapo);
   $('capoDstSel').addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
