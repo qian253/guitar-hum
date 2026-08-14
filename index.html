@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.4 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.10.4', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.11.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1617,6 +1617,13 @@ window.addEventListener('unhandledrejection', function (e) {
       var keyRes = window.KeyDetect.detectKey(merged, { recordingDur: durSec, noEndingBoost: state.segments.length > 1 });
       if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
       keyRes.essentiaKey = essentiaKeyDetect();
+      // Essentia 参与投票（仅单段：essentia 分析的正是这一段音频，与定调输入一致；
+      // 多段合并时 essentia 只看到最后一段，不参与投票，仅展示）
+      keyRes.essentiaVote = (state.segments.length === 1) ? applyEssentiaVote(keyRes, keyRes.essentiaKey) : null;
+      if (keyRes.essentiaVote && keyRes.top2) {
+        keyRes.top2[0].pct = Math.round(keyRes.confidence * 100);
+        keyRes.top2[1].pct = 100 - keyRes.top2[0].pct;
+      }
       keyRes.shortTake = durSec > 0 && durSec < 3;
       keyRes.analysisMode = mode; // 'high' = basic-pitch 后端；'low' = 本地 YIN
       keyRes.segmentCount = state.segments.length;
@@ -1812,7 +1819,11 @@ window.addEventListener('unhandledrejection', function (e) {
         var ek = key.essentiaKey;
         var ekName = NOTE_NAMES[ek.rootPC] + (ek.mode === 'minor' ? '小调' : '大调');
         var agree = (ek.rootPC === key.rootPC && ek.mode === key.mode);
-        evParts.push('Essentia 基线' + (agree ? '一致 ✓' : '：' + ekName));
+        if (key.essentiaVote) {
+          evParts.push('Essentia 投票' + (agree ? '一致 ✓（置信度 ' + Math.round(key.confidence * 100) + '%）' : '不一致 ' + ekName + '（置信度 ×0.8）'));
+        } else {
+          evParts.push('Essentia 基线' + (agree ? '一致 ✓' : '：' + ekName));
+        }
       }
       if (key.shortTake) evParts.push('旋律偏短，再哼长一点更稳');
       if (evParts.length) {
@@ -2139,6 +2150,18 @@ window.addEventListener('unhandledrejection', function (e) {
       pc.strength = r.key_strength;
       return pc;
     } catch (e) { return null; }
+  }
+  // Essentia 投票（纯函数，可测试）：Essentia KeyExtractor 结果与前端定调结果交叉投票
+  //   一致 → 置信度 +0.08（封顶 1）；关系大小调（同音阶）→ +0.02；冲突 → ×0.8
+  function applyEssentiaVote(key, ek) {
+    if (!ek || !key) return null;
+    var agree = (ek.rootPC === key.rootPC && ek.mode === key.mode);
+    var relAgree = (ek.mode !== key.mode) && (((ek.rootPC + (ek.mode === 'minor' ? 3 : 9)) % 12) === key.rootPC);
+    var before = key.confidence;
+    if (agree) key.confidence = Math.min(1, key.confidence + 0.08);
+    else if (relAgree) key.confidence = Math.min(1, key.confidence + 0.02);
+    else key.confidence = key.confidence * 0.8;
+    return { agree: agree, relAgree: relAgree, before: before, after: key.confidence };
   }
 
   var toneBrightFilter = null; // 采样器末端高频提升 EQ（FluidR3 GM 音色偏暗，+4dB@10kHz）

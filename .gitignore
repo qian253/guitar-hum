@@ -5,3 +5,4 @@ node.zip
 __pycache__/
 venv/
 basic-pitch-server/venv/
+test/bench/data/
