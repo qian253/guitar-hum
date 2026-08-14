@@ -294,6 +294,19 @@
   .timbre-btn.on { color: #fff; background: linear-gradient(140deg, var(--g1), var(--g2)); border-color: transparent; box-shadow: 0 4px 14px color-mix(in srgb, var(--g1) 35%, transparent); }
   .timbre-btn:active { transform: scale(0.95); }
   .tone-warn { flex: 1 1 100%; font-size: 11px; color: var(--warn); margin-top: 4px; }
+  /* 旋律驱动和弦 */
+  .melody-chords { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .mc-head { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 12px; }
+  .mc-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .mc-chord { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 52px; }
+  .mc-chord .mc-name { font-size: 18px; font-weight: 800; color: var(--ink); }
+  .mc-chord .mc-roman { font-size: 11px; color: var(--muted); }
+  .mc-arrow { color: var(--muted); font-size: 16px; }
+  .mc-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+  .test-sound-wrap { margin-top: 14px; text-align: center; }
+  .test-sound-btn { font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); padding: 9px 16px; border-radius: 999px; cursor: pointer; touch-action: manipulation; min-height: 44px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .test-sound-btn:active { transform: scale(0.95); }
+  .test-sound-tip { display: block; font-size: 11px; color: var(--muted); margin-top: 6px; min-height: 14px; }
 
   /* ============ 按钮 / actions ============ */
   .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
@@ -368,9 +381,17 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.5.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.6.0 · 诊断</span>
   </div>
-  <div class="panel" id="diagPanel"></div>
+  <div class="panel" id="diagPanel">
+    <div id="diagRows"></div>
+    <div class="diag-config">
+      <div class="k">高精度后端 URL（可选，留空=本地快速模式）</div>
+      <input id="backendUrlInput" placeholder="https://xxx.onrender.com" style="width:100%;margin:4px 0;padding:8px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:12px;">
+      <button id="backendUrlSave" class="btn" style="width:100%;min-height:36px;padding:6px;">保存后端地址</button>
+      <div class="k" id="backendUrlStatus" style="margin-top:6px;color:var(--good);"></div>
+    </div>
+  </div>
 </div>
 
 <!-- 顶部状态栏（模拟原生 App） -->
@@ -402,6 +423,10 @@ window.addEventListener('unhandledrejection', function (e) {
         </button>
       </div>
       <div class="hint">按住哼唱，松开自动分析</div>
+      <div class="test-sound-wrap">
+        <button class="test-sound-btn" id="testSoundBtn">🔊 测试声音</button>
+        <span class="test-sound-tip" id="testSoundTip"></span>
+      </div>
       <div class="live" id="live">
         <span class="note" id="liveNote">—</span><span class="cents" id="liveCents"></span>
         <div class="stamp" id="liveStamp">按着按钮开始唱</div>
@@ -451,6 +476,8 @@ window.addEventListener('unhandledrejection', function (e) {
         </div>
       </div>
       <div class="tabpanel" id="panelProg">
+        <div class="melody-chords" id="melodyChords"></div>
+        <div class="card-title" style="margin-top:16px">常用走向（左右滑动）</div>
         <div class="prog-scroll" id="progScroll"></div>
         <div class="prog-dots" id="progDots"></div>
         <div class="tip" id="progTip"></div>
@@ -1181,9 +1208,10 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.5.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.6.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
-    var p = $('diagPanel'), dot = $('diagDot');
+    var p = $('diagRows'), dot = $('diagDot');
+    if (!p) return;
     var ctxState = state.audioCtx ? state.audioCtx.state : '未创建';
     var peakText = diag.peak < 0.0001 ? '≈0' : diag.peak.toFixed(4);
     var rows = [
@@ -1414,86 +1442,128 @@ window.addEventListener('unhandledrejection', function (e) {
   function setAnalyzeProgress(pct, note) { $('analyzeFill').style.width = pct.toFixed(0) + '%'; $('analyzeText').textContent = note || ('正在分析… ' + pct.toFixed(0) + '%'); }
   function hideAnalyze() { try { stopAAnim(); } catch (e) {} }
 
+  /* ---------- basic-pitch 后端（高精度模式） ---------- */
+  function getBackendUrl() { try { return (localStorage.getItem('bpBackendUrl') || '').trim(); } catch (e) { return ''; } }
+  function setBackendUrl(url) { try { localStorage.setItem('bpBackendUrl', (url || '').trim()); } catch (e) {} }
+  function pcmToWavBlob(samples, sampleRate) {
+    var buf = new ArrayBuffer(44 + samples.length * 2);
+    var v = new DataView(buf);
+    function w(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE');
+    w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+    for (var i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, samples[i])) * 0x7fff, true);
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+  async function transcribeBackend(pcm, sr) {
+    var url = getBackendUrl();
+    if (!url) throw new Error('未配置后端');
+    if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+    url = url.replace(/\/+$/, '');
+    var fd = new FormData();
+    fd.append('file', pcmToWavBlob(pcm, sr), 'hum.wav');
+    var res = await fetch(url + '/transcribe', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error('后端返回 ' + res.status);
+    var data = await res.json();
+    if (!data || !Array.isArray(data.notes) || !data.notes.length) throw new Error('后端无音符');
+    return data.notes.map(function (n) {
+      return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)) };
+    });
+  }
+
   function analyze() {
     try {
       var pcm = concatBuffers(state.buf);
-      // 用录音时锁定的采样率（context 可能已被重建，旧的 sampleRate 不可靠）
       var sr = state.recordedSr || 44100;
-      var FRAME = 2048, HOP = 1024;
-
-      // 保存原始 PCM 供"听自己唱的"回放（copy，因为下面会原地归一化）
+      // 保存原始 PCM 供"听自己唱的"回放
       state.recordedPcm = new Float32Array(pcm.length);
       state.recordedPcm.set(pcm);
       state.recordedSr = sr;
-
       if (pcm.length < sr * 0.8) { showError('录得太短了。<br>再唱一次，<b>唱完整一句</b>（4~8 秒）。'); return; }
-
       var peak = 0;
       for (var pk = 0; pk < pcm.length; pk++) { var a = Math.abs(pcm[pk]); if (a > peak) peak = a; }
       if (peak < 0.01) { showError('好像没录到声音。<br>检查<b>麦克风权限</b>和系统音量，或靠近一点再试。'); return; }
       var norm = 0.9 / peak;
       for (var nm = 0; nm < pcm.length; nm++) pcm[nm] *= norm;
+      var durSec = pcm.length / sr;
 
       showAnalyze();
-      var nFrames = Math.floor((pcm.length - FRAME) / HOP) + 1;
-      var frames = [];
-      var fi = 0;
-      var BATCH = 40;
 
-      function step() {
-        var end = Math.min(fi + BATCH, nFrames);
-        for (; fi < end; fi++) {
-          var st = fi * HOP;
-          var win = pcm.subarray(st, st + FRAME);
-          var rms = 0;
-          for (var k = 0; k < win.length; k++) rms += win[k] * win[k];
-          rms = Math.sqrt(rms / win.length);
-          if (rms < 0.03) continue;
-          var r = window.DSP.yinPitchFrame(win, sr);
-          if (r) frames.push({ t: st / sr, pitch: r.pitch, conf: r.confidence });
-        }
-        setAnalyzeProgress(fi / nFrames * 100, '正在分析你唱的音… ' + Math.round(fi / nFrames * 100) + '%');
-        if (fi < nFrames) setTimeout(step, 16);
-        else finishAnalyze(frames);
+      // 高精度模式：配置了后端则优先 basic-pitch，失败降级本地 YIN
+      if (getBackendUrl()) {
+        transcribeBackend(state.recordedPcm, sr).then(function (notes) {
+          setAnalyzeProgress(100, 'basic-pitch 转录完成');
+          finalizeNotes(notes, notes, durSec, 'high');
+        }).catch(function (err) {
+          console.warn('后端不可用，降级快速模式：', err);
+          setAnalyzeProgress(0, '后端不可用，降级快速模式…');
+          runLocalYin(pcm, sr, durSec, 'low');
+        });
+      } else {
+        runLocalYin(pcm, sr, durSec, 'low');
       }
-
-      function finishAnalyze(allFrames) {
-        try {
-          if (allFrames.length < 8) { hideAnalyze(); showError('没听到足够的旋律。<br>再唱一次，<b>唱完整一句</b>（4~8 秒）。'); return; }
-          // 定调用：稳健分段（合并/容错更强，避免调性翻转）
-          var notes = window.DSP.segmentNotes(allFrames);
-          if (!notes || notes.length < 2) { hideAnalyze(); showError('没分出清晰的音符。<br>尽量<b>一个音一个音</b>地唱，别拖太长。'); return; }
-          // 八度误差修正（方案C）：YIN 偶发把某音判高/低一个八度，修掉孤立尖峰
-          notes = window.DSP.fixOctaveErrors(notes);
-          // 简谱/旋律用：逐音忠实转录（问题2），每个音高都转成一个符号、不漏音
-          var melNotes = window.DSP.fixOctaveErrors(window.DSP.segmentNotes(allFrames, JIANPU_OPTS));
-          if (!melNotes || melNotes.length < 2) melNotes = notes;
-          // 动态阈值：太短且信息不足时，提示哼长一点，而不是强行猜（问题2）
-          var durSec = state.recordedPcm ? state.recordedPcm.length / (state.recordedSr || 44100) : 0;
-          if (durSec > 0 && durSec < 3 && melNotes.length < 4) {
-            hideAnalyze();
-            showError('这段有点短，只听到 ' + melNotes.length + ' 个音。<br>请<b>再哼长一点</b>（唱完整一句副歌，4~8 秒）再试。');
-            return;
-          }
-          // 跨次累加：每次哼唱的音符合并到累计池，用累计集定调（音集越攒越完整，结果收敛）
-          state.accNotes = (state.accNotes || []).concat(notes);
-          state.curNotes = melNotes; // 最新一次（简谱/回放/唱名显示用，不做跨次拼接）
-          state.takeCount = (state.takeCount || 0) + 1;
-          // 跨次累加后「落尾」是最后一次哼的收尾，不是歌的结尾 → 禁用结束音加权
-          var keyRes = window.KeyDetect.detectKey(state.accNotes, { recordingDur: durSec, noEndingBoost: state.takeCount > 1 });
-          if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
-          // Essentia KeyExtractor 跨校验（若已加载）：业界基线调性
-          keyRes.essentiaKey = essentiaKeyDetect();
-          keyRes.shortTake = durSec > 0 && durSec < 3;
-          recordedNotes = state.curNotes;
-          lastKeyResult = keyRes;
-          hideAnalyze();
-          renderResult(keyRes, state.curNotes);
-        } catch (e) { console.error('分析出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
-      }
-
-      step();
     } catch (e) { console.error('analyze 出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
+  }
+
+  // 本地 YIN 转录（快速模式）
+  function runLocalYin(pcm, sr, durSec, mode) {
+    var FRAME = 2048, HOP = 1024;
+    var nFrames = Math.floor((pcm.length - FRAME) / HOP) + 1;
+    var frames = [];
+    var fi = 0;
+    var BATCH = 40;
+    function step() {
+      var end = Math.min(fi + BATCH, nFrames);
+      for (; fi < end; fi++) {
+        var st = fi * HOP;
+        var win = pcm.subarray(st, st + FRAME);
+        var rms = 0;
+        for (var k = 0; k < win.length; k++) rms += win[k] * win[k];
+        rms = Math.sqrt(rms / win.length);
+        if (rms < 0.03) continue;
+        var r = window.DSP.yinPitchFrame(win, sr);
+        if (r) frames.push({ t: st / sr, pitch: r.pitch, conf: r.confidence });
+      }
+      setAnalyzeProgress(fi / nFrames * 100, '正在分析你唱的音… ' + Math.round(fi / nFrames * 100) + '%');
+      if (fi < nFrames) setTimeout(step, 16);
+      else finishLocalYin(frames, durSec, mode);
+    }
+    function finishLocalYin(allFrames) {
+      if (allFrames.length < 8) { hideAnalyze(); showError('没听到足够的旋律。<br>再唱一次，<b>唱完整一句</b>（4~8 秒）。'); return; }
+      var notes = window.DSP.segmentNotes(allFrames);
+      if (!notes || notes.length < 2) { hideAnalyze(); showError('没分出清晰的音符。<br>尽量<b>一个音一个音</b>地唱，别拖太长。'); return; }
+      notes = window.DSP.fixOctaveErrors(notes);
+      var melNotes = window.DSP.fixOctaveErrors(window.DSP.segmentNotes(allFrames, JIANPU_OPTS));
+      if (!melNotes || melNotes.length < 2) melNotes = notes;
+      finalizeNotes(notes, melNotes, durSec, mode);
+    }
+    step();
+  }
+
+  // 统一收尾：notes/melNotes → 多级裁判定调 → 渲染
+  function finalizeNotes(notes, melNotes, durSec, mode) {
+    try {
+      if (!notes || notes.length < 2) { hideAnalyze(); showError('没分出清晰的音符。<br>尽量<b>一个音一个音</b>地唱，别拖太长。'); return; }
+      if (durSec > 0 && durSec < 3 && melNotes.length < 4) {
+        hideAnalyze();
+        showError('这段有点短，只听到 ' + melNotes.length + ' 个音。<br>请<b>再哼长一点</b>（唱完整一句副歌，4~8 秒）再试。');
+        return;
+      }
+      state.accNotes = (state.accNotes || []).concat(notes);
+      state.curNotes = melNotes;
+      state.takeCount = (state.takeCount || 0) + 1;
+      var keyRes = window.KeyDetect.detectKey(state.accNotes, { recordingDur: durSec, noEndingBoost: state.takeCount > 1 });
+      if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
+      keyRes.essentiaKey = essentiaKeyDetect();
+      keyRes.shortTake = durSec > 0 && durSec < 3;
+      keyRes.analysisMode = mode; // 'high' = basic-pitch 后端；'low' = 本地 YIN
+      recordedNotes = state.curNotes;
+      lastKeyResult = keyRes;
+      hideAnalyze();
+      renderResult(keyRes, state.curNotes);
+    } catch (e) { console.error('分析出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
   }
 
   function showError(msg) {
@@ -1523,7 +1593,7 @@ window.addEventListener('unhandledrejection', function (e) {
       // 大调→暖金呼吸光，小调→冷紫呼吸光（body 类驱动）
       document.body.classList.remove('result-major', 'result-minor');
       document.body.classList.add('result-' + dmode);
-      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次哼唱';
+      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次 · ' + (key.analysisMode === 'high' ? '高精度' : '快速模式');
 
       // 变调夹提示（置于调性大字正下方，首屏高亮可见）
       var capoRec = recommendFingering(dmode, droot);
@@ -1642,6 +1712,8 @@ window.addEventListener('unhandledrejection', function (e) {
 
       // 常用和弦走向（问题4）：替换原来的孤立和弦展示
       renderChordProgressions(dmode, droot);
+      // 旋律驱动和弦推荐（根据用户唱的旋律实时配和弦）
+      renderMelodyChords(notes, droot, dmode);
       // 常用节奏型（问题3）
       renderRhythms(dmode, droot);
 
@@ -1918,7 +1990,28 @@ window.addEventListener('unhandledrejection', function (e) {
     } catch (e) { toneSampler = null; toneLoadFailed = true; }
   }
   function toneSamplerReady() { return !!(toneSampler && toneSampler.loaded); }
-  function ensureToneStarted() { if (!toneStarted) { try { Tone.start(); toneStarted = true; } catch (e) {} } }
+  // 音频启动：必须在用户手势内 await，同时唤醒 Tone 与原生 context（修复电脑/手机无声）
+  function ensureAudioStarted() {
+    var ps = [];
+    if (window.Tone) { try { ps.push(Promise.resolve(Tone.start()).catch(function () {})); } catch (e) { ps.push(Promise.resolve()); } }
+    var ctx = getPlayCtx();
+    if (ctx && ctx.state === 'suspended') { try { ps.push(ctx.resume().catch(function () {})); } catch (e) {} }
+    if (!ps.length) ps.push(Promise.resolve());
+    return Promise.all(ps);
+  }
+  // 等待采样就绪（最多约 6s），失败自动回退 oscillator
+  function waitSampler(ms) {
+    var budget = ms || 6000, step = 200;
+    return new Promise(function (resolve) {
+      if (toneSamplerReady()) { resolve(true); return; }
+      if (toneLoadFailed) { resolve(false); return; }
+      var t0 = Date.now();
+      var t = setInterval(function () {
+        if (toneSamplerReady()) { clearInterval(t); resolve(true); }
+        else if (toneLoadFailed || (Date.now() - t0) > budget) { clearInterval(t); resolve(false); }
+      }, step);
+    });
+  }
   function setTimbre(timbre) {
     if (!TIMBRES[timbre]) return;
     currentTimbre = timbre;
@@ -1951,10 +2044,10 @@ window.addEventListener('unhandledrejection', function (e) {
     } catch (e) {}
   }
   // 统一发声入口：offset 相对当前时刻（秒）。优先真实采样，回退 oscillator。
+  // 前提：调用前已 await ensureAudioStarted()（音频上下文已唤醒）
   function playNote(midi, offset, dur, vol) {
     if (toneSamplerReady()) {
       try {
-        ensureToneStarted();
         toneSampler.triggerAttackRelease(midi, Math.max(0.08, dur), Tone.now() + offset, vol || 0.8);
         return;
       } catch (e) {}
@@ -1973,7 +2066,7 @@ window.addEventListener('unhandledrejection', function (e) {
   function velByPitch(midi, base) {
     return Math.max(0.55, Math.min(0.92, (base || 0.82) - (midi - 60) * 0.006));
   }
-  function playTone(midi, dur) { stopAllTones(); playNote(midi, 0.03, dur, velByPitch(midi, 0.8)); }
+  function playTone(midi, dur) { stopAllTones(); ensureAudioStarted().then(function () { playNote(midi, 0.03, dur, velByPitch(midi, 0.8)); }); }
   function strumChord(voicing, offset, gap, vel) {
     var strs = [6, 5, 4, 3, 2, 1], k = 0;
     for (var i = 0; i < 6; i++) {
@@ -2004,15 +2097,18 @@ window.addEventListener('unhandledrejection', function (e) {
         list.querySelectorAll('.rhythm-play').forEach(function (b) { b.classList.remove('playing'); b.textContent = '▶'; });
         if (!wasPlaying) {
           btn.classList.add('playing'); btn.textContent = '■';
-          var dur = playRhythm(p, rec.shape);
-          setTimeout(function () { if (btn.classList.contains('playing')) { btn.classList.remove('playing'); btn.textContent = '▶'; } }, dur);
+          playRhythm(p, rec.shape).then(function (dur) {
+            setTimeout(function () { if (btn.classList.contains('playing')) { btn.classList.remove('playing'); btn.textContent = '▶'; } }, dur);
+          });
         }
       });
       list.appendChild(item);
     });
   }
-  function playRhythm(p, shapeName) {
+  async function playRhythm(p, shapeName) {
     stopAllTones();
+    await ensureAudioStarted();
+    await waitSampler(6000);
     var voicing = SHAPE_VOICING[shapeName];
     var eighth = 0.24, t = 0.05, bars = 2;
     if (p.type === 'strum') {
@@ -2054,6 +2150,69 @@ window.addEventListener('unhandledrejection', function (e) {
     if (quality === 'minor') return base + 'm';
     if (quality === 'dim') return base + 'dim';
     return base;
+  }
+  // 调内三和弦（I..vii° / i..VII）
+  function buildDiatonic(rootPC, mode) {
+    var semis = mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
+    var quals = mode === 'major' ? ['major', 'minor', 'minor', 'major', 'major', 'minor', 'dim']
+      : ['minor', 'dim', 'major', 'minor', 'minor', 'major', 'major'];
+    var roman = mode === 'major' ? ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'] : ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'];
+    return semis.map(function (s, i) {
+      var root = (rootPC + s) % 12;
+      var q = quals[i];
+      var tones = q === 'major' ? [0, 4, 7] : q === 'minor' ? [0, 3, 7] : [0, 3, 6];
+      return { root: root, quality: q, name: chordName(root, q), roman: roman[i], deg: i, tones: tones };
+    });
+  }
+  // 旋律驱动和弦：按时间分窗，每个窗用强拍旋律音匹配调内三和弦
+  function harmonizeMelody(notes, rootPC, mode) {
+    if (!notes || notes.length < 2) return [];
+    var diatonic = buildDiatonic(rootPC, mode);
+    // 按 ~2 秒分窗
+    var windows = [], win = [], winStart = notes[0].start || 0;
+    notes.forEach(function (n) {
+      var t = n.start || 0;
+      if (t - winStart > 2.0 && win.length) { windows.push(win); win = []; winStart = t; }
+      win.push(n);
+    });
+    if (win.length) windows.push(win);
+
+    var prevRoots = [];
+    return windows.map(function (w) {
+      // 窗内音级直方图（时长加权，强拍=长音自然权重高）
+      var hist = new Array(12).fill(0);
+      w.forEach(function (n) { hist[((Math.round(n.midi) % 12) + 12) % 12] += (n.dur || 0.25); });
+      var scored = diatonic.map(function (c) {
+        var s = 0;
+        c.tones.forEach(function (t) { s += hist[(c.root + t) % 12]; });
+        return { chord: c, score: s };
+      }).sort(function (a, b) { return b.score - a.score; });
+      // 避免连续 3 段用同一和弦
+      var pick = scored[0];
+      if (prevRoots.length >= 2 && prevRoots[prevRoots.length - 1] === pick.chord.root && prevRoots[prevRoots.length - 2] === pick.chord.root) {
+        pick = scored[1] || scored[0];
+      }
+      prevRoots.push(pick.chord.root);
+      return pick.chord;
+    });
+  }
+  // 渲染旋律驱动和弦走向
+  function renderMelodyChords(notes, droot, dmode) {
+    var el = $('melodyChords');
+    var chords = harmonizeMelody(notes, droot, dmode);
+    if (!chords.length) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    var rec = recommendFingering(dmode, droot);
+    var shapeSet = SHAPE_CHORDS[rec.shape];
+    var flow = '';
+    chords.forEach(function (c, i) {
+      if (i > 0) flow += '<span class="mc-arrow">→</span>';
+      var shapeName = shapeSet[c.deg];
+      flow += '<div class="mc-chord"><span class="mc-name">' + c.name + '</span><span class="mc-roman">' + c.roman + ' · ' + shapeName + '</span></div>';
+    });
+    var capoNote = rec.capo > 0 ? '（' + rec.shape + ' 调指法夹 ' + rec.capo + ' 品）' : '（' + rec.shape + ' 调开放和弦）';
+    el.innerHTML = '<div class="mc-head">根据你的旋律配的和弦</div><div class="mc-flow">' + flow + '</div>' +
+      '<div class="mc-note">手型照下面' + capoNote + '按，弹出来就是 ' + NOTE_NAMES[droot] + (dmode === 'minor' ? '小调' : '大调') + '的和弦。</div>';
   }
   function chordDiagramSVG(shape) {
     var W = 110, H = 150, L = 26, R = 14, T = 34, B = 16;
@@ -2131,8 +2290,10 @@ window.addEventListener('unhandledrejection', function (e) {
     var capoNote = rec.capo > 0 ? '（现在用 ' + rec.shape + ' 调指法夹 ' + rec.capo + ' 品，照手型按即可）' : '（直接弹 ' + rec.shape + ' 调开放和弦）';
     $('progTip').innerHTML = '左右滑动切换走向。把第 1 个和弦当「家」来回循环，就是一首歌的骨架。' + capoNote;
   }
-  function playProgression(prog, relMajorPc) {
+  async function playProgression(prog, relMajorPc) {
     stopAllTones();
+    await ensureAudioStarted();
+    await waitSampler(6000);
     var t = 0.05, cd = 0.85;
     prog.degrees.forEach(function (deg) {
       var root = (relMajorPc + MAJOR_SEMS[deg - 1]) % 12;
@@ -2201,6 +2362,35 @@ window.addEventListener('unhandledrejection', function (e) {
     btn.addEventListener('click', function () { setTimbre(btn.dataset.timbre); haptic(); });
   });
 
+  // 测试声音：播放标准音 A4，确认设备出声正常
+  $('testSoundBtn').addEventListener('click', async function () {
+    var tip = $('testSoundTip');
+    tip.textContent = '音色加载中…';
+    try {
+      await ensureAudioStarted();
+      var ok = await waitSampler(6000);
+      if (ok) {
+        toneSampler.triggerAttackRelease(69, 1.0, Tone.now() + 0.03, 0.85); // A4
+        tip.textContent = '已播放标准音 A4 ✓（听到即正常）';
+      } else {
+        playNote(69, 0.03, 1.0, 0.7);
+        tip.textContent = '已播放标准音 A4（简易音色）';
+      }
+    } catch (e) {
+      tip.textContent = '播放失败，请再试一次';
+    }
+  });
+
+  // 后端地址配置：保存到 localStorage，下次自动用高精度模式
+  var bpInput = $('backendUrlInput');
+  if (bpInput) bpInput.value = getBackendUrl();
+  $('backendUrlSave').addEventListener('click', function () {
+    setBackendUrl(bpInput.value);
+    var st = $('backendUrlStatus');
+    if (getBackendUrl()) { st.textContent = '已保存：' + getBackendUrl(); st.style.color = 'var(--good)'; }
+    else { st.textContent = '已清空，使用本地快速模式'; st.style.color = 'var(--muted)'; }
+  });
+
   // 结果页标签切换
   document.querySelectorAll('.tabbar .tab').forEach(function (btn) {
     btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
@@ -2240,12 +2430,13 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ---------- 录音回放（听自己唱的） ---------- */
   var playbackSource = null;
-  function playSelfRecording() {
+  async function playSelfRecording() {
     try {
       if (!state.recordedPcm) return;
       stopAllTones();
+      await ensureAudioStarted();
       var ctx = getPlayCtx();
-      if (ctx.state === 'suspended') ctx.resume();
+      if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
       if (playbackSource) { try { playbackSource.stop(); } catch (e) {} playbackSource = null; }
       var buf = ctx.createBuffer(1, state.recordedPcm.length, state.recordedSr);
       buf.getChannelData(0).set(state.recordedPcm);
@@ -2255,12 +2446,14 @@ window.addEventListener('unhandledrejection', function (e) {
       playbackSource.connect(g); g.connect(ctx.destination);
       playbackSource.start();
       playbackSource.onended = function () { playbackSource = null; };
-    } catch (e) { console.error('回放出错:', e); }
+    } catch (e) { console.error('回放出错:', e); alert('播放失败，请再试一次'); }
   }
 
-  function replayMelody() {
+  async function replayMelody() {
     if (!recordedNotes || !lastKeyResult) return;
     stopAllTones();
+    await ensureAudioStarted();
+    await waitSampler(6000);
     var t = 0.05;
     recordedNotes.forEach(function (n, idx) {
       var midi = Math.round(n.midi);
