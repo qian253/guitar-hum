@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.2 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.3 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.10.2', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.10.3', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1988,7 +1988,7 @@ window.addEventListener('unhandledrejection', function (e) {
       }
       var num = deg[bestDeg];
       var oct = Math.floor((midi - octBase) / 12);
-      return { num: num, oct: oct, midi: midi };
+      return { num: num, oct: oct, midi: midi, dur: n.dur || 0.25 };
     });
   }
   function renderJianpu(notes, rootPC, mode) {
@@ -1999,7 +1999,9 @@ window.addEventListener('unhandledrejection', function (e) {
     jp.forEach(function (j) {
       var el = document.createElement('span');
       el.className = 'jp';
-      el.title = midiName(j.midi) + ' · 点按试听';
+      el.title = midiName(j.midi) + ' · ' + (j.dur || 0.25).toFixed(2) + 's · 点按试听';
+      // 节奏可视化：数字横向间距按音长拉伸，眼睛看到的节奏≈哼唱的节奏
+      el.style.marginRight = Math.min(36, 2 + (j.dur || 0.25) * 26) + 'px';
       var hi = '', lo = '';
       if (j.oct > 0) hi = '<span class="hi-dot">' + '·'.repeat(j.oct) + '</span>';
       if (j.oct < 0) lo = '<span class="lo-dot">' + '·'.repeat(-j.oct) + '</span>';
@@ -2018,7 +2020,7 @@ window.addEventListener('unhandledrejection', function (e) {
       var doPc = (rootPC + 3) % 12;
       $('jianpuTag').textContent = 'la = ' + NOTE_NAMES[rootPC] + ' · do = ' + NOTE_NAMES[doPc] + '（6 = ' + NOTE_NAMES[rootPC] + '，1 = ' + NOTE_NAMES[doPc] + '）';
     }
-    $('jianpuNoteInfo').textContent = notes.length + ' 个音 · 点任意数字可试听对应音高';
+    $('jianpuNoteInfo').textContent = notes.length + ' 个音 · 数字间距≈音长（节奏）· 点任意数字可试听对应音高 · 「♪ 听旋律」按你哼的节奏还原演奏';
     box.style.display = 'block';
   }
 
@@ -2162,7 +2164,7 @@ window.addEventListener('unhandledrejection', function (e) {
         s = new Tone.Sampler({
           urls: urls,
           baseUrl: SAMPLE_HOSTS[h] + inst.folder + '-mp3/',
-          attack: 0.002, release: 0.6, volume: -3,
+          attack: 0.002, release: 0.6, volume: -1,
           onload: function () {
             if (currentTimbre !== timbre) return;
             toneSampler = s; toneLoadFailed = false;
@@ -2244,7 +2246,7 @@ window.addEventListener('unhandledrejection', function (e) {
       // 输出包络
       var out = ctx.createGain();
       out.gain.setValueAtTime(0.0001, when);
-      out.gain.exponentialRampToValueAtTime(vol || 0.5, when + 0.006);
+      out.gain.exponentialRampToValueAtTime(vol || 0.65, when + 0.006);
       out.gain.exponentialRampToValueAtTime(0.0001, when + dur);
       src.connect(delay);
       delay.connect(lp);
@@ -2264,7 +2266,7 @@ window.addEventListener('unhandledrejection', function (e) {
         osc.type = 'triangle';
         osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
         g2.gain.setValueAtTime(0.0001, when);
-        g2.gain.exponentialRampToValueAtTime(vol || 0.5, when + 0.012);
+        g2.gain.exponentialRampToValueAtTime(vol || 0.65, when + 0.012);
         g2.gain.exponentialRampToValueAtTime(0.0001, when + dur);
         osc.connect(g2); g2.connect(c2.destination);
         osc.start(when); osc.stop(when + dur + 0.03);
@@ -2278,11 +2280,15 @@ window.addEventListener('unhandledrejection', function (e) {
   function playNote(midi, offset, dur, vol) {
     if (toneSamplerReady()) {
       try {
-        toneSampler.triggerAttackRelease(midi, Math.max(0.08, dur), Tone.now() + offset, vol || 0.8);
+        // ⚠ Tone.js v14 的 triggerAttackRelease 把纯数字按「赫兹」解释（不是 MIDI）！
+        // 直接传 MIDI 数字会低 2~3 个八度（60→60Hz≈MIDI 34），表现为又闷又低沉、听不出旋律。
+        // 必须转成频率再传；浮点 midi 的音分偏移也会被保留，音高更还原。
+        var freq = 440 * Math.pow(2, (midi - 69) / 12);
+        toneSampler.triggerAttackRelease(freq, Math.max(0.08, dur), Tone.now() + offset, vol || 0.9);
         return;
       } catch (e) {}
     }
-    toneOsc(midi, getPlayCtx().currentTime + offset, dur, vol || 0.5);
+    toneOsc(midi, getPlayCtx().currentTime + offset, dur, vol || 0.65);
   }
   function stopAllTones() {
     activeOscs.slice().forEach(function (o) { try { o.stop(); } catch (e) {} });
@@ -2294,16 +2300,16 @@ window.addEventListener('unhandledrejection', function (e) {
   function humanize(maxSec) { return (Math.random() * 2 - 1) * (maxSec || 0.01); }
   // 按音高调力度：低音略重、高音略轻（模拟哼唱呼吸感）
   function velByPitch(midi, base) {
-    return Math.max(0.55, Math.min(0.92, (base || 0.82) - (midi - 60) * 0.006));
+    return Math.max(0.62, Math.min(0.95, (base || 0.9) - (midi - 60) * 0.006));
   }
-  function playTone(midi, dur) { stopAllTones(); ensureAudioStarted().then(function () { playNote(midi, 0.03, dur, velByPitch(midi, 0.8)); }); }
+  function playTone(midi, dur) { stopAllTones(); ensureAudioStarted().then(function () { playNote(midi, 0.03, dur, velByPitch(midi, 0.9)); }); }
   function strumChord(voicing, offset, gap, vel) {
     var strs = [6, 5, 4, 3, 2, 1], k = 0;
     for (var i = 0; i < 6; i++) {
       var m = voicing[strs[i]];
       if (m == null) continue;
       // 下扫自然强弱：低音弦略重、高音弦略轻
-      playNote(m, offset + k * gap + humanize(0.006), 0.2, (vel || 0.7) * (1 - k * 0.06));
+      playNote(m, offset + k * gap + humanize(0.006), 0.2, (vel || 0.75) * (1 - k * 0.06));
       k++;
     }
   }
@@ -2344,8 +2350,8 @@ window.addEventListener('unhandledrejection', function (e) {
     if (p.type === 'strum') {
       var rootString = shapeName === 'C' ? 5 : 6;
       for (var bar = 0; bar < bars; bar++) {
-        playNote(voicing[rootString], t, eighth * 2, 0.92);                     // 根音：重
-        strumChord(voicing, t + eighth * 2 + humanize(0.012), 0.04, 0.55);      // 扫弦：轻
+        playNote(voicing[rootString], t, eighth * 2, 0.95);                     // 根音：重
+        strumChord(voicing, t + eighth * 2 + humanize(0.012), 0.04, 0.6);      // 扫弦：轻
         t += eighth * 4;
       }
     } else {
@@ -2355,7 +2361,7 @@ window.addEventListener('unhandledrejection', function (e) {
           if (m == null) { t += eighth; continue; }
           // 4/4 强弱次强弱：每小节第 1 拍最重；根音重、分解音轻
           var isDownbeat = (i % 4 === 0);
-          var vel = isDownbeat ? 0.86 : (i % 2 === 0 ? 0.68 : 0.56);
+          var vel = isDownbeat ? 0.9 : (i % 2 === 0 ? 0.72 : 0.6);
           playNote(m, t + humanize(0.008), eighth * 0.9, vel);
           t += eighth;
         }
@@ -2530,9 +2536,9 @@ window.addEventListener('unhandledrejection', function (e) {
       var quality = MAJOR_QUAL[deg - 1];
       var sems3 = quality === 'minor' ? [0, 3, 7] : [0, 4, 7];
       var base = 48 + root;
-      playNote(base, t, cd * 0.6, 0.8);
-      playNote(base + sems3[1], t + cd * 0.25, cd * 0.4, 0.7);
-      playNote(base + sems3[2], t + cd * 0.45, cd * 0.4, 0.7);
+      playNote(base, t, cd * 0.6, 0.85);
+      playNote(base + sems3[1], t + cd * 0.25, cd * 0.4, 0.75);
+      playNote(base + sems3[2], t + cd * 0.45, cd * 0.4, 0.75);
       t += cd;
     });
   }
@@ -2712,22 +2718,46 @@ window.addEventListener('unhandledrejection', function (e) {
     stopAllTones();
     await ensureAudioStarted();
     await waitSampler(2000);
-    var t = 0.05;
-    recordedNotes.forEach(function (n, idx) {
-      var midi = Math.round(n.midi);
-      var dur = Math.max(0.12, n.dur);
-      // 连奏感：加长 release 让尾音搭到下一音；力度随音高（低重高轻）
-      playNote(midi, t, dur + 0.18, velByPitch(midi, 0.8));
-      // 简谱字幕高亮：音符响起时高亮对应的 .jp 数字
+    // 按哼唱的真实节奏高还原演奏：
+    //   起音时间/时值取转录的 start/end（不再等速念谱）；
+    //   音高用浮点 midi 保留音分偏移；力度跟随哼唱响度（basic-pitch 振幅）。
+    var notes = recordedNotes;
+    var maxAmp = 0, hasAmp = false;
+    for (var ai = 0; ai < notes.length; ai++) {
+      var av = notes[ai].amp || notes[ai].amplitude || 0;
+      if (av > 0) { hasAmp = true; if (av > maxAmp) maxAmp = av; }
+    }
+    var t0 = notes[0].start || 0;
+    var t = 0.06; // 起播小延迟
+    var totalMs = 0;
+    notes.forEach(function (n, idx) {
+      var midi = n.midi; // 不四舍五入，保留 YIN 的音分偏移
+      var onset = Math.max(0, (n.start || 0) - t0);
+      var end = (n.end != null) ? n.end : (n.start || 0) + (n.dur || 0.25);
+      var rawDur = Math.max(0.09, end - (n.start || 0));
+      var nextOnset = (idx + 1 < notes.length) ? Math.max(0, (notes[idx + 1].start || 0) - t0) : onset + rawDur + 0.15;
+      var dur = Math.min(rawDur, Math.max(0.09, nextOnset - onset - 0.03)); // 不压过下一音的起音
+      var vel = velByPitch(midi, 0.9);
+      if (hasAmp) {
+        var a = n.amp || n.amplitude || 0;
+        vel *= 0.6 + 0.4 * Math.min(1, a / maxAmp); // 哼得响的地方弹得重
+      }
+      playNote(midi, t + onset, dur, vel);
+      // 简谱字幕高亮：跟随真实起音时间
       (function (i, delay) {
         setTimeout(function () {
           var els = $('jianpuLine').querySelectorAll('.jp');
           for (var e = 0; e < els.length; e++) els[e].classList.remove('hl');
           if (els[i]) els[i].classList.add('hl');
         }, delay);
-      })(idx, Math.round(t * 1000));
-      t += Math.max(0.16, n.dur) + 0.04;
+      })(idx, Math.round((t + onset) * 1000));
+      totalMs = Math.max(totalMs, Math.round((t + onset + dur) * 1000));
     });
+    // 全部奏完清除高亮
+    setTimeout(function () {
+      var els = $('jianpuLine').querySelectorAll('.jp');
+      if (els) for (var e2 = 0; e2 < els.length; e2++) els[e2].classList.remove('hl');
+    }, totalMs + 250);
   }
 
   window.addEventListener('beforeunload', function () {
