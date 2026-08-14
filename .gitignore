@@ -6,3 +6,5 @@ __pycache__/
 venv/
 basic-pitch-server/venv/
 test/bench/data/
+test/tone-repro/node_modules/
+test/tone-repro/repro_out.txt

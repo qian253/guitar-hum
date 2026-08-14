@@ -47,12 +47,13 @@ function extractFn(source, name) {
     { midi: 62.3, start: 3.40, end: 3.90, dur: 0.5, amp: 0.2 },
     { midi: 59.4, start: 4.20, end: 5.80, dur: 1.6, amp: 0.7 },
   ];
-  const calls = [];       // {midi, offset, dur, vel, t}
+  const calls = [];       // {midi, dur, vel, t}（playMelodyNote 捕获）
   const timers = [];      // {fn, delay}
   const ctx = {
     recordedNotes: notes,
     lastKeyResult: { rootPC: 11 },
     melodyTimers: [],
+    diag: { lastReplay: null },
     now: 0,
     stopAllTones: function () {},
     ensureAudioStarted: async function () {},
@@ -62,9 +63,9 @@ function extractFn(source, name) {
     setTimeout: function (fn, delay) { timers.push({ fn: fn, delay: delay }); return timers.length; },
     clearTimeout: function () {},
   };
-  // 用 bind 让 playNote 里的 this 指向 ctx，从而读到模拟时钟 this.now
-  ctx.playNote = function (midi, offset, dur, vel) {
-    calls.push({ midi: midi, offset: offset, dur: dur, vel: vel, t: this.now });
+  // 用 bind 让 playMelodyNote 里的 this 指向 ctx，从而读到模拟时钟 this.now
+  ctx.playMelodyNote = function (midi, dur, vel) {
+    calls.push({ midi: midi, dur: dur, vel: vel, t: this.now });
   }.bind(ctx);
 
   const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody') + '); }').call(ctx);
@@ -77,6 +78,8 @@ function extractFn(source, name) {
   for (const tm of sorted) { ctx.now = tm.delay; tm.fn(); }
 
   ok('每个音都实际发声（不丢音）', calls.length === notes.length, '发声 ' + calls.length + '/' + notes.length);
+  ok('自诊断计数完整（diag.lastReplay）', ctx.diag.lastReplay && ctx.diag.lastReplay.fired === notes.length && ctx.diag.lastReplay.total === notes.length,
+    JSON.stringify(ctx.diag.lastReplay));
 
   // 起音时间 = 真实节奏（归一化后）：t_i ≈ 60ms + (start_i - start_0)*1000
   let rhythmOk = true;
@@ -86,8 +89,7 @@ function extractFn(source, name) {
   }
   ok('起音时刻与真实节奏一致（快慢/停顿保留）', rhythmOk, calls.map(c => c.t + 'ms').join(', '));
 
-  ok('每次发声只短程调度（offset≈0.02s，防长距离预调度静默）', calls.every(c => Math.abs(c.offset - 0.02) < 0.001),
-    calls.map(c => c.offset).join(', '));
+  ok('走 K-S 专用通道（playMelodyNote，不经采样器状态机）', calls.length === notes.length && calls.every(c => typeof c.midi === 'number'));
 
   let noOverlap = true;
   for (let i = 0; i < calls.length - 1; i++) {
