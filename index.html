@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.1 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.2 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.10.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.10.2', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1265,6 +1265,7 @@ window.addEventListener('unhandledrejection', function (e) {
       ['版本', diag.version],
       ['后端', getBackendUrl() ? '高精度 ' + getBackendUrl().replace(/^https?:\/\//, '') : '本地快速模式'],
       ['采样', toneLoadFailed ? '降级拨弦（网络不通）' : (toneSamplerReady() ? '真实采样 ✓' : '采样加载中…')],
+      ['采样率', (function () { var s = []; try { s.push(getPlayCtx().sampleRate + 'Hz'); } catch (e) {} try { if (window.Tone && Tone.getContext) s.push('Tone ' + Tone.getContext().rawContext.sampleRate + 'Hz'); } catch (e2) {} return s.join(' / ') || '—'; })()],
       ['浏览器', diag.ua],
       ['AudioContext', ctxState],
       ['麦克风', diag.mic],
@@ -2138,12 +2139,18 @@ window.addEventListener('unhandledrejection', function (e) {
     } catch (e) { return null; }
   }
 
+  var toneBrightFilter = null; // 采样器末端高频提升 EQ（FluidR3 GM 音色偏暗，+4dB@10kHz）
   function buildToneSampler(timbre) {
     if (toneSampler) { try { toneSampler.dispose(); } catch (e) {} toneSampler = null; }
+    if (toneBrightFilter) { try { toneBrightFilter.dispose(); } catch (e) {} toneBrightFilter = null; }
     if (!toneLibLoaded || !window.Tone) return;
     var inst = TIMBRES[timbre];
     var urls = {};
     for (var m = 48; m <= 84; m++) { var n = midiToFlatName(m); urls[n] = n + '.mp3'; }
+    var bright = new Tone.Filter(10000, 'highshelf');
+    bright.gain.value = 4;
+    bright.toDestination();
+    toneBrightFilter = bright;
     var tried = 0;
     function tryHost(hostIdx) {
       tried++;
@@ -2168,7 +2175,7 @@ window.addEventListener('unhandledrejection', function (e) {
             tryHost(hostIdx + 1);
           }
         });
-        s.toDestination();
+        s.connect(bright);
         if (currentTimbre === timbre) toneSampler = s;
       } catch (e) {
         if (!advanced) { advanced = true; tryHost(hostIdx + 1); }
@@ -2231,7 +2238,8 @@ window.addEventListener('unhandledrejection', function (e) {
       var src = ctx.createBufferSource(); src.buffer = nb;
       // K-S 循环：延迟线 + 低通阻尼 + 反馈
       var delay = ctx.createDelay(2.0); delay.delayTime.value = N / sr;
-      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(1500, Math.min(8000, freq * 12)); // 低音不闷（下限1500Hz）、高音不刺耳
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(2500, Math.min(12000, freq * 16)); // 低音不闷（下限2500Hz）、高音不刺耳
+      var hs = ctx.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 10000; hs.gain.value = 4; // 末端高频提升 +4dB@10kHz
       var fb = ctx.createGain(); fb.gain.value = 0.985;
       // 输出包络
       var out = ctx.createGain();
@@ -2242,7 +2250,8 @@ window.addEventListener('unhandledrejection', function (e) {
       delay.connect(lp);
       lp.connect(fb);
       fb.connect(delay);
-      lp.connect(out);
+      lp.connect(hs);
+      hs.connect(out);
       out.connect(ctx.destination);
       src.start(when); src.stop(when + 0.02);
       activeOscs.push(src);
