@@ -2404,6 +2404,25 @@ window.addEventListener('unhandledrejection', function (e) {
   // 页面加载后后台懒加载 Tone.js（真实采样）+ Essentia.js（定调跨校验），失败静默回退
   try { initTone(); initEssentia(); } catch (e) {}
 
+  // 自动探测本地 basic-pitch 后端：本地跑时免手动填地址，探测到就自动启用高精度模式
+  (function autoDetectBackend() {
+    if (getBackendUrl()) return; // 已手动配置过，不覆盖
+    var probes = ['http://127.0.0.1:8000', 'http://localhost:8000'];
+    function tryProbe(i) {
+      if (i >= probes.length) return;
+      fetch(probes[i] + '/health', { method: 'GET' })
+        .then(function (r) {
+          if (r.ok) {
+            setBackendUrl(probes[i]);
+            var inp = $('backendUrlInput');
+            if (inp) inp.value = probes[i];
+          } else { tryProbe(i + 1); }
+        })
+        .catch(function () { tryProbe(i + 1); });
+    }
+    tryProbe(0);
+  })();
+
   /* ---------- 唱名跟读（TTS，仅"念名字"，旋律听感靠 oscillator） ---------- */
   var ttsVoicesReady = false;
   if (window.speechSynthesis) {
