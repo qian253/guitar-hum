@@ -176,6 +176,8 @@
   .mode-badge { font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
   .mode-badge.major { background: color-mix(in srgb, var(--g1) 20%, transparent); color: var(--g1); }
   .mode-badge.minor { background: color-mix(in srgb, var(--g2) 20%, transparent); color: var(--g2); }
+  .pro-toggle { font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); padding: 4px 11px; border-radius: 999px; cursor: pointer; min-height: 28px; }
+  .pro-toggle.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
   #keyBig { animation: breathe 3.2s ease-in-out infinite; }
   @keyframes breathe {
     0%, 100% { text-shadow: 0 0 14px color-mix(in srgb, var(--g1) 55%, transparent), 0 0 40px color-mix(in srgb, var(--g1) 22%, transparent); }
@@ -189,6 +191,16 @@
   .alt-hint { margin-top: 12px; font-size: 13px; color: var(--ink-2); line-height: 1.7; padding: 10px 13px; background: color-mix(in srgb, var(--g1) 8%, transparent); border: 1px solid color-mix(in srgb, var(--g1) 20%, transparent); border-radius: 14px; }
   .alt-hint b { color: var(--ink); }
   .alt-hint .alt-cand { color: var(--accent); font-weight: 700; }
+  .seg-summary { margin-top: 12px; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; font-size: 13px; line-height: 1.7; }
+  .seg-summary .seg-head { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
+  .seg-summary .seg-tends { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 8px; }
+  .seg-summary .seg-item { font-size: 12px; color: var(--muted); }
+  .seg-summary .seg-tend { display: inline-block; font-size: 12px; font-weight: 700; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); padding: 2px 10px; border-radius: 999px; margin-left: 3px; }
+  .seg-summary .seg-tend.agree { color: var(--g1); border-color: color-mix(in srgb, var(--g1) 40%, transparent); background: color-mix(in srgb, var(--g1) 10%, transparent); }
+  .seg-summary .seg-warn { color: var(--warn); }
+  .seg-summary .seg-good { color: var(--good); }
+  .seg-summary .seg-note { color: var(--muted); }
+  .seg-summary .seg-why { color: var(--ink-2); }
   .tone-map { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding: 11px 13px; background: color-mix(in srgb, var(--g1) 9%, transparent); border: 1px solid color-mix(in srgb, var(--g1) 24%, transparent); border-radius: 14px; }
   .tone-map .tm-pill { font-weight: 800; font-size: 15px; padding: 4px 12px; border-radius: 999px; letter-spacing: 0.5px; }
   .tone-map .tm-pill.la { background: rgba(255,122,107,0.2); color: var(--serious); }
@@ -317,7 +329,8 @@
   .btn.primary { background: linear-gradient(140deg, var(--g1), var(--g2)); color: #fff; border-color: transparent; box-shadow: 0 8px 22px color-mix(in srgb, var(--g1) 35%, transparent); }
   .btn:active { transform: scale(0.95); }
   .btn:hover { box-shadow: 0 0 18px color-mix(in srgb, var(--g1) 35%, transparent); }
-  #againBtn { flex: 1 1 100%; border-color: color-mix(in srgb, var(--g1) 40%, transparent); color: var(--g1); font-weight: 800; }
+  #addBtn { flex: 1 1 100%; }
+  #againBtn { border-color: color-mix(in srgb, var(--g1) 40%, transparent); color: var(--g1); font-weight: 800; }
 
   .err { color: var(--warn); font-size: 14px; text-align: center; padding: 18px; line-height: 1.8; background: rgba(255,176,32,0.08); border: 1px solid rgba(255,176,32,0.3); border-radius: 16px; }
   .err b { color: var(--ink); }
@@ -384,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.9.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -425,7 +438,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <span class="t2">松开出结果</span>
         </button>
       </div>
-      <div class="hint">按住哼唱，松开自动分析</div>
+      <div class="hint" id="recHint">按住哼唱，松开自动分析</div>
       <div class="test-sound-wrap">
         <button class="test-sound-btn" id="testSoundBtn">🔊 测试声音</button>
         <span class="test-sound-tip" id="testSoundTip"></span>
@@ -454,6 +467,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="key-line">
         <span class="key-big" id="keyBig">—</span>
         <span class="mode-badge" id="modeBadge"></span>
+        <button class="pro-toggle" id="proToggleBtn" style="display:none">专业模式</button>
       </div>
       <div class="capo-highlight" id="capoHighlight"></div>
       <div class="conf" id="confRow"><span>信心</span><div class="meter"><i id="confBar"></i></div><span id="confPct"></span></div>
@@ -461,6 +475,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="alt-hint" id="altHint" style="display:none"></div>
       <div class="tone-map" id="toneMap"></div>
       <div class="rel-hint" id="relHint" style="display:none"></div>
+      <div class="seg-summary" id="segSummary" style="display:none"></div>
     </div>
 
     <div class="tabbar" id="tabbar">
@@ -509,7 +524,8 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="actions">
       <button class="btn" id="hearSelfBtn" style="display:none">🎧 听自己</button>
       <button class="btn" id="singBtn" style="display:none">🔊 唱名</button>
-      <button class="btn primary" id="replayBtn">♪ 听旋律</button>
+      <button class="btn primary" id="addBtn">🎙 再哼一段，提高准确率</button>
+      <button class="btn" id="replayBtn">♪ 听旋律</button>
       <button class="btn" id="againBtn">↻ 再测一次</button>
     </div>
 
@@ -1233,13 +1249,13 @@ window.addEventListener('unhandledrejection', function (e) {
   // 简谱/旋律转录参数：比定调更敏感、更忠实，逐音保留（问题2）
   var JIANPU_OPTS = { minConf: 0.5, minLen: 0.08, leaveCents: 0.5, enterCents: 0.3, leaveMs: 60, unvoicedMs: 100, mergeSlop: 0.05, maxNoteDur: 8 };
 
-  var state = { recording: false, pressing: false, stream: null, audioCtx: null, processor: null, src: null, muteGain: null, buf: [], maxRecS: 15 };
+  var state = { recording: false, pressing: false, stream: null, audioCtx: null, processor: null, src: null, muteGain: null, buf: [], maxRecS: 15, segments: [], prevConfidence: null };
   var frames = [];
   var recordedNotes = null;
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.9.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.10.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1247,6 +1263,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var peakText = diag.peak < 0.0001 ? '≈0' : diag.peak.toFixed(4);
     var rows = [
       ['版本', diag.version],
+      ['后端', getBackendUrl() ? '高精度 ' + getBackendUrl().replace(/^https?:\/\//, '') : '本地快速模式'],
       ['浏览器', diag.ua],
       ['AudioContext', ctxState],
       ['麦克风', diag.mic],
@@ -1582,14 +1599,28 @@ window.addEventListener('unhandledrejection', function (e) {
         showError('这段有点短，只听到 ' + melNotes.length + ' 个音。<br>请<b>再哼长一点</b>（唱完整一句副歌，4~8 秒）再试。');
         return;
       }
-      state.accNotes = (state.accNotes || []).concat(notes);
+      // 每段单独定调（保留每段自己的倾向），再把所有段合并后重新定调
+      var segKey = window.KeyDetect.detectKey(notes, { recordingDur: durSec, noEndingBoost: false });
+      state.segments = state.segments || [];
+      state.segments.push({ notes: notes, melNotes: melNotes, key: segKey, durSec: durSec, mode: mode });
+      if (state.segments.length > 5) state.segments = state.segments.slice(-5); // 最多保留 5 段
+      // 合并所有段音符（每段已转录过，直接用 MIDI 结果，不重跑 basic-pitch，省时）
+      var merged = [];
+      for (var sg = 0; sg < state.segments.length; sg++) merged = merged.concat(state.segments[sg].notes);
+      state.accNotes = merged;
       state.curNotes = melNotes;
-      state.takeCount = (state.takeCount || 0) + 1;
-      var keyRes = window.KeyDetect.detectKey(state.accNotes, { recordingDur: durSec, noEndingBoost: state.takeCount > 1 });
+      state.takeCount = state.segments.length;
+      var prevConf = (state.segments.length > 1) ? state.prevConfidence : null;
+      // 多段合并时结束音不再有特殊权重（每段停的音可能不同），只依赖整体重心/音级分布
+      var keyRes = window.KeyDetect.detectKey(merged, { recordingDur: durSec, noEndingBoost: state.segments.length > 1 });
       if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
       keyRes.essentiaKey = essentiaKeyDetect();
       keyRes.shortTake = durSec > 0 && durSec < 3;
       keyRes.analysisMode = mode; // 'high' = basic-pitch 后端；'low' = 本地 YIN
+      keyRes.segmentCount = state.segments.length;
+      keyRes.confDelta = (prevConf != null) ? (keyRes.confidence - prevConf) : null;
+      keyRes.prevConfidence = prevConf;
+      state.prevConfidence = keyRes.confidence;
       recordedNotes = state.curNotes;
       lastKeyResult = keyRes;
       hideAnalyze();
@@ -1604,27 +1635,115 @@ window.addEventListener('unhandledrejection', function (e) {
   }
 
   /* ---------- 渲染 ---------- */
-  var useRelKey = false; // 用户手动切换显示关系调
+  // 显示模式：displayPro=false 为默认「谱面模式」（小调显示「关系大调（真实小调）」）；true 为「专业模式」（显示真实调性）
+  var displayPro = false;
+  try { displayPro = localStorage.getItem('hkDisplayPro') === '1'; } catch (e) {}
+  function setDisplayPro(v) {
+    displayPro = v;
+    try { localStorage.setItem('hkDisplayPro', v ? '1' : '0'); } catch (e) {}
+    if (lastKeyResult && recordedNotes) renderResult(lastKeyResult, recordedNotes);
+  }
+
+  /* ---------- 多段补充哼唱 ---------- */
+  function setRecHint(text) { var h = $('recHint'); if (h) h.textContent = text; }
+  function noteLetter(nm) { return String(nm || '').replace(/\d+$/, ''); }
+  // 「为什么变准了」：多段重心/倾向一致时给出简明解释
+  function buildWhy(key) {
+    var seg = (state.segments || []).filter(function (s) { return s && s.key; });
+    var n = seg.length;
+    if (n < 2) return '';
+    var letters = seg.map(function (s) { return noteLetter(s.key.centroidNote); });
+    var sameCentroid = letters.every(function (l) { return l && l === letters[0]; });
+    if (sameCentroid) return n + ' 段旋律的重心都落在 ' + letters[0] + ' 上，综合判断 ' + key.keyName + '，证据更充分了。';
+    return n + ' 段旋律都倾向 ' + key.keyName + '，音级分布互相印证，证据更充分了。';
+  }
+  // 结果页多段反馈：段数 + 每段倾向 + 一致性 + 置信度变化
+  function renderSegSummary(key) {
+    var el = $('segSummary');
+    if (!el) return;
+    var seg = state.segments || [];
+    var n = seg.length;
+    if (n < 1) { el.style.display = 'none'; return; }
+    var addBtn = $('addBtn');
+    if (addBtn) addBtn.style.display = (n >= 5) ? 'none' : '';
+    var agreeCount = 0;
+    var tendHtml = seg.map(function (s, i) {
+      var k = s.key;
+      if (!k) return '';
+      var agree = (k.rootPC === key.rootPC && k.mode === key.mode);
+      if (agree) agreeCount++;
+      return '<span class="seg-item">第' + (i + 1) + '段 <span class="seg-tend' + (agree ? ' agree' : '') + '">' + k.keyName + '</span></span>';
+    }).join('');
+    var parts = [];
+    parts.push('<div class="seg-head">已保存 ' + n + ' 段' + (n >= 5 ? '（最多 5 段）' : '') + '</div>');
+    parts.push('<div class="seg-tends">' + tendHtml + '</div>');
+    if (n >= 2) {
+      if (agreeCount < n) {
+        parts.push('<div class="seg-warn">⚠ 各段调性倾向不一致，请确认哼的是同一句副歌（换句子会互相干扰）。</div>');
+      } else {
+        var why = buildWhy(key);
+        if (why) parts.push('<div class="seg-why">' + why + '</div>');
+      }
+      if (key.confDelta != null) {
+        var prev = Math.round((key.prevConfidence || 0) * 100);
+        var now = Math.round(key.confidence * 100);
+        if (key.confDelta > 0.005) {
+          parts.push('<div class="seg-good">综合 ' + n + ' 段旋律，置信度从 ' + prev + '% 提升到 ' + now + '%</div>');
+        } else if (key.confDelta < -0.005) {
+          parts.push('<div class="seg-warn">补充的旋律让结果更不确定了（置信度 ' + prev + '% → ' + now + '%），建议哼同一句再试。</div>');
+        } else {
+          parts.push('<div class="seg-note">补充的旋律没有带来更多信息（置信度仍约 ' + now + '%）。</div>');
+        }
+      }
+    }
+    el.innerHTML = parts.join('');
+    el.style.display = 'block';
+  }
+  // 「再哼一段」：追加录音，不清空已有片段
+  function addMoreSegment() {
+    if ((state.segments || []).length >= 5) return;
+    stopAllTones();
+    setRecHint('已保存 ' + state.segments.length + ' 段，继续哼第 ' + (state.segments.length + 1) + ' 段');
+    showScreen('record');
+    setStatus('已保存 ' + state.segments.length + ' 段 · 按住继续哼第 ' + (state.segments.length + 1) + ' 段');
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
   function renderResult(key, notes) {
     try {
       errBox.innerHTML = '';
       hideAnalyze();
       var GM = window.GuitarMap;
-      // 显示用调：默认用检测结果；用户点了"也可按 X 调"则切到关系调
+      // 显示用调：capo/简谱/do 位置等全部按「真实调性」渲染（小调主音是 la）。
+      // 标题名：专业模式显示真实调性；默认（谱面）模式小调显示「关系大调（真实小调）」（市面谱子记法），大调不变。
       var dmode = key.mode, droot = key.rootPC;
-      if (useRelKey && key.relMode) { dmode = key.relMode; droot = key.relRoot; }
       var entry = (dmode === 'major' ? GM.MAJOR : GM.MINOR)[droot];
       var doNoteName = GM.midiName(60 + droot).replace(/\d+$/, ''); // 根音音名（去掉八度号）
+      var relDoName = GM.midiName(60 + key.relRoot).replace(/\d+$/, '');
+      var showMarketName = !displayPro && dmode === 'minor'; // 小调默认谱面记法
 
       // 调名 = 根音音名 + 大小调，与 do 位置严格一致（不再用 entry.key 的 Bm 记法）
-      $('keyBig').innerHTML = doNoteName + '<small>' + (dmode === 'major' ? '大调' : '小调') + '</small>';
+      $('keyBig').innerHTML = showMarketName
+        ? relDoName + '<small>大调（' + doNoteName + '小调）</small>'
+        : doNoteName + '<small>' + (dmode === 'major' ? '大调' : '小调') + '</small>';
       var badge = $('modeBadge');
-      badge.textContent = dmode === 'major' ? '大调 · 明亮' : '小调 · 忧郁';
+      badge.textContent = showMarketName ? '谱面记法 · 真实调性 ' + doNoteName + ' 小调' : (dmode === 'major' ? '大调 · 明亮' : '小调 · 忧郁');
       badge.className = 'mode-badge ' + dmode;
+      // 专业模式切换按钮（仅小调有谱面/真实两种记法，大调无差别）
+      var proBtn = $('proToggleBtn');
+      if (proBtn) {
+        if (dmode === 'minor') {
+          proBtn.style.display = '';
+          proBtn.textContent = displayPro ? '谱面模式' : '专业模式';
+          proBtn.className = 'pro-toggle' + (displayPro ? ' on' : '');
+        } else {
+          proBtn.style.display = 'none';
+        }
+      }
       // 大调→暖金呼吸光，小调→冷紫呼吸光（body 类驱动）
       document.body.classList.remove('result-major', 'result-minor');
       document.body.classList.add('result-' + dmode);
-      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次 · ' + (key.analysisMode === 'high' ? '高精度' : '快速模式');
+      $('metaTag').textContent = (key.segmentCount > 1 ? '综合 ' + key.segmentCount + ' 段 · ' : '') + (key.analysisMode === 'high' ? '高精度' : '快速模式');
 
       // 变调夹提示（置于调性大字正下方，首屏高亮可见）
       var capoRec = recommendFingering(dmode, droot);
@@ -1652,8 +1771,8 @@ window.addEventListener('unhandledrejection', function (e) {
       var confRow = $('confRow');
       confRow.className = 'conf' + (pct < 40 ? ' low' : '');
       if (pct >= 70) $('confText').textContent = '识别很稳，放心按这个调弹。';
-      else if (pct >= 40) $('confText').textContent = '识别中等。再哼同一句一遍，会自动累加更准（右上角会显示第 N 次）。';
-      else $('confText').textContent = '信心不足。建议再哼同一句一遍，音会累加、结果会收敛（右上角显示第 N 次哼唱）。';
+      else if (pct >= 40) $('confText').textContent = '识别中等。点下方「再哼一段」再哼同一句，会自动累加更准。';
+      else $('confText').textContent = '信心不足。点下方「再哼一段」再哼同一句，音会累加、结果会收敛。';
 
       // 前两名候选调：第一名=检测结果，第二名=关系大小调（同音阶最易混），别硬给一个答案
       var altEl = $('altHint');
@@ -1665,6 +1784,9 @@ window.addEventListener('unhandledrejection', function (e) {
       } else {
         altEl.style.display = 'none';
       }
+
+      // 多段补充哼唱反馈：段数 + 每段倾向 + 一致性 + 置信度变化
+      renderSegSummary(key);
 
       // 音名对照（问题1）：大调 do=主音；小调 la=主音、do=关系大调主音。一眼看懂"6=B、1=D"
       var toneMap = $('toneMap');
@@ -1695,10 +1817,7 @@ window.addEventListener('unhandledrejection', function (e) {
       if (key.shortTake) evParts.push('旋律偏短，再哼长一点更稳');
       if (evParts.length) {
         rh.style.display = 'block';
-        rh.innerHTML = '判据：<b>' + evParts.join(' · ') + '</b>' +
-          '<br><button id="relToggleBtn">换成 ' + key.relKeyName + ' 记</button><span style="color:var(--muted)">（若你确定是另一个调）</span>';
-        var tbtn = $('relToggleBtn');
-        if (tbtn) tbtn.addEventListener('click', function () { useRelKey = !useRelKey; if (lastKeyResult && recordedNotes) renderResult(lastKeyResult, recordedNotes); });
+        rh.innerHTML = '判据：<b>' + evParts.join(' · ') + '</b>';
       } else {
         rh.style.display = 'none';
       }
@@ -2023,7 +2142,7 @@ window.addEventListener('unhandledrejection', function (e) {
       var s = new Tone.Sampler({
         urls: urls,
         baseUrl: SAMPLE_BASE + inst.folder + '-mp3/',
-        attack: 0.002, release: 1.4, volume: -6,
+        attack: 0.002, release: 1.4, volume: -3,
         onload: function () { if (currentTimbre === timbre) { toneSampler = s; toneLoadFailed = false; } },
         onerror: function () { if (currentTimbre === timbre) { toneSampler = null; toneLoadFailed = true; } }
       });
@@ -2074,6 +2193,7 @@ window.addEventListener('unhandledrejection', function (e) {
   function toneOsc(midi, when, dur, vol) {
     try {
       var ctx = getPlayCtx();
+      if (when < ctx.currentTime + 0.001) when = ctx.currentTime + 0.001; // 调度时间已过则立即发声，避免静默
       var sr = ctx.sampleRate;
       var freq = 440 * Math.pow(2, (midi - 69) / 12);
       var N = Math.max(2, Math.round(sr / freq));
@@ -2089,7 +2209,7 @@ window.addEventListener('unhandledrejection', function (e) {
       // 输出包络
       var out = ctx.createGain();
       out.gain.setValueAtTime(0.0001, when);
-      out.gain.exponentialRampToValueAtTime(vol || 0.3, when + 0.006);
+      out.gain.exponentialRampToValueAtTime(vol || 0.4, when + 0.006);
       out.gain.exponentialRampToValueAtTime(0.0001, when + dur);
       src.connect(delay);
       delay.connect(lp);
@@ -2108,7 +2228,7 @@ window.addEventListener('unhandledrejection', function (e) {
         osc.type = 'triangle';
         osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
         g2.gain.setValueAtTime(0.0001, when);
-        g2.gain.exponentialRampToValueAtTime(vol || 0.25, when + 0.012);
+        g2.gain.exponentialRampToValueAtTime(vol || 0.4, when + 0.012);
         g2.gain.exponentialRampToValueAtTime(0.0001, when + dur);
         osc.connect(g2); g2.connect(c2.destination);
         osc.start(when); osc.stop(when + dur + 0.03);
@@ -2126,7 +2246,7 @@ window.addEventListener('unhandledrejection', function (e) {
         return;
       } catch (e) {}
     }
-    toneOsc(midi, getPlayCtx().currentTime + offset, dur, vol || 0.25);
+    toneOsc(midi, getPlayCtx().currentTime + offset, dur, vol || 0.4);
   }
   function stopAllTones() {
     activeOscs.slice().forEach(function (o) { try { o.stop(); } catch (e) {} });
@@ -2409,14 +2529,18 @@ window.addEventListener('unhandledrejection', function (e) {
     }
   });
   function resetSession() {
-    // 再测一次：清空跨次累加池 + 关系调切换状态 + 回放数据，不保留任何残留
+    // 再测一次：清空跨次累加池 + 已保存片段 + 回放数据，不保留任何残留（显示模式偏好保留）
     state.accNotes = []; state.takeCount = 0; state.recordedPcm = null; state.curNotes = null;
-    recordedNotes = null; lastKeyResult = null; useRelKey = false;
+    state.segments = []; state.prevConfidence = null;
+    recordedNotes = null; lastKeyResult = null;
     stopAllTones();
     showScreen('record');
+    setRecHint('按住哼唱，松开自动分析');
     $('capoCard').style.display = 'none';
     $('jianpuBox').style.display = 'none';
     $('altHint').style.display = 'none';
+    $('segSummary').style.display = 'none';
+    $('addBtn').style.display = '';
     $('hearSelfBtn').style.display = 'none';
     $('singBtn').style.display = 'none';
     $('timbreBar').style.display = 'none';
@@ -2426,6 +2550,8 @@ window.addEventListener('unhandledrejection', function (e) {
     try { window.scrollTo(0, 0); } catch (e) {}
   }
   $('againBtn').addEventListener('click', resetSession);
+  $('addBtn').addEventListener('click', addMoreSegment);
+  $('proToggleBtn').addEventListener('click', function () { setDisplayPro(!displayPro); });
   $('capoSrcSel').addEventListener('change', renderCapo);
   $('capoDstSel').addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
