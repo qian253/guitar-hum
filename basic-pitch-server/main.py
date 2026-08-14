@@ -20,8 +20,17 @@ from pydantic import BaseModel
 
 from basic_pitch.inference import predict
 from basic_pitch import ICASSP_2022_MODEL_PATH
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="basic-pitch transcription")
+
+# 允许前端（本地/任意域名）跨域调用
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # K-S 探测音评分（Krumhansl & Schmuckler 1982，归一化）
 KS_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
