@@ -132,17 +132,21 @@ def transcribe(file: UploadFile = File(...)):
         notes = []
         for ev in note_events:
             # basic-pitch 返回 note_events 为元组列表：(start, end, pitch_midi, amplitude, pitch_bends)
+            # amplitude = 节拍强度（响度），用于前端「重心音 = 时长 × 振幅」权重
             if isinstance(ev, (tuple, list)):
                 start_t, end_t, pitch = ev[0], ev[1], ev[2]
+                amplitude = float(ev[3]) if len(ev) > 3 else 0.0
             else:
                 start_t = getattr(ev, "start_time_s", getattr(ev, "start", 0.0))
                 end_t = getattr(ev, "end_time_s", getattr(ev, "end", 0.0))
                 pitch = getattr(ev, "pitch_midi", getattr(ev, "pitch", 60))
+                amplitude = getattr(ev, "amplitude", 0.0)
             notes.append({
                 "midi": int(pitch),
                 "start": round(float(start_t), 3),
                 "end": round(float(end_t), 3),
                 "dur": round(max(0.0, float(end_t) - float(start_t)), 3),
+                "amplitude": round(float(amplitude), 4),
             })
 
         if not notes:

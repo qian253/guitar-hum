@@ -186,6 +186,9 @@
   .conf .meter i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--serious), var(--warn), var(--good)); }
   .conf.low { color: var(--warn); }
   .conf-text { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  .alt-hint { margin-top: 12px; font-size: 13px; color: var(--ink-2); line-height: 1.7; padding: 10px 13px; background: color-mix(in srgb, var(--g1) 8%, transparent); border: 1px solid color-mix(in srgb, var(--g1) 20%, transparent); border-radius: 14px; }
+  .alt-hint b { color: var(--ink); }
+  .alt-hint .alt-cand { color: var(--accent); font-weight: 700; }
   .tone-map { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding: 11px 13px; background: color-mix(in srgb, var(--g1) 9%, transparent); border: 1px solid color-mix(in srgb, var(--g1) 24%, transparent); border-radius: 14px; }
   .tone-map .tm-pill { font-weight: 800; font-size: 15px; padding: 4px 12px; border-radius: 999px; letter-spacing: 0.5px; }
   .tone-map .tm-pill.la { background: rgba(255,122,107,0.2); color: var(--serious); }
@@ -381,7 +384,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.7.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.9.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -455,6 +458,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="capo-highlight" id="capoHighlight"></div>
       <div class="conf" id="confRow"><span>信心</span><div class="meter"><i id="confBar"></i></div><span id="confPct"></span></div>
       <div class="conf-text" id="confText"></div>
+      <div class="alt-hint" id="altHint" style="display:none"></div>
       <div class="tone-map" id="toneMap"></div>
       <div class="rel-hint" id="relHint" style="display:none"></div>
     </div>
@@ -929,9 +933,16 @@ window.addEventListener('unhandledrejection', function (e) {
     // 结束音加权倍率：仅「非跨次累计 + 结束音>0.5s + 尾静音≥0.3s + 全曲>5s」才×1.5，否则×1.0
     var endingMult = (!opts.noEndingBoost && lastDur > 0.5 && trailingSilence >= 0.3 && totalDur > 5) ? ENDING_MAX_MULT : 1.0;
 
-    // 重心音（加权平均音高，权重=时长）
+    // 重心音（加权平均音高，权重 = 时长 × 振幅/节拍强度）
+    // basic-pitch 音符带 amplitude（强拍更响），用「相对响度」放大强拍音符的重心权重；
+    // 振幅先按均值归一化并夹到 [0.3, 2]，权重 = 时长 × norm，避免绝对音量尺度与单个极响音主导。
+    // 快速模式（YIN）无振幅 → 退化为纯时长权重；混入的无振幅音符按中性权重处理。
+    var hasAmp = false, ampSum = 0, ampCount = 0;
+    for (var a0 = 0; a0 < notes.length; a0++) { var av = (notes[a0].amp != null ? notes[a0].amp : notes[a0].amplitude) || 0; if (av > 0) { hasAmp = true; ampSum += av; ampCount++; } }
+    var ampMean = hasAmp ? ampSum / ampCount : 0;
+    function ampWeight(n) { var d = n.dur || 0.25; if (!hasAmp || !ampMean) return d; var a = (n.amp != null ? n.amp : n.amplitude) || 0; if (a <= 0) return d; return d * Math.max(0.3, Math.min(2, a / ampMean)); }
     var cNum = 0, cDen = 0;
-    for (var g = 0; g < notes.length; g++) { var gw = notes[g].dur || 0.25; cNum += (notes[g].midi + shiftCents / 100) * gw; cDen += gw; }
+    for (var g = 0; g < notes.length; g++) { var gw = ampWeight(notes[g]); cNum += (notes[g].midi + shiftCents / 100) * gw; cDen += gw; }
     var centroid = cDen > 0 ? cNum / cDen : lastM;
     var centroidPC = pc(Math.round(centroid));
     var centroidPresent = false;
@@ -997,6 +1008,13 @@ window.addEventListener('unhandledrejection', function (e) {
     var keyName = mode === 'major' ? doName + '大调' : doName + '小调';
     var relMode = mode === 'minor' ? 'major' : 'minor';
     var relRoot = mode === 'minor' ? (bestRoot + 3) % 12 : (bestRoot + 9) % 12;
+    var relKeyName = SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调');
+    // 前两名候选调：第一名=检测结果；第二名=关系大小调（同音阶最易混，别硬给一个答案）。
+    var topPct = Math.round(confidence * 100);
+    var top2 = [
+      { root: bestRoot, mode: mode, keyName: keyName, pct: topPct },
+      { root: relRoot, mode: relMode, keyName: relKeyName, pct: 100 - topPct }
+    ];
 
     var evidence = [
       '重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）',
@@ -1011,7 +1029,7 @@ window.addEventListener('unhandledrejection', function (e) {
       doName: doName,
       keyName: keyName,
       relMode: relMode, relRoot: relRoot, relScore: 0,
-      relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
+      relKeyName: relKeyName,
       judge: { verdict: mode, source: 'decideMode', confidence: confidence, evidence: evidence },
       origDetected: null,
       centroidNote: midiName(centroid),
@@ -1021,6 +1039,8 @@ window.addEventListener('unhandledrejection', function (e) {
       endingMult: endingMult,
       candidateScores: tonicDetails.slice().sort(function (a, b) { return b.tonic - a.tonic; }).slice(0, 4).map(function (t) { return { root: t.root, mode: (t.major >= t.minor ? 'major' : 'minor'), score: +t.tonic.toFixed(3) }; }),
       modeEvidence: { majorThird: md.majorThird, minorThird: md.minorThird, majorTriad: md.majorTriad, minorTriad: md.minorTriad, leading: md.leading },
+      top2: top2,
+      ampWeighted: hasAmp,
       noteCount: notes.length,
       totalDur: totalDur
     };
@@ -1219,7 +1239,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.7.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.9.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1480,7 +1500,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var data = await res.json();
     if (!data || !Array.isArray(data.notes) || !data.notes.length) throw new Error('后端无音符');
     return data.notes.map(function (n) {
-      return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)) };
+      return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)), amp: (typeof n.amplitude === 'number' ? n.amplitude : 0) };
     });
   }
 
@@ -1634,6 +1654,17 @@ window.addEventListener('unhandledrejection', function (e) {
       if (pct >= 70) $('confText').textContent = '识别很稳，放心按这个调弹。';
       else if (pct >= 40) $('confText').textContent = '识别中等。再哼同一句一遍，会自动累加更准（右上角会显示第 N 次）。';
       else $('confText').textContent = '信心不足。建议再哼同一句一遍，音会累加、结果会收敛（右上角显示第 N 次哼唱）。';
+
+      // 前两名候选调：第一名=检测结果，第二名=关系大小调（同音阶最易混），别硬给一个答案
+      var altEl = $('altHint');
+      if (key.top2 && key.top2.length >= 2) {
+        var t1 = key.top2[0], t2 = key.top2[1];
+        var lead = t1.pct >= 50 ? '大概率' : '偏向';
+        altEl.style.display = 'block';
+        altEl.innerHTML = lead + ' <b>' + t1.keyName + '</b>（' + t1.pct + '%）· 也可能是 <span class="alt-cand">' + t2.keyName + '</span>';
+      } else {
+        altEl.style.display = 'none';
+      }
 
       // 音名对照（问题1）：大调 do=主音；小调 la=主音、do=关系大调主音。一眼看懂"6=B、1=D"
       var toneMap = $('toneMap');
@@ -2385,6 +2416,7 @@ window.addEventListener('unhandledrejection', function (e) {
     showScreen('record');
     $('capoCard').style.display = 'none';
     $('jianpuBox').style.display = 'none';
+    $('altHint').style.display = 'none';
     $('hearSelfBtn').style.display = 'none';
     $('singBtn').style.display = 'none';
     $('timbreBar').style.display = 'none';

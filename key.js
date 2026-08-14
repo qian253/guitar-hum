@@ -253,10 +253,26 @@
     // 结束音加权倍率：仅当「非跨次累计 + 结束音>0.5s + 尾静音≥0.3s + 全曲>5s」才×1.5，否则×1.0
     var endingMult = (!opts.noEndingBoost && lastDur > 0.5 && trailingSilence >= 0.3 && totalDur > 5) ? ENDING_MAX_MULT : 1.0;
 
-    // 重心音：加权平均音高（权重=时长）
+    // 重心音：加权平均音高（权重 = 时长 × 振幅/节拍强度）。
+    // basic-pitch 音符带 amplitude（强拍更响），用「相对响度」放大强拍音符的重心权重；
+    // 振幅先按均值归一化并夹到 [0.3, 2]，权重 = 时长 × norm，避免绝对音量尺度与单个极响音主导。
+    // 快速模式（YIN）无振幅 → 退化为纯时长权重；混入的无振幅音符按中性权重处理。
+    var hasAmp = false, ampSum = 0, ampCount = 0;
+    for (var a0 = 0; a0 < notes.length; a0++) {
+      var av = (notes[a0].amp != null ? notes[a0].amp : notes[a0].amplitude) || 0;
+      if (av > 0) { hasAmp = true; ampSum += av; ampCount++; }
+    }
+    var ampMean = hasAmp ? ampSum / ampCount : 0;
+    function ampWeight(n) {
+      var d = n.dur || 0.25;
+      if (!hasAmp || !ampMean) return d;
+      var a = (n.amp != null ? n.amp : n.amplitude) || 0;
+      if (a <= 0) return d;
+      return d * Math.max(0.3, Math.min(2, a / ampMean));
+    }
     var cNum = 0, cDen = 0;
     for (var g = 0; g < notes.length; g++) {
-      var gw = notes[g].dur || 0.25;
+      var gw = ampWeight(notes[g]);
       cNum += (notes[g].midi + shiftCents / 100) * gw;
       cDen += gw;
     }
@@ -332,6 +348,14 @@
     var keyName = mode === 'major' ? doName + '大调' : doName + '小调';
     var relMode = mode === 'minor' ? 'major' : 'minor';
     var relRoot = mode === 'minor' ? (bestRoot + 3) % 12 : (bestRoot + 9) % 12;
+    var relKeyName = SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调');
+    // 前两名候选调：第一名=检测结果；第二名=关系大小调（同音阶最易混，别硬给一个答案）。
+    // 用置信度做百分比拆分（confidence 越高，备选占比越低）。
+    var topPct = Math.round(confidence * 100);
+    var top2 = [
+      { root: bestRoot, mode: mode, keyName: keyName, pct: topPct },
+      { root: relRoot, mode: relMode, keyName: relKeyName, pct: 100 - topPct }
+    ];
 
     // 证据链：主音证据 + 调式证据（大三度/小三度、三和弦、导音），逻辑自洽
     var evidence = [
@@ -353,7 +377,7 @@
       relMode: relMode,
       relRoot: relRoot,
       relScore: 0,
-      relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
+      relKeyName: relKeyName,
       judge: { verdict: mode, source: 'decideMode', confidence: confidence, evidence: evidence },
       origDetected: null,
       centroidNote: midiName(centroid),
@@ -363,6 +387,8 @@
       endingMult: endingMult,
       candidateScores: tonicDetails.slice().sort(function (a, b) { return b.tonic - a.tonic; }).slice(0, 4).map(function (t) { return { root: t.root, mode: (t.major >= t.minor ? 'major' : 'minor'), score: +t.tonic.toFixed(3) }; }),
       modeEvidence: { majorThird: md.majorThird, minorThird: md.minorThird, majorTriad: md.majorTriad, minorTriad: md.minorTriad, leading: md.leading },
+      top2: top2,
+      ampWeighted: hasAmp,
       noteCount: notes.length,
       totalDur: totalDur
     };
