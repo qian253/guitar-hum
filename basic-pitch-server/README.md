@@ -14,6 +14,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## 部署到 Render / Railway
 
+> ⚠️ **Python 版本务必用 3.11**（已加 `runtime.txt` 锁定）。basic-pitch 的依赖在 Python 3.12 上会因 `distutils` 被移除而编译失败。
+
 **Render**：
 1. 新建 Web Service，仓库指向本项目，根目录填 `basic-pitch-server`。
 2. Build command：`pip install -r requirements.txt`
