@@ -2,6 +2,18 @@
 
 用 Spotify basic-pitch 模型做哼唱 → 高精度 MIDI 转录的后端，供「唱一句·定调子」前端可选接入。
 
+## 本地跑（免费，无需部署/无需外币卡）
+
+已配好 Python 3.9 虚拟环境，直接双击 `启动后端.bat` 即可，后端跑在 `http://127.0.0.1:8000`。
+
+首次手动安装（仅当你换了电脑/环境）：
+```bash
+py -3.9 -m venv venv
+venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+> 说明：basic-pitch 的依赖在 **Python 3.12 上装不了**（distutils 被移除），务必用 3.9~3.11。
+
 ## 本地跑
 
 ```bash
