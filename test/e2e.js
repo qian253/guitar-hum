@@ -77,8 +77,8 @@ const CASES = [
   { name: 'D大调', root: 62, mode: 'major', degs: [0, 4, 5, 7, 9, 7, 5, 4, 0], seed: 7 },
   { name: 'G大调', root: 55, mode: 'major', degs: [0, 4, 5, 7, 9, 7, 5, 4, 0], seed: 11 },
   { name: 'C大调', root: 60, mode: 'major', degs: [0, 4, 5, 7, 9, 7, 5, 4, 0], seed: 3 },
-  { name: 'Am小调', root: 57, mode: 'minor', degs: [0, 3, 5, 7, 8, 7, 5, 3, 0], seed: 5 },
-  { name: 'Em小调', root: 52, mode: 'minor', degs: [0, 3, 5, 7, 8, 7, 5, 3, 0], seed: 9 }
+  { name: 'Am小调', root: 57, mode: 'minor', degs: [0, 2, 4, 6, 5, 4, 2, 0], seed: 5 },
+  { name: 'Em小调', root: 52, mode: 'minor', degs: [0, 2, 4, 6, 5, 4, 2, 0], seed: 9 }
 ];
 
 console.log('\n端到端验证（JS 真实代码路径：合成→YIN→分段→定调→查表）');

@@ -22,9 +22,11 @@
   var MAJOR_PROF = normProf(KS_MAJOR);
   var MINOR_PROF = normProf(KS_MINOR);
 
-  var TONIC_BONUS = 0.15;     // 落尾音 = 主音时的加分
   var GUITAR_BIAS = 0.02;     // 吉他友好调微调（仅在分数接近时起作用）
   var SCALE_BONUS = 0.20;     // 音阶成员加权：旋律落在该调音阶内的比例（强判别）
+  var CENTROID_WEIGHT = 0.04; // 重心音：弱证据（对称旋律会落音阶中段，不宜过重）
+  var DOMINANT_WEIGHT = 0.04; // 音级分布最长音级：弱证据，按「支配度」缩放
+  var ENDING_MAX_MULT = 1.5;  // 结束音最大加权倍率（仅完整终止时触发）
   var GUILD = { // 吉他友好（开放和弦优先）的大调与小调主音（pc）
     major: [0, 7, 2, 9, 4, 5],   // C, G, D, A, E, F
     minor: [0, 7, 2, 5]         // Am, Em, Bm, Dm
@@ -44,6 +46,19 @@
   var SPELL = { 0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F', 6: 'F#', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B' };
 
   function pc(midi) { return ((midi % 12) + 12) % 12; }
+
+  // 两个音级之间的循环半音距离（0..6）
+  function circDist(a, b) {
+    var d = Math.abs(pc(a) - pc(b)) % 12;
+    if (d > 6) d = 12 - d;
+    return d;
+  }
+
+  // 音名（含八度号，用于证据链输出），如 midiName(59.5) -> "B3"
+  function midiName(m) {
+    var r = Math.round(m);
+    return SPELL[pc(r)] + String(Math.floor(r / 12) - 1);
+  }
 
   // 皮尔逊相关系数
   function corr(x, y) {
@@ -111,13 +126,13 @@
   // ============================================================
   // 关系大小调裁判模块（DeepSeek 四级裁判，强制唯一结果）
   // 当检测到小调时，在它和关系大调之间强制判定唯一主音：
-  //   L1 终点审判（一票否决）：最后 1-2 个音的强拍长音 = 主音
   //   L2 主和弦骨架审判：大调骨架(主音/大三/纯五) vs 小调骨架(主音/小三/纯五)
   //   L3 导音半音解决：小二度上行到主音（小调导音需临时升高半音）
   //   L4 试唱解决感：模拟"唱 do 找归属感"，归属感强的胜出
+  // （L1 终点一票否决已移除——结束音不再主导主音判断，改由 detectKey 里的门控弱加权处理）
   // 返回 {verdict:'major'|'minor', pc, evidence, confidence, source}
   // ============================================================
-  function judgeRelative(notes, majorPC, minorPC, skipVeto) {
+  function judgeRelative(notes, majorPC, minorPC) {
     var candA = { pc: majorPC, mode: 'major' };
     var candB = { pc: minorPC, mode: 'minor' };
     var evidence = [];
@@ -125,33 +140,8 @@
     var hist = new Array(12).fill(0);
     for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
 
-    // ---- L1 终点审判（护盾化的一票否决）----
-    // 研究结论：业余哼唱常落在5级/3级/导音上收尾，硬性一票否决正是"每次不一样"的元凶。
-    // 护盾：只有落尾音持续≥300ms且是主音才一票；否则降级给 L2/L3 综合判断。
-    // skipVeto=true（跨次累计定调）时直接跳过：累计后的"落尾"是最后一次哼的收尾，不是歌的结尾。
-    if (!skipVeto) {
-    var lastNote = notes[notes.length - 1];
-    var lastPC = pc(Math.round(lastNote.midi));
-    var lastDur = lastNote.dur || 0.25;
-    var tail = notes.slice(-2);
-    var tailBest = { pc: lastPC, dur: lastDur, isLast: true };
-    for (var ti = 0; ti < tail.length; ti++) {
-      var tpc = pc(Math.round(tail[ti].midi));
-      if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote };
-    }
-    function endHit(cand) {
-      // 落尾音持续≥300ms 且是主音 → 一票（强收尾证据）
-      if (lastDur >= 0.30 && lastPC === cand.pc) return true;
-      // 倒数第二个音是明显更长的重拍长音(≥2×落尾)且是主音 → 也作强收尾
-      if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 2.0 && tailBest.isLast) return true;
-      return false;
-    }
-    if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调,长音确认)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-    if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调,长音确认)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-    evidence.push('L1:结尾音' + SPELL[lastPC] + '非主音或太短，交给L2/L3');
-    } else {
-      evidence.push('L1:跨次累计，跳过终点一票否决');
-    }
+    // L1 终点审判已移除：结束音只作记录，不再一票否决
+    evidence.push('结束音 ' + SPELL[pc(Math.round(notes[notes.length - 1].midi))] + '（不再主导主音判断）');
 
     // ---- L2 主和弦骨架审判 ----
     function triadW(rootPc, isMajor) {
@@ -201,16 +191,17 @@
   }
 
   /**
-   * 分析一段音符的调性。
-   * @param notes [{midi, dur}]  midi 可为浮点
-   * @param opts {skipVeto?:boolean} 跨次累计定调时设为 true：跳过一次落尾一票否决
-   *         （累计后的"落尾"是最后一次哼唱的落尾，不是歌的结尾，不应主导）
-   * @returns {mode:'major'|'minor', rootPC, score, margin, confidence,
-   *           doName, keyName, noteCount, totalDur}
+   * 分析一段音符的调性。任意片段的主音判断不再依赖结束音：
+   *   - 结束音只做「门控弱加权」（完整终止才×1.5，否则×1.0），不参与一票否决
+   *   - 重心音（加权平均音高）与音级分布（时长最长音级）是主音核心证据
+   *   - 主音确定后，用主和弦匹配（大三度 vs 小三度）决定大小调
+   * @param notes [{midi, dur, start?, end?}]  midi 可为浮点
+   * @param opts {recordingDur?:number} 录音总时长(秒)，用于判断结束音后是否有静音
+   * @returns {mode, rootPC, score, margin, confidence, centroidNote, dominantPC, endingNote, endingMult, candidateScores, ...}
    */
   function detectKey(notes, opts) {
+    opts = opts || {};
     if (!notes || notes.length < 2) return null;
-    var skipVeto = opts && opts.skipVeto;
 
     // 整体音分偏移补偿：业余演唱常整体偏低/偏高（低 15-30 音分）。
     // 用"各音对最近半音偏差的中位数"一次性补偿，而不是暴力搜索每个 shift
@@ -230,11 +221,49 @@
     //   - 时长用 log 压缩：单音权重 = log2(1+dur)，防止一个长尾音主导整个直方图
     //   - 每个音类加平滑伪计数(+0.5)：短句(5音)不会因一个音缺席/多余而翻转
     //   - 相关前做 L2 归一化（corr 已做 Pearson，天然归一，这里主要针对伪计数后）
+    // 时长合计 + 结束音信息
+    var totalDur = 0;
+    for (var d0 = 0; d0 < notes.length; d0++) totalDur += (notes[d0].dur || 0.25);
+    var last = notes[notes.length - 1];
+    var lastM = last.midi + shiftCents / 100;
+    var lastDur = last.dur || 0.25;
+    var trailingSilence = (opts.recordingDur != null) ? Math.max(0, opts.recordingDur - (last.end || 0)) : 0;
+
+    // 结束音加权倍率：仅当「非跨次累计 + 结束音>0.5s + 尾静音≥0.3s + 全曲>5s」才×1.5，否则×1.0
+    var endingMult = (!opts.noEndingBoost && lastDur > 0.5 && trailingSilence >= 0.3 && totalDur > 5) ? ENDING_MAX_MULT : 1.0;
+
+    // 重心音：加权平均音高（权重=时长）
+    var cNum = 0, cDen = 0;
+    for (var g = 0; g < notes.length; g++) {
+      var gw = notes[g].dur || 0.25;
+      cNum += (notes[g].midi + shiftCents / 100) * gw;
+      cDen += gw;
+    }
+    var centroid = cDen > 0 ? cNum / cDen : lastM;
+    var centroidPC = pc(Math.round(centroid));
+    // 重心音是否落在实际唱过的音级上（对称旋律的重心会落到未唱过的音，不可信）
+    var centroidPresent = false;
+    for (var cp = 0; cp < notes.length; cp++) if (pc(Math.round(notes[cp].midi + shiftCents / 100)) === centroidPC) { centroidPresent = true; break; }
+
+    // 音级分布：出现总时长最长的音级（主音强候选）
+    var pcDur = new Array(12).fill(0);
+    for (var pd = 0; pd < notes.length; pd++) {
+      pcDur[pc(Math.round(notes[pd].midi + shiftCents / 100))] += (notes[pd].dur || 0.25);
+    }
+    var dominantPC = 0;
+    for (var p1 = 1; p1 < 12; p1++) if (pcDur[p1] > pcDur[dominantPC]) dominantPC = p1;
+    // 支配度：最长音级相对次长音级的优势占比（平局→0，明确主导→接近1）
+    var secondTop = 0;
+    for (var p2 = 0; p2 < 12; p2++) if (p2 !== dominantPC && pcDur[p2] > secondTop) secondTop = pcDur[p2];
+    var dominance = pcDur[dominantPC] > 0 ? Math.max(0, (pcDur[dominantPC] - secondTop) / pcDur[dominantPC]) : 0;
+
+    // 时长加权 pitch-class 直方图（软量化 + 平滑 + 结束音门控加权）
     var hist = new Array(12).fill(0);
     var total = 0;
     for (var i = 0; i < notes.length; i++) {
       var d = notes[i].dur || 0.25;
       var w = Math.log2(1 + d); // log 压缩时长，长音不再一票独大
+      if (i === notes.length - 1) w *= endingMult; // 结束音仅完整终止时×1.5
       var m = notes[i].midi + shiftCents / 100;
       var nearest = Math.round(m);
       var cent = (m - nearest) * 100; // -50..+50
@@ -243,31 +272,27 @@
       hist[((Math.round(m + (cent >= 0 ? 1 : -1)) % 12) + 12) % 12] += w * (1 - wNear);
       total += w;
     }
-    // 平滑伪计数：给每个音类一个小的正基底，短句不会因某音缺席导致直方图退化
     for (var pc0 = 0; pc0 < 12; pc0++) hist[pc0] += 0.5;
     total += 12 * 0.5;
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
 
-    var last = notes[notes.length - 1];
-    var lastM = last.midi + shiftCents / 100;
-
-    // 2) 24 候选评分
+    // 24 候选评分：K-S + 音阶成员 + 重心音 + 音级分布 + 吉他偏好
     var cands = [];
     for (var root = 0; root < 12; root++) {
       var majScore = corr(hist, shiftProfile(MAJOR_PROF, root));
       var minScore = corr(hist, shiftProfile(MINOR_PROF, root));
       majScore += SCALE_BONUS * scaleMembership(hist, root, 'major');
       minScore += SCALE_BONUS * scaleMembership(hist, root, 'minor');
-      if (Math.abs(distanceFromTonic(lastM, root)) < 0.7) {
-        majScore += TONIC_BONUS;
-        minScore += TONIC_BONUS;
-      }
+      var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0; // 重心音证据（模式无关）
+      majScore += cBonus; minScore += cBonus;
+      var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;           // 音级分布证据
+      majScore += domBonus; minScore += domBonus;
       if (GUILD.major.indexOf(root) >= 0) majScore += GUITAR_BIAS;
       if (GUILD.minor.indexOf(root) >= 0) minScore += GUITAR_BIAS;
 
-      cands.push({ mode: 'major', root: root, score: majScore, shift: shiftCents });
-      cands.push({ mode: 'minor', root: root, score: minScore, shift: shiftCents });
+      cands.push({ mode: 'major', root: root, score: majScore, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
+      cands.push({ mode: 'minor', root: root, score: minScore, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
     }
 
     // 3) 去重 (mode, root)：同调只保留最高分，避免同名候选污染第二名
@@ -283,10 +308,13 @@
     var second = ranked[1] || { mode: 'major', root: (best.root + 7) % 12, score: 0 };
 
     var margin = best.score - second.score;
-    var confidence = Math.max(0, Math.min(1, margin / 0.15));
+    var confidence = Math.max(0, Math.min(1, margin / 0.18));
+    // 重心音与音级分布指向同一主音 → 置信度加成
+    if (centroidPC === dominantPC && dominantPC === best.root) confidence = Math.min(1, confidence + 0.12);
+    // 短片段/信息不足 → 置信度封顶（中等），避免过度自信
+    if (totalDur < 3 || notes.length < 5) confidence = Math.min(confidence, 0.7);
 
     // 关系大小调：小调的关系大调 = root+3，大调的关系小调 = root+9。
-    // 二者共享相同音阶，纯旋律无法区分。返回供 UI 提示"也可能是 X 调"。
     var relMode = (best.mode === 'minor') ? 'major' : 'minor';
     var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
     var relScore = 0;
@@ -294,25 +322,19 @@
       if (ranked[ri].mode === relMode && ranked[ri].root === relRoot) { relScore = ranked[ri].score; break; }
     }
 
-    // ============================================================
-    // 关系大小调裁判（DeepSeek 四级裁判）：检测出的调 与 它的关系调 强制仲裁唯一结果。
-    // 关系大小调共享音阶（如 D大调/B小调），K-S 无法区分，必须靠终点/骨架/导音。
-    // 无论 best 是大调还是小调，都运行裁判；若裁判选的是关系调，则翻转为关系调。
-    // ============================================================
+    // 关系大小调裁判（主和弦骨架/导音/试唱，已移除终点一票否决）
     var judge = null;
-    var origDetected = null; // 被裁判覆盖的原始检测结果（保留供 UI/调试）
+    var origDetected = null;
     if (best.mode === 'minor') {
-      // minor 与它的关系大调仲裁
       var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root, skipVeto);
+      judge = judgeRelative(notes, relMajRoot, best.root);
       if (judge.verdict === 'major') {
         origDetected = { mode: 'minor', root: best.root, score: best.score };
         best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
       }
     } else {
-      // major 与它的关系小调仲裁（如检测到 D大调，需排除"其实是 B小调"）
       var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot, skipVeto);
+      judge = judgeRelative(notes, best.root, relMinRoot);
       if (judge.verdict === 'minor') {
         origDetected = { mode: 'major', root: best.root, score: best.score };
         best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
@@ -330,6 +352,10 @@
     var doName = SPELL[best.root];
     var keyName = (best.mode === 'major' ? doName + '大调' : doName + '小调');
 
+    // 证据链：重心音 + 音级分布 + 结束音（权重倍率）+ 裁判证据
+    var evidence = ['重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）'];
+    if (judge && judge.evidence && judge.evidence.length) evidence = evidence.concat(judge.evidence);
+
     return {
       mode: best.mode,
       rootPC: best.root,
@@ -344,10 +370,16 @@
       relRoot: relRoot,
       relScore: relScore,
       relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
-      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: judge.evidence } : null,
+      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: evidence } : null,
       origDetected: origDetected,
+      centroidNote: midiName(centroid),
+      dominantPC: dominantPC,
+      dominantNote: SPELL[dominantPC],
+      endingNote: midiName(lastM),
+      endingMult: endingMult,
+      candidateScores: ranked.slice(0, 4).map(function (r) { return { root: r.root, mode: r.mode, score: +r.score.toFixed(3) }; }),
       noteCount: notes.length,
-      totalDur: notes.reduce(function (s, n) { return s + (n.dur || 0.25); }, 0)
+      totalDur: totalDur
     };
   }
 

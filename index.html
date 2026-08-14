@@ -368,7 +368,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.4.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.5.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel"></div>
 </div>
@@ -778,14 +778,15 @@ window.addEventListener('unhandledrejection', function (e) {
   global.DSP = { yinPitchFrame: yinPitchFrame, segmentNotes: segmentNotes, midiToFreq: midiToFreq, fixOctaveErrors: fixOctaveErrors };
 })(window);
 
-/* ---------- 内联：key.js（K-S 调性识别） ---------- */
+/* ---------- 内联：key.js（K-S 调性识别 + 重心/音级分布主音判据） ---------- */
 (function (global) {
   'use strict';
   var KS_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
   var KS_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
   function norm(p) { var m = 0; for (var i = 0; i < p.length; i++) m += p[i]; m /= p.length; return p.map(function (v) { return v / m; }); }
   var MAJOR_PROF = norm(KS_MAJOR), MINOR_PROF = norm(KS_MINOR);
-  var TONIC_BONUS = 0.15, GUITAR_BIAS = 0.02, SCALE_BONUS = 0.20;
+  var GUITAR_BIAS = 0.02, SCALE_BONUS = 0.20;
+  var CENTROID_WEIGHT = 0.04, DOMINANT_WEIGHT = 0.04, ENDING_MAX_MULT = 1.5;
   var GUILD = { major: [0, 7, 2, 9, 4, 5], minor: [0, 7, 2, 5] };
   var MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11], MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
   var SPELL = { 0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F', 6: 'F#', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B' };
@@ -796,6 +797,8 @@ window.addEventListener('unhandledrejection', function (e) {
     return m;
   }
   function pc(midi) { return ((midi % 12) + 12) % 12; }
+  function circDist(a, b) { var d = Math.abs(pc(a) - pc(b)) % 12; if (d > 6) d = 12 - d; return d; }
+  function midiName(m) { var r = Math.round(m); return SPELL[pc(r)] + String(Math.floor(r / 12) - 1); }
 
   function corr(x, y) {
     var n = x.length, sx = 0, sy = 0, sxy = 0, sxx = 0, syy = 0;
@@ -809,20 +812,16 @@ window.addEventListener('unhandledrejection', function (e) {
       var last = pc(Math.round(notes[notes.length - 1].midi));
       var diff = (last - rootPC + 12) % 12;
       var cadence = 0;
-      if (diff === 0) cadence = 1.0;          // 落在主音：回家感最强
-      else if (diff === 11) cadence = 0.85;   // 导音：强烈想解决到主音
-      else if (diff === 7) cadence = 0.5;     // 属音：半终止感
-      else if (diff === 4 || diff === 3) cadence = 0.35; // 三音
-
-      // 旋律内 7→1 半音解决次数（导音→主音）
+      if (diff === 0) cadence = 1.0;
+      else if (diff === 11) cadence = 0.85;
+      else if (diff === 7) cadence = 0.5;
+      else if (diff === 4 || diff === 3) cadence = 0.35;
       var lead = 0;
       for (var i = 1; i < notes.length; i++) {
         var p1 = pc(Math.round(notes[i - 1].midi));
         var p2 = pc(Math.round(notes[i].midi));
         if (p1 === (rootPC + 11) % 12 && p2 === rootPC) lead++;
       }
-
-      // 主和弦音（主音/三音/五音）时长占比
       var stab = 0, total = 0;
       for (var j = 0; j < notes.length; j++) {
         var d = (pc(Math.round(notes[j].midi)) - rootPC + 12) % 12;
@@ -830,25 +829,15 @@ window.addEventListener('unhandledrejection', function (e) {
         total += (notes[j].dur || 0.25);
       }
       stab = total > 0 ? stab / total : 0;
-
       return cadence * 0.5 + Math.min(1, lead * 0.5) * 0.3 + stab * 0.2;
     }
 
-  // 关系大小调裁判（DeepSeek 四级裁判，强制唯一）：L1终点一票否决 L2骨架 L3导音 L4大调
-  function judgeRelative(notes, majorPC, minorPC, skipVeto) {
+  // 关系大小调裁判（L2骨架/L3导音/L4试唱；L1终点一票否决已移除）
+  function judgeRelative(notes, majorPC, minorPC) {
     var candA = { pc: majorPC, mode: 'major' }, candB = { pc: minorPC, mode: 'minor' }, evidence = [];
     var hist = new Array(12).fill(0);
     for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
-    // L1 终点审判（护盾化：仅单次哼唱且落尾≥300ms长音时一票；跨次累计则跳过）
-    if (!skipVeto) {
-      var lastNote = notes[notes.length - 1], lastPC = pc(Math.round(lastNote.midi)), lastDur = lastNote.dur || 0.25;
-      var tail = notes.slice(-2), tailBest = { pc: lastPC, dur: lastDur, isLast: true };
-      for (var ti = 0; ti < tail.length; ti++) { var tpc = pc(Math.round(tail[ti].midi)); if (tail[ti].dur > tailBest.dur) tailBest = { pc: tpc, dur: tail[ti].dur, isLast: tail[ti] === lastNote }; }
-      function endHit(cand) { if (lastDur >= 0.30 && lastPC === cand.pc) return true; if (tailBest.pc === cand.pc && tailBest.dur >= lastDur * 2.0 && tailBest.isLast) return true; return false; }
-      if (endHit(candA)) { evidence.push('L1终点:主音=' + SPELL[candA.pc] + '(大调,长音确认)'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-      if (endHit(candB)) { evidence.push('L1终点:主音=' + SPELL[candB.pc] + '(小调,长音确认)'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.97, source: 'L1' }; }
-      evidence.push('L1:结尾音' + SPELL[lastPC] + '非主音或太短，交给L2/L3');
-    } else { evidence.push('L1:跨次累计，跳过终点一票否决'); }
+    evidence.push('结束音 ' + SPELL[pc(Math.round(notes[notes.length - 1].midi))] + '（不再主导主音判断）');
     // L2 主和弦骨架
     function triadW(rootPc, isMajor) { var sems = isMajor ? [0, 4, 7] : [0, 3, 7]; var w = 0; for (var s = 0; s < 3; s++) w += hist[(rootPc + sems[s]) % 12] || 0; return w; }
     var sA = triadW(candA.pc, candA.mode === 'major'), sB = triadW(candB.pc, candB.mode === 'major');
@@ -860,32 +849,24 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var li = 1; li < notes.length; li++) { var prev = notes[li - 1].midi, cur = notes[li].midi, step = cur - prev; if (Math.abs(step - 1) <= 0.5) { if (pc(Math.round(cur)) === candA.pc) leadA++; if (pc(Math.round(cur)) === candB.pc) leadB++; } }
     evidence.push('L3导音: 到' + SPELL[candA.pc] + '=' + leadA + '次 到' + SPELL[candB.pc] + '=' + leadB + '次');
     if (leadA !== leadB) { if (leadA > leadB) { evidence.push('L3:导音倾向大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; } evidence.push('L3:导音倾向小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.85, source: 'L3' }; }
-    // ---- L4 试唱解决感 + K-S 全局评分（综合"归属感"）----
-        // 试唱解决感：模拟"唱 do 找归属感"（落尾/导音/主和弦稳定）
-        // K-S 相关：整段旋律对候选调的贴合度（已含时长/音级分布）
-        // 两者结合，避免单信号误判。
-        var fitA = singResolutionScore(notes, candA.pc);
-        var fitB = singResolutionScore(notes, candB.pc);
-        // K-S 相关（复用现有 hist）
-        var ksA = corr(hist, shiftProfile(MAJOR_PROF, candA.pc)) + SCALE_BONUS * scaleMembership(hist, candA.pc, 'major');
-        var ksB = corr(hist, shiftProfile(MINOR_PROF, candB.pc)) + SCALE_BONUS * scaleMembership(hist, candB.pc, 'minor');
-        // 归一化到相近量级：fit ∈[0,1]，ks ∈[-1,1] → 用 0.6*fit + 0.4*ks
-        var totalA = 0.6 * fitA + 0.4 * Math.max(0, ksA);
-        var totalB = 0.6 * fitB + 0.4 * Math.max(0, ksB);
-        evidence.push('L4试唱: ' + SPELL[candA.pc] + '大=' + fitA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + fitB.toFixed(2) + ' | KS ' + SPELL[candA.pc] + '=' + ksA.toFixed(2) + ' ' + SPELL[candB.pc] + '=' + ksB.toFixed(2) + ' | 合计 ' + totalA.toFixed(2) + ' vs ' + totalB.toFixed(2));
-        if (totalA > totalB + 0.08) { evidence.push('L4:旋律向' + SPELL[candA.pc] + '归属/贴合强'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
-        if (totalB > totalA + 0.08) { evidence.push('L4:旋律向' + SPELL[candB.pc] + '归属/贴合强'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
-        evidence.push('L4:归属接近，默认偏大调');
-        return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
-      }
-
-  function distFromTonic(midi, pcT) { var d = ((midi - (60 + pcT)) % 12 + 12) % 12; if (d > 6) d -= 12; return d; }
+    // L4 试唱解决感 + K-S 全局评分
+    var fitA = singResolutionScore(notes, candA.pc);
+    var fitB = singResolutionScore(notes, candB.pc);
+    var ksA = corr(hist, shiftProfile(MAJOR_PROF, candA.pc)) + SCALE_BONUS * scaleMembership(hist, candA.pc, 'major');
+    var ksB = corr(hist, shiftProfile(MINOR_PROF, candB.pc)) + SCALE_BONUS * scaleMembership(hist, candB.pc, 'minor');
+    var totalA = 0.6 * fitA + 0.4 * Math.max(0, ksA);
+    var totalB = 0.6 * fitB + 0.4 * Math.max(0, ksB);
+    evidence.push('L4试唱: ' + SPELL[candA.pc] + '大=' + fitA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + fitB.toFixed(2) + ' | KS ' + SPELL[candA.pc] + '=' + ksA.toFixed(2) + ' ' + SPELL[candB.pc] + '=' + ksB.toFixed(2) + ' | 合计 ' + totalA.toFixed(2) + ' vs ' + totalB.toFixed(2));
+    if (totalA > totalB + 0.08) { evidence.push('L4:旋律向' + SPELL[candA.pc] + '归属/贴合强'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
+    if (totalB > totalA + 0.08) { evidence.push('L4:旋律向' + SPELL[candB.pc] + '归属/贴合强'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
+    evidence.push('L4:归属接近，默认偏大调');
+    return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
+  }
 
   function detectKey(notes, opts) {
-    var skipVeto = opts && opts.skipVeto;
+    opts = opts || {};
     if (!notes || notes.length < 2) return null;
-    // 整体音分偏移补偿：用"各音对最近半音偏差的中位数"一次性补偿，
-    // 不暴力搜索 shift（避免过拟合到相邻调）
+    // 整体音分偏移补偿（中位数）
     var cents = [];
     for (var c0 = 0; c0 < notes.length; c0++) cents.push((notes[c0].midi - Math.round(notes[c0].midi)) * 100);
     cents.sort(function (a, b) { return a - b; });
@@ -893,13 +874,40 @@ window.addEventListener('unhandledrejection', function (e) {
     if (Math.abs(medianCents) > 50) medianCents = medianCents > 0 ? 50 : -50;
     var shiftCents = -medianCents;
 
-    // 稳定性优化：log压缩时长 + 平滑伪计数，防止短句/长尾音翻转
+    // 时长合计 + 结束音信息
+    var totalDur = 0;
+    for (var d0 = 0; d0 < notes.length; d0++) totalDur += (notes[d0].dur || 0.25);
+    var last = notes[notes.length - 1];
+    var lastM = last.midi + shiftCents / 100;
+    var lastDur = last.dur || 0.25;
+    var trailingSilence = (opts.recordingDur != null) ? Math.max(0, opts.recordingDur - (last.end || 0)) : 0;
+    // 结束音加权倍率：仅「非跨次累计 + 结束音>0.5s + 尾静音≥0.3s + 全曲>5s」才×1.5，否则×1.0
+    var endingMult = (!opts.noEndingBoost && lastDur > 0.5 && trailingSilence >= 0.3 && totalDur > 5) ? ENDING_MAX_MULT : 1.0;
+
+    // 重心音（加权平均音高，权重=时长）
+    var cNum = 0, cDen = 0;
+    for (var g = 0; g < notes.length; g++) { var gw = notes[g].dur || 0.25; cNum += (notes[g].midi + shiftCents / 100) * gw; cDen += gw; }
+    var centroid = cDen > 0 ? cNum / cDen : lastM;
+    var centroidPC = pc(Math.round(centroid));
+    var centroidPresent = false;
+    for (var cp = 0; cp < notes.length; cp++) if (pc(Math.round(notes[cp].midi + shiftCents / 100)) === centroidPC) { centroidPresent = true; break; }
+
+    // 音级分布：出现总时长最长的音级
+    var pcDur = new Array(12).fill(0);
+    for (var pd = 0; pd < notes.length; pd++) pcDur[pc(Math.round(notes[pd].midi + shiftCents / 100))] += (notes[pd].dur || 0.25);
+    var dominantPC = 0;
+    for (var p1 = 1; p1 < 12; p1++) if (pcDur[p1] > pcDur[dominantPC]) dominantPC = p1;
+    var secondTop = 0;
+    for (var p2 = 0; p2 < 12; p2++) if (p2 !== dominantPC && pcDur[p2] > secondTop) secondTop = pcDur[p2];
+    var dominance = pcDur[dominantPC] > 0 ? Math.max(0, (pcDur[dominantPC] - secondTop) / pcDur[dominantPC]) : 0;
+
+    // 时长加权 pitch-class 直方图（软量化 + 平滑 + 结束音门控加权）
     var hist = new Array(12).fill(0), total = 0;
     for (var i = 0; i < notes.length; i++) {
       var d = notes[i].dur || 0.25;
-      var w = Math.log2(1 + d); // log 压缩时长，长音不再一票独大
+      var w = Math.log2(1 + d);
+      if (i === notes.length - 1) w *= endingMult;
       var m = notes[i].midi + shiftCents / 100;
-      // 软量化：按音分距离同时投给相邻两个半音，避免跑音被硬切到错误半音
       var nearest = Math.round(m);
       var cents2 = (m - nearest) * 100;
       var wNear = 1 - Math.abs(cents2) / 50;
@@ -907,62 +915,59 @@ window.addEventListener('unhandledrejection', function (e) {
       hist[((Math.round(m + (cents2 >= 0 ? 1 : -1)) % 12) + 12) % 12] += w * (1 - wNear);
       total += w;
     }
-    for (var pc0 = 0; pc0 < 12; pc0++) hist[pc0] += 0.5; // 平滑伪计数
+    for (var pc0 = 0; pc0 < 12; pc0++) hist[pc0] += 0.5;
     total += 12 * 0.5;
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
-    var last = notes[notes.length - 1];
-    var lastM = last.midi + shiftCents / 100;
+
+    // 24 候选评分：K-S + 音阶成员 + 重心音 + 音级分布 + 吉他偏好
     var cands = [];
     for (var root = 0; root < 12; root++) {
       var ms = corr(hist, shiftProfile(MAJOR_PROF, root));
       var ns = corr(hist, shiftProfile(MINOR_PROF, root));
       ms += SCALE_BONUS * scaleMembership(hist, root, 'major');
       ns += SCALE_BONUS * scaleMembership(hist, root, 'minor');
-      if (Math.abs(distFromTonic(lastM, root)) < 0.7) { ms += TONIC_BONUS; ns += TONIC_BONUS; }
+      var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
+      ms += cBonus; ns += cBonus;
+      var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;
+      ms += domBonus; ns += domBonus;
       if (GUILD.major.indexOf(root) >= 0) ms += GUITAR_BIAS;
       if (GUILD.minor.indexOf(root) >= 0) ns += GUITAR_BIAS;
-      cands.push({ mode: 'major', root: root, score: ms, shift: shiftCents });
-      cands.push({ mode: 'minor', root: root, score: ns, shift: shiftCents });
+      cands.push({ mode: 'major', root: root, score: ms, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
+      cands.push({ mode: 'minor', root: root, score: ns, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
     }
     var seen = {};
     for (var ci = 0; ci < cands.length; ci++) { var c = cands[ci]; var key = c.mode + '_' + c.root; if (!seen[key] || c.score > seen[key].score) seen[key] = c; }
     var ranked = Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (a, b) { return b.score - a.score; });
     var best = ranked[0], second = ranked[1] || { mode: 'major', root: (best.root + 7) % 12, score: 0 };
     var margin = best.score - second.score;
-    var confidence = Math.max(0, Math.min(1, margin / 0.15));
-    // 关系大小调（共享音阶，纯旋律无法区分）——检测到小调时用裁判判定是否其实是关系大调
+    var confidence = Math.max(0, Math.min(1, margin / 0.18));
+    if (centroidPC === dominantPC && dominantPC === best.root) confidence = Math.min(1, confidence + 0.12);
+    if (totalDur < 3 || notes.length < 5) confidence = Math.min(confidence, 0.7);
+
+    // 关系大小调 + 裁判（无终点一票否决）
     var relMode = (best.mode === 'minor') ? 'major' : 'minor';
     var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
     var relScore = 0;
-    for (var ri = 0; ri < ranked.length; ri++) {
-      if (ranked[ri].mode === relMode && ranked[ri].root === relRoot) { relScore = ranked[ri].score; break; }
-    }
+    for (var ri = 0; ri < ranked.length; ri++) if (ranked[ri].mode === relMode && ranked[ri].root === relRoot) { relScore = ranked[ri].score; break; }
     var judge = null, origDetected = null;
     if (best.mode === 'minor') {
-      // minor 与关系大调仲裁
       var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root, skipVeto);
-      if (judge.verdict === 'major') {
-        origDetected = { mode: 'minor', root: best.root, score: best.score };
-        best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
-      }
+      judge = judgeRelative(notes, relMajRoot, best.root);
+      if (judge.verdict === 'major') { origDetected = { mode: 'minor', root: best.root, score: best.score }; best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents }; }
     } else {
-      // major 与关系小调仲裁（如检测到 D大调，排除"其实是 B小调"）
       var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot, skipVeto);
-      if (judge.verdict === 'minor') {
-        origDetected = { mode: 'major', root: best.root, score: best.score };
-        best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
-      }
+      judge = judgeRelative(notes, best.root, relMinRoot);
+      if (judge.verdict === 'minor') { origDetected = { mode: 'major', root: best.root, score: best.score }; best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents }; }
     }
-    // 重新计算关系调（best 可能已翻转）
     var relMode = (best.mode === 'minor') ? 'major' : 'minor';
     var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
     var relScore = 0;
-    for (var ri2 = 0; ri2 < ranked.length; ri2++) {
-      if (ranked[ri2].mode === relMode && ranked[ri2].root === relRoot) { relScore = ranked[ri2].score; break; }
-    }
+    for (var ri2 = 0; ri2 < ranked.length; ri2++) if (ranked[ri2].mode === relMode && ranked[ri2].root === relRoot) { relScore = ranked[ri2].score; break; }
+
+    var evidence = ['重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）'];
+    if (judge && judge.evidence && judge.evidence.length) evidence = evidence.concat(judge.evidence);
+
     return {
       mode: best.mode, rootPC: best.root, score: best.score, second: second,
       margin: margin, confidence: confidence, bestShift: shiftCents,
@@ -970,10 +975,16 @@ window.addEventListener('unhandledrejection', function (e) {
       keyName: (best.mode === 'major' ? SPELL[best.root] + '大调' : SPELL[best.root] + '小调'),
       relMode: relMode, relRoot: relRoot, relScore: relScore,
       relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
-      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: judge.evidence } : null,
+      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: evidence } : null,
       origDetected: origDetected,
+      centroidNote: midiName(centroid),
+      dominantPC: dominantPC,
+      dominantNote: SPELL[dominantPC],
+      endingNote: midiName(lastM),
+      endingMult: endingMult,
+      candidateScores: ranked.slice(0, 4).map(function (r) { return { root: r.root, mode: r.mode, score: +r.score.toFixed(3) }; }),
       noteCount: notes.length,
-      totalDur: notes.reduce(function (s, n) { return s + (n.dur || 0.25); }, 0)
+      totalDur: totalDur
     };
   }
   global.KeyDetect = { detectKey: detectKey, SPELL: SPELL };
@@ -1170,7 +1181,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.4.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.5.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagPanel'), dot = $('diagDot');
     var ctxState = state.audioCtx ? state.audioCtx.state : '未创建';
@@ -1468,9 +1479,8 @@ window.addEventListener('unhandledrejection', function (e) {
           state.accNotes = (state.accNotes || []).concat(notes);
           state.curNotes = melNotes; // 最新一次（简谱/回放/唱名显示用，不做跨次拼接）
           state.takeCount = (state.takeCount || 0) + 1;
-          // 累计后"落尾"是最后一次哼的收尾，不是歌的结尾 → 跳过落尾一票否决
-          var skipVeto = state.takeCount > 1;
-          var keyRes = window.KeyDetect.detectKey(state.accNotes, { skipVeto: skipVeto });
+          // 跨次累加后「落尾」是最后一次哼的收尾，不是歌的结尾 → 禁用结束音加权
+          var keyRes = window.KeyDetect.detectKey(state.accNotes, { recordingDur: durSec, noEndingBoost: state.takeCount > 1 });
           if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
           // Essentia KeyExtractor 跨校验（若已加载）：业界基线调性
           keyRes.essentiaKey = essentiaKeyDetect();
