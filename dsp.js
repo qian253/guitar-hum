@@ -258,6 +258,28 @@
     return { midi: r, cent: Math.round((m - r) * 100) };
   }
 
+  /* ---------- 八度误差修正 ----------
+   * YIN 偶尔会把某个音判高/低一个八度（孤立 ±12 半音跳变）。
+   * 真实声乐旋律极少出现「上跳八度又立刻跳回」的孤立尖峰，因此：
+   * 当某音比前一音偏离约 ±12 半音、且下一音又回到前一音附近时，
+   * 判定为八度误判，把它拉回邻音所在八度。只修孤立尖峰，不碰正常旋律。
+   */
+  function fixOctaveErrors(notes) {
+    if (!notes || notes.length < 3) return notes;
+    var out = notes.slice();
+    for (var i = 1; i < out.length - 1; i++) {
+      var prev = Math.round(out[i - 1].midi);
+      var cur = Math.round(out[i].midi);
+      var next = Math.round(out[i + 1].midi);
+      var dPrev = cur - prev;
+      var dNext = next - cur;
+      if (Math.abs(Math.abs(dPrev) - 12) <= 1 && Math.abs(dPrev + dNext) <= 2) {
+        out[i] = { start: out[i].start, end: out[i].end, midi: cur - (dPrev > 0 ? 12 : -12), freq: midiToFreq(cur - (dPrev > 0 ? 12 : -12)), dur: out[i].dur, conf: out[i].conf };
+      }
+    }
+    return out;
+  }
+
   global.DSP = {
     YIN_THRESHOLD: YIN_THRESHOLD,
     yinPitchFrame: yinPitchFrame,
@@ -265,6 +287,7 @@
     midiToFreq: midiToFreq,
     segmentNotes: segmentNotes,
     quantizeMidi: quantizeMidi,
+    fixOctaveErrors: fixOctaveErrors,
     MIN_LAG: MIN_LAG,
     MAX_LAG: MAX_LAG
   };

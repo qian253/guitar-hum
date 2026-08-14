@@ -257,6 +257,66 @@
   .mic.recording { box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,0.1), 0 0 calc(20px + var(--micGlow, 0px)) rgba(80,190,255,0.55); }
   .burst { position: fixed; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; z-index: 99; animation: burstAnim 0.5s ease-out forwards; }
   @keyframes burstAnim { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0); } }
+
+  /* ========== 音名对照（问题1：小调 la=主音 / do=关系大调） ========== */
+  .tone-map { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding: 11px 13px; background: rgba(57,135,229,0.07); border: 1px solid rgba(57,135,229,0.22); border-radius: 12px; }
+  .tone-map .tm-pill { font-weight: 800; font-size: 15px; padding: 4px 11px; border-radius: 999px; letter-spacing: 0.5px; }
+  .tone-map .tm-pill.la { background: rgba(236,131,90,0.18); color: var(--serious); }
+  .tone-map .tm-pill.do { background: rgba(57,135,229,0.2); color: #7ec1ff; }
+  .tone-map .tm-note { color: var(--ink-2); font-size: 12px; line-height: 1.6; flex: 1 1 100%; }
+
+  /* ========== 常用和弦走向（问题4） ========== */
+  .prog-scroll { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 4px; margin: 0 -4px; scrollbar-width: none; }
+  .prog-scroll::-webkit-scrollbar { display: none; }
+  .prog-slide { flex: 0 0 92%; scroll-snap-align: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .prog-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .prog-deg { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: 1px; }
+  .prog-style { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .prog-chords { display: flex; align-items: flex-start; }
+  .prog-chord { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+  .prog-chord .pc-name { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .prog-chord .pc-shape { font-size: 11px; color: var(--accent); font-weight: 700; }
+  .prog-chord .chord-diagram { width: 100%; max-width: 58px; height: auto; }
+  .prog-arrow { color: var(--muted); font-size: 16px; align-self: center; flex-shrink: 0; margin: 0 2px; padding-bottom: 18px; }
+  .prog-try { margin-top: 12px; width: 100%; }
+  .prog-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+  .prog-dots .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-2); transition: background 0.2s, width 0.2s; }
+  .prog-dots .dot.on { background: var(--accent); width: 16px; border-radius: 3px; }
+
+  /* ========== 常用节奏型（问题3） ========== */
+  .rhythm-list { display: flex; flex-direction: column; gap: 10px; }
+  .rhythm-item { display: flex; align-items: center; gap: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .rhythm-play { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; border: none; background: linear-gradient(160deg, var(--accent), #1c5cab); color: var(--accent-ink); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; touch-action: manipulation; transition: transform 0.12s ease; }
+  .rhythm-play:active { transform: scale(0.92); }
+  .rhythm-play.playing { background: linear-gradient(160deg, #e34948, #a32120); }
+  .rhythm-info { flex: 1; min-width: 0; }
+  .rhythm-name { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .rhythm-name .tag { font-size: 11px; font-weight: 600; color: var(--accent); background: rgba(57,135,229,0.14); padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+  .rhythm-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .rhythm-tab { font-size: 20px; font-weight: 800; color: #7ec1ff; letter-spacing: 2px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+  /* do 徽章：主音 la 用橙色区分 */
+  .do-badge.la { background: linear-gradient(150deg, #ec835a, #b34a2a); box-shadow: 0 4px 12px rgba(236,131,90,0.3); }
+  .play-shape { font-size: 13px; color: var(--ink-2); margin-top: 6px; line-height: 1.6; }
+  #againBtn { flex: 1 1 100%; border-color: rgba(57,135,229,0.4); color: #7ec1ff; font-weight: 700; }
+
+  /* ========== 变调夹高亮（置于调性大字下方，首屏可见） ========== */
+  .capo-highlight { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(57,135,229,0.10); border: 1px solid rgba(127,193,255,0.45); box-shadow: 0 0 16px rgba(57,135,229,0.22), inset 0 0 14px rgba(57,135,229,0.05); font-size: 15px; line-height: 1.7; }
+  .capo-highlight .ch-capo { font-weight: 800; color: #ffd66b; font-size: 17px; }
+  .capo-highlight .ch-key { font-weight: 800; color: #7ec1ff; }
+  .capo-highlight .ch-shape { color: var(--ink-2); font-size: 13px; }
+  .capo-highlight .ch-rel { color: var(--ink-2); font-size: 13px; margin-top: 6px; }
+  .capo-highlight .ch-rel b { color: #7ec1ff; }
+  .capo-highlight .ch-high { color: var(--warn); font-size: 12px; margin-top: 6px; }
+  .capo-highlight .ch-alt { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* ========== 音色切换 ========== */
+  .timbre-bar { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  .timbre-label { font-size: 12px; color: var(--muted); flex-shrink: 0; padding-left: 2px; }
+  .timbre-btn { flex: 1; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); padding: 9px 0; border-radius: 8px; cursor: pointer; touch-action: manipulation; transition: all 0.15s; }
+  .timbre-btn.on { color: var(--accent-ink); background: linear-gradient(160deg, var(--accent), #1c5cab); border-color: transparent; box-shadow: 0 0 10px rgba(57,135,229,0.35); }
+  .timbre-btn:active { transform: scale(0.96); }
+  .tone-warn { flex: 1 1 100%; font-size: 11px; color: var(--warn); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -274,7 +334,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.0.3 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.3.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel"></div>
 </div>
@@ -321,10 +381,12 @@ window.addEventListener('unhandledrejection', function (e) {
       <span class="key-big" id="keyBig">—</span>
       <span class="mode-badge" id="modeBadge"></span>
     </div>
+    <div class="capo-highlight" id="capoHighlight"></div>
     <div class="conf" id="confRow">
       <span>信心</span><div class="meter"><i id="confBar"></i></div><span id="confPct"></span>
     </div>
     <div class="conf-text" id="confText"></div>
+    <div class="tone-map" id="toneMap"></div>
     <div class="rel-hint" id="relHint" style="display:none"></div>
     <div class="melody-line" id="melodyLine"></div>
     <div class="jianpu-box" id="jianpuBox" style="display:none">
@@ -335,14 +397,26 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 
   <div class="card">
-    <div class="card-title">do 在吉他的位置 <span class="tag" id="doNameTag"></span></div>
+    <div class="card-title">常用和弦走向 <span class="tag">弹唱万能公式</span></div>
+    <div class="prog-scroll" id="progScroll"></div>
+    <div class="prog-dots" id="progDots"></div>
+    <div class="tip" id="progTip"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">常用节奏型 <span class="tag">右手怎么拨</span></div>
+    <div class="rhythm-list" id="rhythmList"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" id="posCardTitle">do 在吉他的位置 <span class="tag" id="doNameTag"></span></div>
     <div class="do-list" id="doList"></div>
     <svg id="fretboard" viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="fb-note">低音 do 是最常用的定位点；练习：先把食指放上去，再顺着唱一遍 do 的位置。</div>
   </div>
 
   <div class="card">
-    <div class="card-title">怎么弹</div>
+    <div class="card-title">怎么弹 <span class="tag">新手友好</span></div>
     <div class="play-box" id="playBox"></div>
     <div class="play-alt" id="playAlt"></div>
   </div>
@@ -356,12 +430,6 @@ window.addEventListener('unhandledrejection', function (e) {
     </div>
     <div id="capoResult"></div>
     <div class="capo-hint">乐理小抄：全音-全音-半音-全音-全音-全音-半音，从 do 顺着数，就能推出任何调的 do re mi。</div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">这个调的常用和弦</div>
-    <div class="chords" id="chordList"></div>
-    <div class="tip" id="chordTip"></div>
   </div>
 
   <div class="card" id="challengeCard" style="display:none">
@@ -380,12 +448,18 @@ window.addEventListener('unhandledrejection', function (e) {
     </div>
   </div>
 
+  <div class="timbre-bar" id="timbreBar" style="display:none">
+    <span class="timbre-label">音色</span>
+    <button class="timbre-btn on" data-timbre="nylon">尼龙弦</button>
+    <button class="timbre-btn" data-timbre="steel">钢弦</button>
+    <button class="timbre-btn" data-timbre="piano">钢琴</button>
+  </div>
+
   <div class="actions">
-    <button class="btn" id="againBtn">↻ 再唱一次</button>
-    <button class="btn" id="newSongBtn">🆕 新歌</button>
     <button class="btn" id="hearSelfBtn" style="display:none">🎧 听自己唱的</button>
     <button class="btn" id="singBtn" style="display:none">🔊 唱名跟读</button>
     <button class="btn primary" id="replayBtn">♪ 听旋律</button>
+    <button class="btn" id="againBtn">↻ 再测一次</button>
   </div>
 </div>
 
@@ -398,8 +472,9 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <script>
 /* ================================================================
- * 核心稳定版 v1.6：录音 -> YIN -> 分段 -> 定调 -> 吉他映射
- * 已去掉后来加的功能（变调夹/挑战/节奏型/回放/唱名），回到可稳定运行状态
+ * v2.2.0：录音 -> 转录 -> 定调（K-S+多级裁判+Essentia跨校验） -> 吉他映射
+ * 新增：Tone.js 真实吉他采样（尼龙/钢弦/钢琴可切）、Essentia KeyExtractor 基线、
+ *        动态阈值提示、变调夹置顶高亮。basic-pitch 因需打包器+模型托管暂缓。
  * ================================================================ */
 /* ---------- 内联：guitar-map.js（数据层） ---------- */
 (function (global) {
@@ -648,7 +723,25 @@ window.addEventListener('unhandledrejection', function (e) {
       return capped;
     }
 
-  global.DSP = { yinPitchFrame: yinPitchFrame, segmentNotes: segmentNotes, midiToFreq: midiToFreq };
+  // 八度误差修正：只修「上/下跳八度又立刻回跳」的孤立尖峰（YIN 偶发八度误判）
+  function fixOctaveErrors(notes) {
+    if (!notes || notes.length < 3) return notes;
+    var out = notes.slice();
+    for (var i = 1; i < out.length - 1; i++) {
+      var prev = Math.round(out[i - 1].midi);
+      var cur = Math.round(out[i].midi);
+      var next = Math.round(out[i + 1].midi);
+      var dPrev = cur - prev;
+      var dNext = next - cur;
+      if (Math.abs(Math.abs(dPrev) - 12) <= 1 && Math.abs(dPrev + dNext) <= 2) {
+        var fixed = cur - (dPrev > 0 ? 12 : -12);
+        out[i] = { start: out[i].start, end: out[i].end, midi: fixed, freq: midiToFreq(fixed), dur: out[i].dur, conf: out[i].conf };
+      }
+    }
+    return out;
+  }
+
+  global.DSP = { yinPitchFrame: yinPitchFrame, segmentNotes: segmentNotes, midiToFreq: midiToFreq, fixOctaveErrors: fixOctaveErrors };
 })(window);
 
 /* ---------- 内联：key.js（K-S 调性识别） ---------- */
@@ -955,13 +1048,59 @@ window.addEventListener('unhandledrejection', function (e) {
   var NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   var SOLFEGE = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si'];
 
-  var state = { recording: false, stream: null, audioCtx: null, processor: null, src: null, muteGain: null, buf: [], maxRecS: 15 };
+  /* ---------- 音名/和弦/节奏型数据（问题3/4 用） ---------- */
+  var CHORD_ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']; // 吉他常用记法
+  var MAJOR_SEMS = [0, 2, 4, 5, 7, 9, 11];   // 大调级数 1..7 的半音距
+  var MAJOR_QUAL = ['major', 'minor', 'minor', 'major', 'major', 'minor', 'dim'];
+  var SOLFEGE_ZH = { do: '哆', re: '来', mi: '咪', fa: '发', sol: '索', la: '拉', si: '西' };
+  // 只保留 C/G 两套开放和弦手型（问题3：不再推荐 E/A/Am/Em 等复杂指法）
+  var SHAPE_CHORDS = { C: ['C', 'Dm', 'Em', 'F', 'G', 'Am'], G: ['G', 'Am', 'Bm', 'C', 'D', 'Em'] };
+  // 手型指法（数组顺序：6弦..1弦；null=不弹/闷音，0=空弦，n=品位）
+  var CHORD_SHAPES = {
+    C:  { frets: [null, 3, 2, 0, 1, 0], barre: 0 },
+    Dm: { frets: [null, null, 0, 2, 3, 1], barre: 0 },
+    Em: { frets: [0, 2, 2, 0, 0, 0], barre: 0 },
+    F:  { frets: [1, 3, 3, 2, 1, 1], barre: 1 },
+    G:  { frets: [3, 2, 0, 0, 0, 3], barre: 0 },
+    Am: { frets: [null, 0, 2, 2, 1, 0], barre: 0 },
+    Bm: { frets: [null, 2, 4, 4, 3, 2], barre: 2 },
+    D:  { frets: [null, null, 0, 2, 3, 2], barre: 0 }
+  };
+  // 节奏型演示用的和弦各弦音高（MIDI）
+  var SHAPE_VOICING = {
+    C: { 6: null, 5: 48, 4: 52, 3: 55, 2: 60, 1: 64 },
+    G: { 6: 43, 5: 47, 4: 50, 3: 55, 2: 59, 1: 67 }
+  };
+  var PROGRESSIONS = {
+    major: [
+      { label: '1-5-6-4', style: '流行 · 万能', degrees: [1, 5, 6, 4] },
+      { label: '1-6-4-5', style: '民谣 · 温馨', degrees: [1, 6, 4, 5] },
+      { label: '1-4-5-4', style: '摇滚 · 动感', degrees: [1, 4, 5, 4] },
+      { label: '6-4-1-5', style: '清新 · 校园', degrees: [6, 4, 1, 5] }
+    ],
+    minor: [
+      { label: '6-4-1-5', style: '伤感 · 流行', degrees: [6, 4, 1, 5] },
+      { label: '6-5-3-4', style: '忧郁 · 民谣', degrees: [6, 5, 3, 4] },
+      { label: '6-4-5-6', style: '暗黑 · 史诗', degrees: [6, 4, 5, 6] },
+      { label: '6-3-4-5', style: '复古 · 电子', degrees: [6, 3, 4, 5] }
+    ]
+  };
+  var RHYTHM_PATTERNS = [
+    { id: '5323', name: '5323 分解', tag: '最经典', desc: '根音打头，四拍分解，新手第一课', strings: [5, 3, 2, 3] },
+    { id: '5321', name: '5321 分解', tag: '更完整', desc: '根音后依次拨到底，收尾更稳', strings: [5, 3, 2, 1] },
+    { id: '4321', name: '4321 分解', tag: '柔一点', desc: '从 4 弦起，适合慢歌', strings: [4, 3, 2, 1] },
+    { id: 'root-strum', name: '根音 + 扫弦', tag: '弹唱', desc: '一拍根音，一拍向下扫弦', type: 'strum' }
+  ];
+  // 简谱/旋律转录参数：比定调更敏感、更忠实，逐音保留（问题2）
+  var JIANPU_OPTS = { minConf: 0.5, minLen: 0.08, leaveCents: 0.5, enterCents: 0.3, leaveMs: 60, unvoicedMs: 100, mergeSlop: 0.05, maxNoteDur: 8 };
+
+  var state = { recording: false, pressing: false, stream: null, audioCtx: null, processor: null, src: null, muteGain: null, buf: [], maxRecS: 15 };
   var frames = [];
   var recordedNotes = null;
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v1.8', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.3.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagPanel'), dot = $('diagDot');
     var ctxState = state.audioCtx ? state.audioCtx.state : '未创建';
@@ -1015,6 +1154,7 @@ window.addEventListener('unhandledrejection', function (e) {
       showError('浏览器不支持麦克风。<b>请用 Chrome / Edge / Safari</b> 打开。');
       return;
     }
+    stopAllTones();
     var AC = window.AudioContext || window.webkitAudioContext;
     // 关键：每次录音都用全新 AudioContext，彻底释放上一次的节点和挂起状态。
     // 若复用同一个 context，旧 MediaStreamSource 节点会累积，且 Chrome 在录音停后
@@ -1027,7 +1167,12 @@ window.addEventListener('unhandledrejection', function (e) {
     diag.callCount = 0;
     diag.peak = 0;
 
+    // 问题6：手指按下瞬间立即给视觉反馈 + 同步发起权限请求，不等 getUserMedia 回调
+    micBtn.classList.add('recording');
+    micBtn.querySelector('.t').textContent = '松开完成';
+    micBtn.querySelector('.t2').textContent = '请求麦克风…';
     setStatus('请求麦克风权限…');
+
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(function (stream) {
         state.stream = stream;
@@ -1074,8 +1219,8 @@ window.addEventListener('unhandledrejection', function (e) {
         if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
 
         state.recording = true;
-        micBtn.classList.add('recording');
-        micBtn.querySelector('.t').textContent = '松开完成';
+        // 权限弹窗期间用户已松手 → 静默取消，不出错、不残留录音
+        if (!state.pressing) { stopRecording(true); return; }
         micBtn.querySelector('.t2').textContent = '最长 ' + state.maxRecS + ' 秒';
         cards.classList.remove('show');
         errBox.innerHTML = '';
@@ -1086,6 +1231,11 @@ window.addEventListener('unhandledrejection', function (e) {
       })
       .catch(function (err) {
         console.error(err);
+        state.recording = false;
+        state.pressing = false;
+        micBtn.classList.remove('recording');
+        micBtn.querySelector('.t').textContent = '按住唱歌';
+        micBtn.querySelector('.t2').textContent = '松开出结果';
         setStatus('');
         diag.mic = '失败: ' + err.name;
         if (err.name === 'NotAllowedError') showError('麦克风权限被拒绝了。<br>请在浏览器地址栏点锁形图标，允许使用麦克风后再试。');
@@ -1152,9 +1302,10 @@ window.addEventListener('unhandledrejection', function (e) {
     liveStamp.textContent = '正在识别…';
   }
 
-  function stopRecording() {
+  function stopRecording(silent) {
     if (!state.recording) return;
     state.recording = false;
+    state.pressing = false;
     $('waveWrap').classList.remove('show');
     // 回退到第一版验证过的清理方式（最简，避免新逻辑引入崩溃）
     try { if (state.processor) state.processor.disconnect(); } catch (e) {}
@@ -1162,9 +1313,10 @@ window.addEventListener('unhandledrejection', function (e) {
     micBtn.classList.remove('recording');
     micBtn.querySelector('.t').textContent = '按住唱歌';
     micBtn.querySelector('.t2').textContent = '松开出结果';
-    setStatus('正在分析…');
     liveNote.textContent = '…';
     liveCents.textContent = '';
+    if (silent) { setStatus(''); return; } // 权限弹窗期间已松手：静默取消，不分析
+    setStatus('正在分析…');
     setTimeout(analyze, 60);
   }
 
@@ -1227,19 +1379,36 @@ window.addEventListener('unhandledrejection', function (e) {
       function finishAnalyze(allFrames) {
         try {
           if (allFrames.length < 8) { hideAnalyze(); showError('没听到足够的旋律。<br>再唱一次，<b>唱完整一句</b>（4~8 秒）。'); return; }
+          // 定调用：稳健分段（合并/容错更强，避免调性翻转）
           var notes = window.DSP.segmentNotes(allFrames);
           if (!notes || notes.length < 2) { hideAnalyze(); showError('没分出清晰的音符。<br>尽量<b>一个音一个音</b>地唱，别拖太长。'); return; }
+          // 八度误差修正（方案C）：YIN 偶发把某音判高/低一个八度，修掉孤立尖峰
+          notes = window.DSP.fixOctaveErrors(notes);
+          // 简谱/旋律用：逐音忠实转录（问题2），每个音高都转成一个符号、不漏音
+          var melNotes = window.DSP.fixOctaveErrors(window.DSP.segmentNotes(allFrames, JIANPU_OPTS));
+          if (!melNotes || melNotes.length < 2) melNotes = notes;
+          // 动态阈值：太短且信息不足时，提示哼长一点，而不是强行猜（问题2）
+          var durSec = state.recordedPcm ? state.recordedPcm.length / (state.recordedSr || 44100) : 0;
+          if (durSec > 0 && durSec < 3 && melNotes.length < 4) {
+            hideAnalyze();
+            showError('这段有点短，只听到 ' + melNotes.length + ' 个音。<br>请<b>再哼长一点</b>（唱完整一句副歌，4~8 秒）再试。');
+            return;
+          }
           // 跨次累加：每次哼唱的音符合并到累计池，用累计集定调（音集越攒越完整，结果收敛）
           state.accNotes = (state.accNotes || []).concat(notes);
+          state.curNotes = melNotes; // 最新一次（简谱/回放/唱名显示用，不做跨次拼接）
           state.takeCount = (state.takeCount || 0) + 1;
           // 累计后"落尾"是最后一次哼的收尾，不是歌的结尾 → 跳过落尾一票否决
           var skipVeto = state.takeCount > 1;
           var keyRes = window.KeyDetect.detectKey(state.accNotes, { skipVeto: skipVeto });
           if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
-          recordedNotes = state.accNotes;
+          // Essentia KeyExtractor 跨校验（若已加载）：业界基线调性
+          keyRes.essentiaKey = essentiaKeyDetect();
+          keyRes.shortTake = durSec > 0 && durSec < 3;
+          recordedNotes = state.curNotes;
           lastKeyResult = keyRes;
           hideAnalyze();
-          renderResult(keyRes, state.accNotes);
+          renderResult(keyRes, state.curNotes);
         } catch (e) { console.error('分析出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
       }
 
@@ -1274,7 +1443,27 @@ window.addEventListener('unhandledrejection', function (e) {
       // 大调→暖金呼吸光，小调→冷紫呼吸光（body 类驱动）
       document.body.classList.remove('result-major', 'result-minor');
       document.body.classList.add('result-' + dmode);
-      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次哼唱 · do = ' + doNoteName;
+      $('metaTag').textContent = '第 ' + (state.takeCount || 1) + ' 次哼唱';
+
+      // 变调夹提示（置于调性大字正下方，首屏高亮可见）
+      var capoRec = recommendFingering(dmode, droot);
+      var capoShapeChords = SHAPE_CHORDS[capoRec.shape];
+      var capoEl = $('capoHighlight');
+      var capoMain = capoRec.capo === 0
+        ? '不用夹变调夹 · 直接弹 <span class="ch-key">' + capoRec.shape + ' 调开放和弦</span>'
+        : '🎸 <span class="ch-capo">变调夹夹 ' + capoRec.capo + ' 品</span> · 用 <span class="ch-key">' + capoRec.shape + ' 调指法</span>';
+      var capoRel = '';
+      if (dmode === 'minor') {
+        var relName = NOTE_NAMES[capoRec.target];
+        var tonicChord = NOTE_NAMES[droot] + 'm';
+        var tonicShape = capoRec.shape === 'C' ? 'Am' : 'Em';
+        capoRel = '<div class="ch-rel">主音 la = ' + NOTE_NAMES[droot] + '，它的关系大调是 ' + relName +
+          ' 大调（和弦同一套）：夹 ' + capoRec.capo + ' 品弹 ' + capoRec.shape + ' 调指法，<b>' + tonicShape + ' 手型 = 主和弦 ' + tonicChord + '</b>，' +
+          '所以是 ' + relName + ' 大调 / ' + NOTE_NAMES[droot] + ' 小调通用。</div>';
+      }
+      var capoAlt = '备选：' + capoRec.altShape + ' 调指法夹 ' + capoRec.altCapo + ' 品' + (capoRec.altCapo > 5 ? '（夹得较高，不推荐）' : '');
+      var capoHigh = capoRec.highCapo ? '<div class="ch-high">⚠ 夹 ' + capoRec.capo + ' 品偏高、弦偏紧。这个调在吉他上本来就不顺手，建议把原曲移高/低半音再唱会更舒服。</div>' : '';
+      capoEl.innerHTML = '<div>' + capoMain + '</div><div class="ch-shape">手型：' + capoShapeChords.join(' · ') + '</div>' + capoRel + capoHigh + '<div class="ch-alt">' + capoAlt + '</div>';
 
       var pct = Math.round(key.confidence * 100);
       $('confBar').style.width = pct + '%';
@@ -1285,12 +1474,36 @@ window.addEventListener('unhandledrejection', function (e) {
       else if (pct >= 40) $('confText').textContent = '识别中等。再哼同一句一遍，会自动累加更准（右上角会显示第 N 次）。';
       else $('confText').textContent = '信心不足。建议再哼同一句一遍，音会累加、结果会收敛（右上角显示第 N 次哼唱）。';
 
+      // 音名对照（问题1）：大调 do=主音；小调 la=主音、do=关系大调主音。一眼看懂"6=B、1=D"
+      var toneMap = $('toneMap');
+      if (dmode === 'major') {
+        toneMap.innerHTML = '<span class="tm-pill do">do = ' + NOTE_NAMES[droot] + '</span>' +
+          '<span class="tm-note">简谱中 <b>1（do）</b> 就对应 <b>' + NOTE_NAMES[droot] + '</b> 音。</span>';
+      } else {
+        var relMajPc = (droot + 3) % 12;
+        toneMap.innerHTML = '<span class="tm-pill la">la = ' + NOTE_NAMES[droot] + '</span>' +
+          '<span class="tm-pill do">do = ' + NOTE_NAMES[relMajPc] + '</span>' +
+          '<span class="tm-note">小调以主音为 <b>la（6）</b>：简谱 <b>6 = ' + NOTE_NAMES[droot] + '</b>，<b>1 = ' + NOTE_NAMES[relMajPc] + '</b>（' + NOTE_NAMES[relMajPc] + ' 大调是它的关系大调）。</span>';
+      }
+
       // 关系调提示：改为显示裁判判定依据（确定结果，不再给"也可能是"的模糊暗示）
       var rh = $('relHint');
+      // 判据链：多级裁判证据 + Essentia 基线跨校验 + 动态阈值提示
+      var rh = $('relHint');
+      var evParts = [];
       if (key.judge && key.judge.evidence && key.judge.evidence.length) {
-        var ev = key.judge.evidence.map(function (s) { return s.replace(/^L\d[:：]/, ''); }).join('；');
+        evParts.push(key.judge.evidence.map(function (s) { return s.replace(/^L\d[:：]/, ''); }).join('；'));
+      }
+      if (key.essentiaKey) {
+        var ek = key.essentiaKey;
+        var ekName = NOTE_NAMES[ek.rootPC] + (ek.mode === 'minor' ? '小调' : '大调');
+        var agree = (ek.rootPC === key.rootPC && ek.mode === key.mode);
+        evParts.push('Essentia 基线' + (agree ? '一致 ✓' : '：' + ekName));
+      }
+      if (key.shortTake) evParts.push('旋律偏短，再哼长一点更稳');
+      if (evParts.length) {
         rh.style.display = 'block';
-        rh.innerHTML = '判定依据：<b>' + ev + '</b>' +
+        rh.innerHTML = '判据：<b>' + evParts.join(' · ') + '</b>' +
           '<br><button id="relToggleBtn">换成 ' + key.relKeyName + ' 记</button><span style="color:var(--muted)">（若你确定是另一个调）</span>';
         var tbtn = $('relToggleBtn');
         if (tbtn) tbtn.addEventListener('click', function () { useRelKey = !useRelKey; if (lastKeyResult && recordedNotes) renderResult(lastKeyResult, recordedNotes); });
@@ -1307,44 +1520,61 @@ window.addEventListener('unhandledrejection', function (e) {
         ml.appendChild(div);
       });
 
+      // do 位置（问题1）：大调只标 do；小调同时标 la（主音）+ do（关系大调主音）
       var dl = $('doList'); dl.innerHTML = '';
-      $('doNameTag').textContent = 'do = ' + doNoteName;
-      entry.doPositions.forEach(function (dp) {
+      var fbGroups = [];
+      function doRow(label, pos, isLa) {
         var row = document.createElement('div'); row.className = 'do-row';
-        row.innerHTML = '<div class="do-badge">♩</div><div><div class="lbl">' + dp.label + '</div><div class="pos">' + dp.pos + '</div></div>';
+        row.innerHTML = '<div class="do-badge' + (isLa ? ' la' : '') + '">♩</div><div><div class="lbl">' + label + '</div><div class="pos">' + pos + '</div></div>';
         dl.appendChild(row);
-      });
-      drawFretboard(entry.doPositions);
-
-      var pb = $('playBox'); pb.innerHTML = '';
-      if (entry.playLike.open) {
-        pb.innerHTML = '直接弹 <span class="capo">' + entry.playLike.label + '</span>';
-      } else {
-        pb.innerHTML = '用 <span class="capo">' + entry.playLike.label + ' 调指法</span>，<span class="capo">变调夹夹 ' + entry.playLike.capo + ' 品</span>';
       }
-      var alt = '';
-      if (dmode === 'major' && !entry.playLike.open) {
-        alt = '备选：直接用 ' + entry.key + ' 本身的开放和弦（难度略高）。';
-      } else if (dmode === 'major' && entry.playLike.open) {
-        alt = '这样最省力。练熟后想再上一步，可学着按 ' + entry.key + ' 的大横按。';
+      if (dmode === 'major') {
+        $('posCardTitle').innerHTML = 'do 在吉他的位置 <span class="tag">do = ' + NOTE_NAMES[droot] + '</span>';
+        entry.doPositions.forEach(function (dp) { doRow(dp.label, dp.pos, false); });
+        fbGroups.push({ tag: 'do', color: '#3987e5', positions: entry.doPositions });
       } else {
-        var relPc = droot + 3; if (relPc >= 12) relPc -= 12;
-        var rel = GM.MAJOR[relPc];
-        alt = '它是 ' + rel.key + ' 的关系小调，和弦通用（' + entry.relativeMajor + ' 同音阶）。也可以弹 ' + rel.playLike.label + ' 来简化。';
+        var relMajPc2 = (droot + 3) % 12;
+        $('posCardTitle').innerHTML = '主音与 do 定位 <span class="tag">la = ' + NOTE_NAMES[droot] + ' · do = ' + NOTE_NAMES[relMajPc2] + '</span>';
+        var laEntry = GM.MINOR[droot];
+        var doEntry = GM.MAJOR[relMajPc2];
+        laEntry.doPositions.forEach(function (dp) { doRow(dp.label.replace(/do/g, 'la'), dp.pos, true); });
+        doEntry.doPositions.forEach(function (dp) { doRow(dp.label, dp.pos, false); });
+        fbGroups.push({ tag: 'la', color: '#ec835a', positions: laEntry.doPositions });
+        fbGroups.push({ tag: 'do', color: '#3987e5', positions: doEntry.doPositions });
+      }
+      drawFretboard(fbGroups);
+
+      // 怎么弹（问题3）：只推荐 C / G 调简化指法 + 变调夹，不再出现 E 调等复杂指法
+      var pb = $('playBox');
+      if (capoRec.capo === 0) {
+        pb.innerHTML = '直接弹 <span class="capo">' + capoRec.shape + ' 调开放和弦</span>（新手推荐，不夹变调夹）';
+      } else {
+        pb.innerHTML = '<span class="capo">变调夹夹 ' + capoRec.capo + ' 品</span> + <span class="capo">' + capoRec.shape + ' 调指法</span>（新手推荐）';
+      }
+      pb.innerHTML += '<div class="play-shape">手型：' + SHAPE_CHORDS[capoRec.shape].join(' · ') + '</div>';
+      var alt = '';
+      if (dmode === 'major') {
+        alt = '新手只用 ' + capoRec.shape + ' 调开放和弦，夹上变调夹就是 ' + NOTE_NAMES[droot] + ' 大调，不用记复杂指法。备选：' + capoRec.altShape + ' 调指法夹 ' + capoRec.altCapo + ' 品' + (capoRec.altCapo > 5 ? '（夹得较高，不推荐）' : '') + '。';
+      } else {
+        alt = '小调以主音为 la：' + NOTE_NAMES[droot] + ' 小调的关系大调是 ' + NOTE_NAMES[(droot + 3) % 12] + ' 大调。弹 ' + capoRec.shape + ' 调指法 + 变调夹夹 ' + capoRec.capo + ' 品即可，和弦与关系大调通用。备选：' + capoRec.altShape + ' 调指法夹 ' + capoRec.altCapo + ' 品' + (capoRec.altCapo > 5 ? '（夹得较高，不推荐）' : '') + '。';
       }
       $('playAlt').textContent = alt;
 
-      var cl = $('chordList'); cl.innerHTML = '';
-      entry.commonChords.forEach(function (ch) {
-        var chip = document.createElement('div');
-        chip.className = 'chord-chip' + (ch.indexOf('属和弦') === 0 ? ' dom' : '');
-        chip.textContent = ch;
-        cl.appendChild(chip);
-      });
-      $('chordTip').innerHTML = '<b>' + entry.key + '</b>：' + entry.note + '<br>主和弦是 <b>' + entry.commonChords[0] + '</b>（主音和弦），配上 <b>' + entry.commonChords[4] + '</b>（属和弦）就有终止感，最常一起用。';
+      // 常用和弦走向（问题4）：替换原来的孤立和弦展示
+      renderChordProgressions(dmode, droot);
+      // 常用节奏型（问题3）
+      renderRhythms(dmode, droot);
 
       cards.classList.add('show');
       setStatus('');
+
+      // 音色切换条（结果出现后显示，切换尼龙/钢弦/钢琴采样）
+      $('timbreBar').style.display = 'flex';
+      var toneWarn = $('timbreBar').querySelector('.tone-warn');
+      if (toneLoadFailed) {
+        if (!toneWarn) { toneWarn = document.createElement('span'); toneWarn.className = 'tone-warn'; $('timbreBar').appendChild(toneWarn); }
+        toneWarn.textContent = '⚠ 采样加载失败，用简易音色（检查网络）';
+      } else if (toneWarn) { toneWarn.remove(); }
 
       // 激活变调夹换算
       $('capoCard').style.display = 'block';
@@ -1365,7 +1595,6 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ---------- 变调夹换算 ---------- */
   var KEY_PCS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  var SHAPE_CHORDS = { C: ['C', 'Dm', 'Em', 'F', 'G', 'Am'], G: ['G', 'Am', 'Bm', 'C', 'D', 'Em'] };
   function populateCapoSelects() {
     var src = $('capoSrcSel'), dst = $('capoDstSel');
     var opts = KEY_PCS.map(function (k, i) { return '<option value="' + i + '">' + k + '大调</option>'; }).join('');
@@ -1386,7 +1615,6 @@ window.addEventListener('unhandledrejection', function (e) {
       var diff = dstPc - srcPc; if (diff < -6) diff += 12; if (diff > 6) diff -= 12;
       var cCapo = (dstPc + 12) % 12;      // 用 C 调指法夹几品
       var gCapo = (dstPc - 7 + 12) % 12;  // 用 G 调指法夹几品
-      var dstEntry = window.GuitarMap.MAJOR[dstPc];
       var dir = diff === 0 ? '和原曲一样' : (diff < 0 ? '比原曲低 ' + Math.abs(diff) + ' 个半音' : '比原曲高 ' + diff + ' 个半音');
       var html = '<div class="capo-opt"><span class="lab">你想唱 <b>' + KEY_PCS[dstPc] + '大调</b>（' + dir + '）</span></div>';
       var reco = (cCapo <= gCapo) ? 'c' : 'g';
@@ -1402,12 +1630,6 @@ window.addEventListener('unhandledrejection', function (e) {
       }
       html += block('c', '用 C 调指法', cCapo, SHAPE_CHORDS.C);
       html += block('g', '用 G 调指法', gCapo, SHAPE_CHORDS.G);
-      var own = dstEntry.playLike;
-      if (own.open) {
-        html += '<div class="capo-opt"><div class="lab">直接用 ' + dstEntry.key + ' 的开放和弦</div><div class="chs">' + own.label + '</div></div>';
-      } else {
-        html += '<div class="capo-opt"><div class="lab">进阶：' + dstEntry.key + ' 本身</div><div class="chs">' + own.label + '，变调夹夹 ' + own.capo + ' 品（' + dstEntry.note + '）</div></div>';
-      }
       $('capoResult').innerHTML = html;
     } catch (e) {
       console.error('renderCapo 出错:', e);
@@ -1417,15 +1639,17 @@ window.addEventListener('unhandledrejection', function (e) {
 
   function scaleDegreeIndexes(notes, tonicPc, mode) {
     var scaleSems = mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
+    // 唱名：大调级数 0 = do；小调级数 0 = la（小调主音是 la，不是 do）
+    var solfege = mode === 'major' ? ['do', 're', 'mi', 'fa', 'sol', 'la', 'si'] : ['la', 'si', 'do', 're', 'mi', 'fa', 'sol'];
     return notes.map(function (n) {
       var midi = Math.round(n.midi);
-      var diff = ((midi % 12 + 12) - tonicPc) % 12;
+      var diff = (((midi % 12) + 12) - tonicPc) % 12;
       var bestI = 0, bestD = 99;
       for (var i = 0; i < 7; i++) {
         var dd = Math.abs(scaleSems[i] - diff); if (dd > 6) dd = 12 - dd;
         if (dd < bestD) { bestD = dd; bestI = i; }
       }
-      return { sj: SOLFEGE[bestI] };
+      return { sj: solfege[bestI] };
     });
   }
 
@@ -1439,17 +1663,19 @@ window.addEventListener('unhandledrejection', function (e) {
     var tonicMid = Math.round((center - rootPC) / 12) * 12 + rootPC;
     if (tonicMid - center > 6) tonicMid -= 12;
     else if (tonicMid - center < -6) tonicMid += 12;
+    // 八度基准：大调以 do(主音) 为界；小调主音是 la，do 在 la 下方 9 个半音（同八度）
+    var octBase = mode === 'major' ? tonicMid : tonicMid - 9;
     return notes.map(function (n) {
       var midi = Math.round(n.midi);
-      var diff = ((midi % 12) - (tonicMid % 12) + 12) % 12;
+      var diff = (((midi % 12) - (tonicMid % 12)) + 12) % 12;
       var bestDeg = 0, bestDist = 99;
       for (var i = 0; i < 7; i++) {
         var d = Math.abs(scale[i] - diff); if (d > 6) d = 12 - d;
         if (d < bestDist) { bestDist = d; bestDeg = i; }
       }
       var num = deg[bestDeg];
-      var oct = Math.floor((midi - tonicMid) / 12);
-      return { num: num, oct: oct };
+      var oct = Math.floor((midi - octBase) / 12);
+      return { num: num, oct: oct, midi: midi };
     });
   }
   function renderJianpu(notes, rootPC, mode) {
@@ -1457,27 +1683,33 @@ window.addEventListener('unhandledrejection', function (e) {
     if (!notes || notes.length < 2) { box.style.display = 'none'; return; }
     var jp = buildJianpu(notes, rootPC, mode);
     var line = $('jianpuLine'); line.innerHTML = '';
-    var tones = mode === 'major' ? ['1', '2', '3', '4', '5', '6', '7'] : ['6', '7', '1', '2', '3', '4', '5'];
     jp.forEach(function (j) {
       var el = document.createElement('span');
       el.className = 'jp';
+      el.title = midiName(j.midi) + ' · 点按试听';
       var hi = '', lo = '';
       if (j.oct > 0) hi = '<span class="hi-dot">' + '·'.repeat(j.oct) + '</span>';
       if (j.oct < 0) lo = '<span class="lo-dot">' + '·'.repeat(-j.oct) + '</span>';
-      el.innerHTML = hi + tones[j.num - 1] + lo;
+      // j.num 已是唱名数字：大调 1=do；小调 6=la（不再用 tones 数组二次映射）
+      el.innerHTML = hi + String(j.num) + lo;
+      // 点击任意简谱符号 → 播放对应音高，验证准确性（问题2）
+      (function (midi) {
+        el.addEventListener('click', function (e) { e.stopPropagation(); playTone(midi, 0.45); });
+      })(j.midi);
       line.appendChild(el);
     });
-    // 简谱：大调 do=1，小调 la=6。标注"do 在 X 音名"（与调名一致）
-    var doPc = mode === 'major' ? rootPC : (rootPC + 3) % 12;
-    $('jianpuTag').textContent = 'do = ' + window.GuitarMap.midiName(60 + doPc).replace(/\d+$/, '');
-    // 音名信息
-    var info = '每个音：';
-    notes.forEach(function (n) { info += midiName(Math.round(n.midi)) + ' '; });
-    $('jianpuNoteInfo').textContent = info.trim();
+    // 简谱记谱规则标注：大调 do=主音；小调 la=主音，do=关系大调
+    if (mode === 'major') {
+      $('jianpuTag').textContent = 'do = ' + NOTE_NAMES[rootPC] + ' · 简谱 1 = ' + NOTE_NAMES[rootPC];
+    } else {
+      var doPc = (rootPC + 3) % 12;
+      $('jianpuTag').textContent = 'la = ' + NOTE_NAMES[rootPC] + ' · do = ' + NOTE_NAMES[doPc] + '（6 = ' + NOTE_NAMES[rootPC] + '，1 = ' + NOTE_NAMES[doPc] + '）';
+    }
+    $('jianpuNoteInfo').textContent = notes.length + ' 个音 · 点任意数字可试听对应音高';
     box.style.display = 'block';
   }
 
-  function drawFretboard(doPositions) {
+  function drawFretboard(groups) {
     var svg = $('fretboard');
     var W = 340, H = 200, L = 44, R = 12, T = 24, B = 30;
     var frets = 12, nStr = 6;
@@ -1495,44 +1727,404 @@ window.addEventListener('unhandledrejection', function (e) {
     [[3,5],[5,7],[7,9],[9,12]].forEach(function (p) {
       s += '<circle cx="' + (L + p[0] * sw - sw / 2) + '" cy="' + (T + gap * 2.5) + '" r="4" fill="rgba(255,255,255,0.10)"/>';
     });
-    doPositions.forEach(function (dp) {
-      var m = dp.pos.match(/(\d)弦(空弦|(\d+)品)/);
-      if (!m) return;
-      var strN = parseInt(m[1], 10);
-      var fret = m[2] === '空弦' ? 0 : parseInt(m[3], 10);
-      if (fret > frets) return;
-      var y = T + (nStr - strN) * gap;
-      var x = L + fret * sw + sw / 2;
-      s += '<circle cx="' + x + '" cy="' + y + '" r="9" fill="#3987e5" stroke="#fff" stroke-width="1.5"/>';
-      s += '<text x="' + x + '" y="' + (y + 3) + '" fill="#fff" font-size="8.5" text-anchor="middle" font-weight="700">do</text>';
+    (groups || []).forEach(function (g) {
+      g.positions.forEach(function (dp) {
+        var m = dp.pos.match(/(\d)弦(空弦|(\d+)品)/);
+        if (!m) return;
+        var strN = parseInt(m[1], 10);
+        var fret = m[2] === '空弦' ? 0 : parseInt(m[3], 10);
+        if (fret > frets) return;
+        var yy = T + (nStr - strN) * gap;
+        var xx = L + fret * sw + sw / 2;
+        s += '<circle cx="' + xx + '" cy="' + yy + '" r="9" fill="' + g.color + '" stroke="#fff" stroke-width="1.5"/>';
+        s += '<text x="' + xx + '" y="' + (yy + 3) + '" fill="#fff" font-size="8.5" text-anchor="middle" font-weight="700">' + g.tag + '</text>';
+      });
     });
     svg.innerHTML = s;
   }
 
+  /* ---------- 播放引擎（Tone.js 真实采样优先，回退 oscillator） ---------- */
+  var TONE_CDN = 'https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js';
+  var ESSENTIA_CORE_CDN = 'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js';
+  var ESSENTIA_WASM_CDN = 'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.web.js';
+  var SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
+  var FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  var TIMBRES = {
+    nylon: { label: '尼龙弦', folder: 'acoustic_guitar_nylon' },
+    steel: { label: '钢弦', folder: 'acoustic_guitar_steel' },
+    piano: { label: '钢琴', folder: 'acoustic_grand_piano' }
+  };
+  var currentTimbre = 'nylon';
+  var toneLibLoaded = false;
+  var toneSampler = null;
+  var toneInit = null;
+  var toneStarted = false;
+  var toneLoadFailed = false;
+  var essentiaObj = null;
+  var essentiaInit = null;
+
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = res; s.onerror = function () { rej(new Error('加载失败 ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+  function midiToFlatName(m) { return FLAT_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); }
+
+  // Tone.js 懒加载：加载后构建默认音色采样器
+  function initTone() {
+    if (toneInit) return toneInit;
+    toneInit = loadScript(TONE_CDN).then(function () {
+      if (!window.Tone) throw new Error('Tone 未加载');
+      toneLibLoaded = true;
+      buildToneSampler(currentTimbre);
+    }).catch(function () { /* 静默回退 oscillator */ });
+    return toneInit;
+  }
+  // Essentia.js 懒加载：KeyExtractor / ChordsDescriptors 跨校验用
+  function initEssentia() {
+    if (essentiaInit) return essentiaInit;
+    essentiaInit = Promise.all([loadScript(ESSENTIA_CORE_CDN), loadScript(ESSENTIA_WASM_CDN)]).then(function () {
+      if (typeof EssentiaWASM !== 'function') throw new Error('essentia 未加载');
+      return EssentiaWASM({}).then(function (mod) {
+        essentiaObj = new Essentia(mod);
+        return essentiaObj;
+      });
+    }).catch(function () { /* 静默：用原生 K-S 定调 */ });
+    return essentiaInit;
+  }
+  // Essentia 的 key_key 用升号记法（A#/C#/D#/F#/G#），转成 rootPC + mode
+  function essentiaKeyToPC(keyName, scale) {
+    var SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    var idx = SHARP.indexOf(keyName);
+    if (idx < 0) return null;
+    return { rootPC: idx, mode: (scale === 'minor' ? 'minor' : 'major') };
+  }
+  // Essentia KeyExtractor：业界验证的基线调性（内部 HPCP 和弦感知，跨校验用）
+  function essentiaKeyDetect() {
+    if (!essentiaObj || !state.recordedPcm || state.recordedPcm.length < 8000) return null;
+    try {
+      var sr = state.recordedSr || 44100;
+      var r = essentiaObj.KeyExtractor(
+        state.recordedPcm, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined, sr
+      );
+      if (!r || !r.key_key) return null;
+      var pc = essentiaKeyToPC(r.key_key, r.key_scale);
+      if (!pc) return null;
+      pc.strength = r.key_strength;
+      return pc;
+    } catch (e) { return null; }
+  }
+
+  function buildToneSampler(timbre) {
+    if (toneSampler) { try { toneSampler.dispose(); } catch (e) {} toneSampler = null; }
+    if (!toneLibLoaded || !window.Tone) return;
+    var inst = TIMBRES[timbre];
+    var urls = {};
+    for (var m = 48; m <= 84; m++) { var n = midiToFlatName(m); urls[n] = n + '.mp3'; }
+    try {
+      var s = new Tone.Sampler({
+        urls: urls,
+        baseUrl: SAMPLE_BASE + inst.folder + '-mp3/',
+        attack: 0.002, release: 1.4, volume: -6,
+        onload: function () { if (currentTimbre === timbre) { toneSampler = s; toneLoadFailed = false; } },
+        onerror: function () { if (currentTimbre === timbre) { toneSampler = null; toneLoadFailed = true; } }
+      });
+      s.toDestination();
+      toneSampler = s;
+    } catch (e) { toneSampler = null; toneLoadFailed = true; }
+  }
+  function toneSamplerReady() { return !!(toneSampler && toneSampler.loaded); }
+  function ensureToneStarted() { if (!toneStarted) { try { Tone.start(); toneStarted = true; } catch (e) {} } }
+  function setTimbre(timbre) {
+    if (!TIMBRES[timbre]) return;
+    currentTimbre = timbre;
+    if (toneLibLoaded) buildToneSampler(timbre);
+    document.querySelectorAll('.timbre-btn').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.timbre === timbre);
+    });
+  }
+
+  var playCtx = null;
+  function getPlayCtx() {
+    if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (playCtx.state === 'suspended') playCtx.resume();
+    return playCtx;
+  }
+  var activeOscs = [];
+  function toneOsc(midi, when, dur, vol) {
+    try {
+      var ctx = getPlayCtx();
+      var osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(vol || 0.25, when + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(when); osc.stop(when + dur + 0.03);
+      activeOscs.push(osc);
+      osc.onended = function () { var i = activeOscs.indexOf(osc); if (i >= 0) activeOscs.splice(i, 1); };
+    } catch (e) {}
+  }
+  // 统一发声入口：offset 相对当前时刻（秒）。优先真实采样，回退 oscillator。
+  function playNote(midi, offset, dur, vol) {
+    if (toneSamplerReady()) {
+      try {
+        ensureToneStarted();
+        toneSampler.triggerAttackRelease(midi, Math.max(0.08, dur), Tone.now() + offset, vol || 0.8);
+        return;
+      } catch (e) {}
+    }
+    toneOsc(midi, getPlayCtx().currentTime + offset, dur, vol || 0.25);
+  }
+  function stopAllTones() {
+    activeOscs.slice().forEach(function (o) { try { o.stop(); } catch (e) {} });
+    activeOscs = [];
+    if (toneSampler) { try { toneSampler.releaseAll(); } catch (e) {} }
+    if (playbackSource) { try { playbackSource.stop(); } catch (e) {} playbackSource = null; }
+  }
+  // 微小时值偏移：模拟真人弹奏，不机械（±maxSec 秒内随机）
+  function humanize(maxSec) { return (Math.random() * 2 - 1) * (maxSec || 0.01); }
+  // 按音高调力度：低音略重、高音略轻（模拟哼唱呼吸感）
+  function velByPitch(midi, base) {
+    return Math.max(0.55, Math.min(0.92, (base || 0.82) - (midi - 60) * 0.006));
+  }
+  function playTone(midi, dur) { stopAllTones(); playNote(midi, 0.03, dur, velByPitch(midi, 0.8)); }
+  function strumChord(voicing, offset, gap, vel) {
+    var strs = [6, 5, 4, 3, 2, 1], k = 0;
+    for (var i = 0; i < 6; i++) {
+      var m = voicing[strs[i]];
+      if (m == null) continue;
+      // 下扫自然强弱：低音弦略重、高音弦略轻
+      playNote(m, offset + k * gap + humanize(0.006), 0.2, (vel || 0.7) * (1 - k * 0.06));
+      k++;
+    }
+  }
+
+  /* ---------- 常用节奏型（问题3）：5323/5321/4321/根音+扫弦，可试听 ---------- */
+  function renderRhythms(dmode, droot) {
+    var rec = recommendFingering(dmode, droot);
+    var list = $('rhythmList'); list.innerHTML = '';
+    RHYTHM_PATTERNS.forEach(function (p) {
+      var item = document.createElement('div');
+      item.className = 'rhythm-item';
+      var tab = p.type === 'strum' ? '根+扫' : p.strings.join('');
+      item.innerHTML = '<button class="rhythm-play" aria-label="试听 ' + p.name + '">▶</button>' +
+        '<div class="rhythm-info"><div class="rhythm-name">' + p.name + '<span class="tag">' + p.tag + '</span></div>' +
+        '<div class="rhythm-desc">' + p.desc + '</div></div>' +
+        '<div class="rhythm-tab">' + tab + '</div>';
+      var btn = item.querySelector('.rhythm-play');
+      btn.addEventListener('click', function () {
+        var wasPlaying = btn.classList.contains('playing');
+        stopAllTones();
+        list.querySelectorAll('.rhythm-play').forEach(function (b) { b.classList.remove('playing'); b.textContent = '▶'; });
+        if (!wasPlaying) {
+          btn.classList.add('playing'); btn.textContent = '■';
+          var dur = playRhythm(p, rec.shape);
+          setTimeout(function () { if (btn.classList.contains('playing')) { btn.classList.remove('playing'); btn.textContent = '▶'; } }, dur);
+        }
+      });
+      list.appendChild(item);
+    });
+  }
+  function playRhythm(p, shapeName) {
+    stopAllTones();
+    var voicing = SHAPE_VOICING[shapeName];
+    var eighth = 0.24, t = 0.05, bars = 2;
+    if (p.type === 'strum') {
+      var rootString = shapeName === 'C' ? 5 : 6;
+      for (var bar = 0; bar < bars; bar++) {
+        playNote(voicing[rootString], t, eighth * 2, 0.92);                     // 根音：重
+        strumChord(voicing, t + eighth * 2 + humanize(0.012), 0.04, 0.55);      // 扫弦：轻
+        t += eighth * 4;
+      }
+    } else {
+      for (var bar2 = 0; bar2 < bars; bar2++) {
+        for (var i = 0; i < p.strings.length; i++) {
+          var m = voicing[p.strings[i]];
+          if (m == null) { t += eighth; continue; }
+          // 4/4 强弱次强弱：每小节第 1 拍最重；根音重、分解音轻
+          var isDownbeat = (i % 4 === 0);
+          var vel = isDownbeat ? 0.86 : (i % 2 === 0 ? 0.68 : 0.56);
+          playNote(m, t + humanize(0.008), eighth * 0.9, vel);
+          t += eighth;
+        }
+      }
+    }
+    return Math.round(t * 1000) + 300;
+  }
+
+  /* ---------- 常用和弦走向（问题4）：指法图 + 滑动 + 风格 + 试听 ---------- */
+  function recommendFingering(dmode, droot) {
+    // 变调夹只与主音音高有关：大调主音=根音；小调用关系大调（同一套和弦）
+    var target = dmode === 'major' ? droot : (droot + 3) % 12;
+    var cCapo = target;             // C 调指法夹几品（C→target）
+    var gCapo = (target + 5) % 12;  // G 调指法夹几品（G=7 → target 的半音数）
+    var shape, capo, altShape, altCapo;
+    if (cCapo <= gCapo) { shape = 'C'; capo = cCapo; altShape = 'G'; altCapo = gCapo; }
+    else { shape = 'G'; capo = gCapo; altShape = 'C'; altCapo = cCapo; }
+    return { shape: shape, capo: capo, altShape: altShape, altCapo: altCapo, target: target, highCapo: capo > 5 };
+  }
+  function chordName(rootPC, quality) {
+    var base = CHORD_ROOTS[((rootPC % 12) + 12) % 12];
+    if (quality === 'minor') return base + 'm';
+    if (quality === 'dim') return base + 'dim';
+    return base;
+  }
+  function chordDiagramSVG(shape) {
+    var W = 110, H = 150, L = 26, R = 14, T = 34, B = 16;
+    var sw = (W - L - R) / 5, fw = (H - T - B) / 5;
+    var s = [];
+    for (var i = 0; i < 6; i++) {
+      var x = L + i * sw;
+      s.push('<line x1="' + x + '" y1="' + T + '" x2="' + x + '" y2="' + (T + fw * 5) + '" stroke="rgba(255,255,255,0.4)" stroke-width="' + (0.6 + i * 0.12) + '"/>');
+    }
+    for (var f = 0; f <= 5; f++) {
+      var y = T + f * fw;
+      s.push('<line x1="' + L + '" y1="' + y + '" x2="' + (W - R) + '" y2="' + y + '" stroke="rgba(255,255,255,0.16)" stroke-width="' + (f === 0 ? 3 : 1.2) + '"/>');
+    }
+    for (var i2 = 0; i2 < 6; i2++) {
+      var x2 = L + i2 * sw;
+      var fv = shape.frets[i2];
+      if (fv === null || fv === undefined) s.push('<text x="' + x2 + '" y="' + (T - 12) + '" fill="#8a919e" font-size="13" text-anchor="middle">×</text>');
+      else if (fv === 0) s.push('<text x="' + x2 + '" y="' + (T - 12) + '" fill="#8a919e" font-size="13" text-anchor="middle">○</text>');
+    }
+    if (shape.barre) {
+      var lo = 99, hi = -1;
+      for (var i3 = 0; i3 < 6; i3++) { if (shape.frets[i3] === shape.barre) { if (i3 < lo) lo = i3; if (i3 > hi) hi = i3; } }
+      if (lo <= hi) {
+        var bx = L + lo * sw - 4, bxx = L + hi * sw + 4;
+        var by = T + (shape.barre - 0.5) * fw;
+        s.push('<rect x="' + bx + '" y="' + (by - 3.5) + '" width="' + (bxx - bx) + '" height="7" rx="3.5" fill="#7ec1ff"/>');
+      }
+    }
+    for (var i4 = 0; i4 < 6; i4++) {
+      var f4 = shape.frets[i4];
+      if (f4 && f4 > 0 && f4 !== shape.barre) {
+        var x4 = L + i4 * sw;
+        var y4 = T + (f4 - 0.5) * fw;
+        s.push('<circle cx="' + x4 + '" cy="' + y4 + '" r="5.5" fill="#7ec1ff"/>');
+      }
+    }
+    return '<svg class="chord-diagram" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">' + s.join('') + '</svg>';
+  }
+  function renderChordProgressions(dmode, droot) {
+    var rec = recommendFingering(dmode, droot);
+    var relMajorPc = rec.target;
+    var shapeSet = SHAPE_CHORDS[rec.shape];
+    var list = PROGRESSIONS[dmode];
+    var scroll = $('progScroll'), dots = $('progDots');
+    scroll.innerHTML = ''; dots.innerHTML = '';
+    list.forEach(function (prog, pi) {
+      var slide = document.createElement('div');
+      slide.className = 'prog-slide';
+      var head = '<div class="prog-head"><span class="prog-deg">' + prog.label + '</span><span class="prog-style">' + prog.style + '</span></div>';
+      var chordsHtml = '';
+      prog.degrees.forEach(function (deg, di) {
+        var root = (relMajorPc + MAJOR_SEMS[deg - 1]) % 12;
+        var actualName = chordName(root, MAJOR_QUAL[deg - 1]);
+        var shapeName = shapeSet[deg - 1];
+        if (di > 0) chordsHtml += '<span class="prog-arrow">→</span>';
+        chordsHtml += '<div class="prog-chord"><span class="pc-name">' + actualName + '</span>' +
+          chordDiagramSVG(CHORD_SHAPES[shapeName]) +
+          '<span class="pc-shape">' + shapeName + '</span></div>';
+      });
+      slide.innerHTML = head + '<div class="prog-chords">' + chordsHtml + '</div>' +
+        '<button class="btn prog-try">▶ 试听走向</button>';
+      scroll.appendChild(slide);
+      var dot = document.createElement('span');
+      dot.className = 'dot' + (pi === 0 ? ' on' : '');
+      dots.appendChild(dot);
+    });
+    scroll.querySelectorAll('.prog-try').forEach(function (btn, pi) {
+      btn.addEventListener('click', function () { playProgression(list[pi], relMajorPc); });
+    });
+    scroll.addEventListener('scroll', function () {
+      var idx = Math.round(scroll.scrollLeft / Math.max(1, scroll.clientWidth * 0.92));
+      if (idx < 0) idx = 0; if (idx >= list.length) idx = list.length - 1;
+      dots.querySelectorAll('.dot').forEach(function (d, di) { d.className = 'dot' + (di === idx ? ' on' : ''); });
+    });
+    var capoNote = rec.capo > 0 ? '（现在用 ' + rec.shape + ' 调指法夹 ' + rec.capo + ' 品，照手型按即可）' : '（直接弹 ' + rec.shape + ' 调开放和弦）';
+    $('progTip').innerHTML = '左右滑动切换走向。把第 1 个和弦当「家」来回循环，就是一首歌的骨架。' + capoNote;
+  }
+  function playProgression(prog, relMajorPc) {
+    stopAllTones();
+    var t = 0.05, cd = 0.85;
+    prog.degrees.forEach(function (deg) {
+      var root = (relMajorPc + MAJOR_SEMS[deg - 1]) % 12;
+      var quality = MAJOR_QUAL[deg - 1];
+      var sems3 = quality === 'minor' ? [0, 3, 7] : [0, 4, 7];
+      var base = 48 + root;
+      playNote(base, t, cd * 0.6, 0.8);
+      playNote(base + sems3[1], t + cd * 0.25, cd * 0.4, 0.7);
+      playNote(base + sems3[2], t + cd * 0.45, cd * 0.4, 0.7);
+      t += cd;
+    });
+  }
+
   /* ---------- 事件 ---------- */
-  micBtn.addEventListener('pointerdown', startRecording);
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
-    micBtn.addEventListener(ev, function () { if (state.recording) stopRecording(); });
-  });
+  // 问题6：移动端用 touchstart + mousedown 双触发，手指按下立即开始录音；
+  // 不再用 pointer 事件（部分老 iOS/安卓 WebView 不派发 pointerdown，导致"点不动"）。
+  function pressStart(e) {
+    if (e.cancelable) e.preventDefault(); // 干掉 300ms 延迟与合成 click，避免点按穿透
+    state.pressing = true;
+    startRecording();
+  }
+  function pressEnd(e) {
+    if (e.cancelable) e.preventDefault();
+    state.pressing = false;
+    if (state.recording) stopRecording();
+  }
+  micBtn.addEventListener('touchstart', pressStart, { passive: false });
+  micBtn.addEventListener('mousedown', pressStart);
+  micBtn.addEventListener('touchend', pressEnd, { passive: false });
+  micBtn.addEventListener('touchcancel', pressEnd);
+  micBtn.addEventListener('mouseup', pressEnd);
+  micBtn.addEventListener('mouseleave', function () { state.pressing = false; if (state.recording) stopRecording(); });
+  micBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); }); // 长按不弹菜单
   document.addEventListener('keydown', function (e) {
-    if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); if (state.recording) stopRecording(); else startRecording(); }
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      if (state.recording) { state.pressing = false; stopRecording(); }
+      else { state.pressing = true; startRecording(); }
+    }
   });
   function resetSession() {
-    // 换歌/重唱：清空跨次累加池 + 关系调切换状态，避免上次记忆污染
-    state.accNotes = []; state.takeCount = 0; state.recordedPcm = null;
-    useRelKey = false;
-    cards.classList.remove('show'); $('capoCard').style.display = 'none'; setStatus('');
+    // 再测一次：清空跨次累加池 + 关系调切换状态 + 回放数据，不保留任何残留
+    state.accNotes = []; state.takeCount = 0; state.recordedPcm = null; state.curNotes = null;
+    recordedNotes = null; lastKeyResult = null; useRelKey = false;
+    stopAllTones();
+    cards.classList.remove('show');
+    $('capoCard').style.display = 'none';
+    $('jianpuBox').style.display = 'none';
+    $('hearSelfBtn').style.display = 'none';
+    $('singBtn').style.display = 'none';
+    $('timbreBar').style.display = 'none';
+    errBox.innerHTML = '';
+    liveNote.textContent = '—'; liveCents.textContent = ''; liveStamp.textContent = '按着按钮开始唱';
+    setStatus('');
+    try { window.scrollTo(0, 0); } catch (e) {}
   }
   $('againBtn').addEventListener('click', resetSession);
-  $('newSongBtn').addEventListener('click', resetSession);
   $('capoSrcSel').addEventListener('change', renderCapo);
   $('capoDstSel').addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
   $('singBtn').addEventListener('click', speakSolfege);
   $('hearSelfBtn').addEventListener('click', playSelfRecording);
 
+  // 音色切换（问题1）
+  document.querySelectorAll('.timbre-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { setTimbre(btn.dataset.timbre); });
+  });
+
+  // 页面加载后后台懒加载 Tone.js（真实采样）+ Essentia.js（定调跨校验），失败静默回退
+  try { initTone(); initEssentia(); } catch (e) {}
+
   /* ---------- 唱名跟读（TTS，仅"念名字"，旋律听感靠 oscillator） ---------- */
-  var SOLFEGE_ZH = ['哆', '来', '咪', '发', '索', '拉', '西'];
   var ttsVoicesReady = false;
   if (window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = function () { ttsVoicesReady = true; };
@@ -1561,7 +2153,8 @@ window.addEventListener('unhandledrejection', function (e) {
   function playSelfRecording() {
     try {
       if (!state.recordedPcm) return;
-      var ctx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      stopAllTones();
+      var ctx = getPlayCtx();
       if (ctx.state === 'suspended') ctx.resume();
       if (playbackSource) { try { playbackSource.stop(); } catch (e) {} playbackSource = null; }
       var buf = ctx.createBuffer(1, state.recordedPcm.length, state.recordedSr);
@@ -1577,26 +2170,22 @@ window.addEventListener('unhandledrejection', function (e) {
 
   function replayMelody() {
     if (!recordedNotes || !lastKeyResult) return;
-    var ctx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
-    var t = ctx.currentTime + 0.05;
+    stopAllTones();
+    var t = 0.05;
     recordedNotes.forEach(function (n, idx) {
-      var osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = 440 * Math.pow(2, (Math.round(n.midi) - 69) / 12);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.25, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.12, n.dur));
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(t); osc.stop(t + Math.max(0.12, n.dur) + 0.05);
+      var midi = Math.round(n.midi);
+      var dur = Math.max(0.12, n.dur);
+      // 连奏感：加长 release 让尾音搭到下一音；力度随音高（低重高轻）
+      playNote(midi, t, dur + 0.18, velByPitch(midi, 0.8));
       // 简谱字幕高亮：音符响起时高亮对应的 .jp 数字
-      (function (i) {
+      (function (i, delay) {
         setTimeout(function () {
           var els = $('jianpuLine').querySelectorAll('.jp');
           for (var e = 0; e < els.length; e++) els[e].classList.remove('hl');
           if (els[i]) els[i].classList.add('hl');
-        }, Math.max(0, (t - ctx.currentTime) * 1000));
-      })(idx);
-      t += Math.max(0.18, n.dur) + 0.06;
+        }, delay);
+      })(idx, Math.round(t * 1000));
+      t += Math.max(0.16, n.dur) + 0.04;
     });
   }
 

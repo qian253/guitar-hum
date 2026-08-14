@@ -49,6 +49,19 @@ const GuitarMap = require(path.join(ROOT, 'guitar-map.js')).GuitarMap;
   }
 }
 
+// 八度误差修正：孤立 ±12 尖峰被拉回，正常旋律不动
+{
+  const mk = (m, dur) => ({ midi: m, dur: dur || 0.3 });
+  // 中间音 71(=59+12) 是孤立八度尖峰 → 应修回 59
+  const fixed = DSP.fixOctaveErrors([mk(59), mk(71), mk(60)]);
+  ok('孤立八度尖峰被修正', fixed[1].midi === 59, 'got ' + fixed[1].midi);
+  // 正常旋律不动：62→64 不是八度跳变
+  const normal = DSP.fixOctaveErrors([mk(62), mk(64), mk(66)]);
+  ok('正常旋律不被误改', normal[1].midi === 64, 'got ' + normal[1].midi);
+  // 少于 3 音直接返回
+  ok('短序列原样返回', DSP.fixOctaveErrors([mk(60), mk(72)]).length === 2);
+}
+
 // 定调：D 大调旋律（时长为权重）
 {
   const notes = [62, 66, 67, 69, 71, 69, 67, 66, 62].map(midi => ({ midi, dur: 0.4 }));
