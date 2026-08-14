@@ -1800,9 +1800,7 @@ window.addEventListener('unhandledrejection', function (e) {
           '<span class="tm-note">小调以主音为 <b>la（6）</b>：简谱 <b>6 = ' + NOTE_NAMES[droot] + '</b>，<b>1 = ' + NOTE_NAMES[relMajPc] + '</b>（' + NOTE_NAMES[relMajPc] + ' 大调是它的关系大调）。</span>';
       }
 
-      // 关系调提示：改为显示裁判判定依据（确定结果，不再给"也可能是"的模糊暗示）
-      var rh = $('relHint');
-      // 判据链：多级裁判证据 + Essentia 基线跨校验 + 动态阈值提示
+      // 判据链：多级裁判证据 + Essentia 基线跨校验 + 动态阈值提示（「也可能是」的备选调在 altHint 展示）
       var rh = $('relHint');
       var evParts = [];
       if (key.judge && key.judge.evidence && key.judge.evidence.length) {
