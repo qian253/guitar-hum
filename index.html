@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.3 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.10.4 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.10.3', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.10.4', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2290,7 +2290,13 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     toneOsc(midi, getPlayCtx().currentTime + offset, dur, vol || 0.65);
   }
+  var melodyTimers = []; // 旋律回放待触发的定时器（停止时全部取消，防新旧回放叠加）
+  function clearMelodyTimers() {
+    for (var mti = 0; mti < melodyTimers.length; mti++) clearTimeout(melodyTimers[mti]);
+    melodyTimers = [];
+  }
   function stopAllTones() {
+    clearMelodyTimers();
     activeOscs.slice().forEach(function (o) { try { o.stop(); } catch (e) {} });
     activeOscs = [];
     if (toneSampler) { try { toneSampler.releaseAll(); } catch (e) {} }
@@ -2719,8 +2725,10 @@ window.addEventListener('unhandledrejection', function (e) {
     await ensureAudioStarted();
     await waitSampler(2000);
     // 按哼唱的真实节奏高还原演奏：
-    //   起音时间/时值取转录的 start/end（不再等速念谱）；
-    //   音高用浮点 midi 保留音分偏移；力度跟随哼唱响度（basic-pitch 振幅）。
+    //   起音时间/时值取转录的 start/end；音高用浮点 midi 保留音分偏移；
+    //   力度跟随哼唱响度（basic-pitch 振幅归一化）。
+    //   逐音用 setTimeout 在真实起音时刻触发（每次只调度 ~20ms 后发声）——
+    //   不把整段一次性预调度到几秒之后，避免预调度被静默导致「只听到最后一个音」。
     var notes = recordedNotes;
     var maxAmp = 0, hasAmp = false;
     for (var ai = 0; ai < notes.length; ai++) {
@@ -2728,36 +2736,40 @@ window.addEventListener('unhandledrejection', function (e) {
       if (av > 0) { hasAmp = true; if (av > maxAmp) maxAmp = av; }
     }
     var t0 = notes[0].start || 0;
-    var t = 0.06; // 起播小延迟
-    var totalMs = 0;
-    notes.forEach(function (n, idx) {
-      var midi = n.midi; // 不四舍五入，保留 YIN 的音分偏移
+    var leadMs = 60; // 起播小延迟
+    var evs = [];
+    var lastEndMs = 0;
+    for (var ei = 0; ei < notes.length; ei++) {
+      var n = notes[ei];
       var onset = Math.max(0, (n.start || 0) - t0);
       var end = (n.end != null) ? n.end : (n.start || 0) + (n.dur || 0.25);
       var rawDur = Math.max(0.09, end - (n.start || 0));
-      var nextOnset = (idx + 1 < notes.length) ? Math.max(0, (notes[idx + 1].start || 0) - t0) : onset + rawDur + 0.15;
+      var nextOnset = (ei + 1 < notes.length) ? Math.max(0, (notes[ei + 1].start || 0) - t0) : onset + rawDur + 0.15;
       var dur = Math.min(rawDur, Math.max(0.09, nextOnset - onset - 0.03)); // 不压过下一音的起音
-      var vel = velByPitch(midi, 0.9);
+      var vel = velByPitch(n.midi, 0.9);
       if (hasAmp) {
         var a = n.amp || n.amplitude || 0;
         vel *= 0.6 + 0.4 * Math.min(1, a / maxAmp); // 哼得响的地方弹得重
       }
-      playNote(midi, t + onset, dur, vel);
-      // 简谱字幕高亮：跟随真实起音时间
-      (function (i, delay) {
-        setTimeout(function () {
-          var els = $('jianpuLine').querySelectorAll('.jp');
-          for (var e = 0; e < els.length; e++) els[e].classList.remove('hl');
-          if (els[i]) els[i].classList.add('hl');
-        }, delay);
-      })(idx, Math.round((t + onset) * 1000));
-      totalMs = Math.max(totalMs, Math.round((t + onset + dur) * 1000));
+      evs.push({ midi: n.midi, delay: leadMs + Math.round(onset * 1000), dur: dur, vel: vel, idx: ei });
+      lastEndMs = Math.max(lastEndMs, leadMs + Math.round((onset + dur) * 1000));
+    }
+    evs.forEach(function (ev) {
+      var tm = setTimeout(function () {
+        playNote(ev.midi, 0.02, ev.dur, ev.vel);
+        // 简谱字幕高亮：与发声同刻
+        var els = $('jianpuLine').querySelectorAll('.jp');
+        for (var h = 0; h < els.length; h++) els[h].classList.remove('hl');
+        if (els[ev.idx]) els[ev.idx].classList.add('hl');
+      }, ev.delay);
+      melodyTimers.push(tm);
     });
     // 全部奏完清除高亮
-    setTimeout(function () {
+    var endTm = setTimeout(function () {
       var els = $('jianpuLine').querySelectorAll('.jp');
       if (els) for (var e2 = 0; e2 < els.length; e2++) els[e2].classList.remove('hl');
-    }, totalMs + 250);
+    }, lastEndMs + 250);
+    melodyTimers.push(endTm);
   }
 
   window.addEventListener('beforeunload', function () {
