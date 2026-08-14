@@ -381,7 +381,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.6.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.7.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -860,7 +860,7 @@ window.addEventListener('unhandledrejection', function (e) {
     }
 
   // 关系大小调裁判（L2骨架/L3导音/L4试唱；L1终点一票否决已移除）
-  function judgeRelative(notes, majorPC, minorPC) {
+  function judgeRelative(notes, majorPC, minorPC, preferMode) {
     var candA = { pc: majorPC, mode: 'major' }, candB = { pc: minorPC, mode: 'minor' }, evidence = [];
     var hist = new Array(12).fill(0);
     for (var ni = 0; ni < notes.length; ni++) hist[pc(Math.round(notes[ni].midi))] += (notes[ni].dur || 0.25);
@@ -886,8 +886,8 @@ window.addEventListener('unhandledrejection', function (e) {
     evidence.push('L4试唱: ' + SPELL[candA.pc] + '大=' + fitA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + fitB.toFixed(2) + ' | KS ' + SPELL[candA.pc] + '=' + ksA.toFixed(2) + ' ' + SPELL[candB.pc] + '=' + ksB.toFixed(2) + ' | 合计 ' + totalA.toFixed(2) + ' vs ' + totalB.toFixed(2));
     if (totalA > totalB + 0.08) { evidence.push('L4:旋律向' + SPELL[candA.pc] + '归属/贴合强'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
     if (totalB > totalA + 0.08) { evidence.push('L4:旋律向' + SPELL[candB.pc] + '归属/贴合强'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
-    evidence.push('L4:归属接近，默认偏大调');
-    return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
+    if (preferMode === 'minor') { evidence.push('L4:归属接近，保持小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.5, source: 'L4' }; }
+    evidence.push('L4:归属接近，保持大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.5, source: 'L4' };
   }
 
   function detectKey(notes, opts) {
@@ -980,13 +980,14 @@ window.addEventListener('unhandledrejection', function (e) {
     var judge = null, origDetected = null;
     if (best.mode === 'minor') {
       var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root);
+      judge = judgeRelative(notes, relMajRoot, best.root, best.mode);
       if (judge.verdict === 'major') { origDetected = { mode: 'minor', root: best.root, score: best.score }; best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents }; }
     } else {
       var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot);
+      judge = judgeRelative(notes, best.root, relMinRoot, best.mode);
       if (judge.verdict === 'minor') { origDetected = { mode: 'major', root: best.root, score: best.score }; best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents }; }
     }
+    if (judge && judge.source === 'L4') confidence = Math.min(confidence, 0.6);
     var relMode = (best.mode === 'minor') ? 'major' : 'minor';
     var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
     var relScore = 0;
@@ -1208,7 +1209,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.6.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
+  var diag = { version: 'v2.7.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40) };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;

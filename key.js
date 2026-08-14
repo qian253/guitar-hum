@@ -132,7 +132,7 @@
   // （L1 终点一票否决已移除——结束音不再主导主音判断，改由 detectKey 里的门控弱加权处理）
   // 返回 {verdict:'major'|'minor', pc, evidence, confidence, source}
   // ============================================================
-  function judgeRelative(notes, majorPC, minorPC) {
+  function judgeRelative(notes, majorPC, minorPC, preferMode) {
     var candA = { pc: majorPC, mode: 'major' };
     var candB = { pc: minorPC, mode: 'minor' };
     var evidence = [];
@@ -186,8 +186,9 @@
     evidence.push('L4试唱: ' + SPELL[candA.pc] + '大=' + fitA.toFixed(2) + ' ' + SPELL[candB.pc] + '小=' + fitB.toFixed(2) + ' | KS ' + SPELL[candA.pc] + '=' + ksA.toFixed(2) + ' ' + SPELL[candB.pc] + '=' + ksB.toFixed(2) + ' | 合计 ' + totalA.toFixed(2) + ' vs ' + totalB.toFixed(2));
     if (totalA > totalB + 0.08) { evidence.push('L4:旋律向' + SPELL[candA.pc] + '归属/贴合强'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
     if (totalB > totalA + 0.08) { evidence.push('L4:旋律向' + SPELL[candB.pc] + '归属/贴合强'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.7, source: 'L4' }; }
-    evidence.push('L4:归属接近，默认偏大调');
-    return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.55, source: 'L4' };
+    // 归属接近（大小调模糊）：保持原始判定的调，不再「默认偏大调」，避免小调被系统性地掰成大调
+    if (preferMode === 'minor') { evidence.push('L4:归属接近，保持小调'); return { verdict: 'minor', pc: candB.pc, evidence: evidence, confidence: 0.5, source: 'L4' }; }
+    evidence.push('L4:归属接近，保持大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.5, source: 'L4' };
   }
 
   /**
@@ -327,19 +328,21 @@
     var origDetected = null;
     if (best.mode === 'minor') {
       var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root);
+      judge = judgeRelative(notes, relMajRoot, best.root, best.mode);
       if (judge.verdict === 'major') {
         origDetected = { mode: 'minor', root: best.root, score: best.score };
         best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
       }
     } else {
       var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot);
+      judge = judgeRelative(notes, best.root, relMinRoot, best.mode);
       if (judge.verdict === 'minor') {
         origDetected = { mode: 'major', root: best.root, score: best.score };
         best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
       }
     }
+    // 关系大小调裁判若「归属接近」（L4 兜底），说明大小调本身模糊 → 置信度封顶，别过度自信
+    if (judge && judge.source === 'L4') confidence = Math.min(confidence, 0.6);
 
     // 重新计算关系调（best 可能已被翻转）
     var relMode = (best.mode === 'minor') ? 'major' : 'minor';
