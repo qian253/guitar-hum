@@ -191,6 +191,26 @@
     evidence.push('L4:归属接近，保持大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.5, source: 'L4' };
   }
 
+  // 调式判定：主音已锁定（rootPC），只在「同主音大小调」之间二选一，不再跨到关系大小调
+  function decideMode(notes, rootPC, hist) {
+    var majorThird = hist[(rootPC + 4) % 12];   // 大三度（如 A→C#）
+    var minorThird = hist[(rootPC + 3) % 12];   // 小三度（如 A→C）
+    var majorTriad = hist[rootPC] + hist[(rootPC + 4) % 12] + hist[(rootPC + 7) % 12];
+    var minorTriad = hist[rootPC] + hist[(rootPC + 3) % 12] + hist[(rootPC + 7) % 12];
+    var leading = 0; // 导音半音解决（主音-1 → 主音）
+    for (var i = 1; i < notes.length; i++) {
+      var p1 = pc(Math.round(notes[i - 1].midi));
+      var p2 = pc(Math.round(notes[i].midi));
+      if (p1 === (rootPC + 11) % 12 && p2 === rootPC) leading++;
+    }
+    // 大调证据：大三度 + 大三和弦优势 + 导音；小调证据：小三度 + 小三和弦优势
+    var majorE = majorThird * 2 + (majorTriad - minorTriad) * 0.4 + leading * 0.4;
+    var minorE = minorThird * 2 + (minorTriad - majorTriad) * 0.4;
+    // 保守：小调必须「明显」占优才判小调（经过音小三度/导音不能一票否决大调）；否则按流行歌先验判大调
+    var mode = (minorE > majorE * 1.25) ? 'minor' : 'major';
+    return { mode: mode, majorThird: majorThird, minorThird: minorThird, majorTriad: majorTriad, minorTriad: minorTriad, leading: leading, majorE: majorE, minorE: minorE };
+  }
+
   /**
    * 分析一段音符的调性。任意片段的主音判断不再依赖结束音：
    *   - 结束音只做「门控弱加权」（完整终止才×1.5，否则×1.0），不参与一票否决
@@ -278,92 +298,53 @@
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
 
-    // 24 候选评分：K-S + 音阶成员 + 重心音 + 音级分布 + 吉他偏好
-    var cands = [];
+    // ============ 第一步：锁定主音（与调式解耦） ============
+    // 对每个根音取「大调/小调中较高分」作为主音得分（K-S + 音阶成员 + 重心 + 音级分布 + 吉他偏好）
+    var tonicScores = new Array(12).fill(0);
+    var tonicDetails = [];
     for (var root = 0; root < 12; root++) {
-      var majScore = corr(hist, shiftProfile(MAJOR_PROF, root));
-      var minScore = corr(hist, shiftProfile(MINOR_PROF, root));
-      majScore += SCALE_BONUS * scaleMembership(hist, root, 'major');
-      minScore += SCALE_BONUS * scaleMembership(hist, root, 'minor');
-      var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0; // 重心音证据（模式无关）
-      majScore += cBonus; minScore += cBonus;
-      var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;           // 音级分布证据
-      majScore += domBonus; minScore += domBonus;
-      if (GUILD.major.indexOf(root) >= 0) majScore += GUITAR_BIAS;
-      if (GUILD.minor.indexOf(root) >= 0) minScore += GUITAR_BIAS;
-
-      cands.push({ mode: 'major', root: root, score: majScore, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
-      cands.push({ mode: 'minor', root: root, score: minScore, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
+      var majScore = corr(hist, shiftProfile(MAJOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'major');
+      var minScore = corr(hist, shiftProfile(MINOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'minor');
+      var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
+      var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;
+      var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
+      var tScore = Math.max(majScore, minScore) + cBonus + domBonus + guitarBonus;
+      tonicScores[root] = tScore;
+      tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }
-
-    // 3) 去重 (mode, root)：同调只保留最高分，避免同名候选污染第二名
-    var seen = {};
-    for (var ci = 0; ci < cands.length; ci++) {
-      var c = cands[ci];
-      var key = c.mode + '_' + c.root;
-      if (!seen[key] || c.score > seen[key].score) seen[key] = c;
+    var bestRoot = 0, secondRoot = (tonicScores[1] >= tonicScores[0] ? 0 : 1);
+    for (var tr = 0; tr < 12; tr++) {
+      if (tonicScores[tr] > tonicScores[bestRoot]) { secondRoot = bestRoot; bestRoot = tr; }
+      else if (tr !== bestRoot && tonicScores[tr] > tonicScores[secondRoot]) secondRoot = tr;
     }
-    var ranked = Object.keys(seen).map(function (k) { return seen[k]; })
-      .sort(function (a, b) { return b.score - a.score; });
-    var best = ranked[0];
-    var second = ranked[1] || { mode: 'major', root: (best.root + 7) % 12, score: 0 };
-
-    var margin = best.score - second.score;
+    var margin = tonicScores[bestRoot] - tonicScores[secondRoot];
     var confidence = Math.max(0, Math.min(1, margin / 0.18));
-    // 重心音与音级分布指向同一主音 → 置信度加成
-    if (centroidPC === dominantPC && dominantPC === best.root) confidence = Math.min(1, confidence + 0.12);
-    // 短片段/信息不足 → 置信度封顶（中等），避免过度自信
+    if (centroidPC === dominantPC && dominantPC === bestRoot) confidence = Math.min(1, confidence + 0.12);
     if (totalDur < 3 || notes.length < 5) confidence = Math.min(confidence, 0.7);
 
-    // 关系大小调：小调的关系大调 = root+3，大调的关系小调 = root+9。
-    var relMode = (best.mode === 'minor') ? 'major' : 'minor';
-    var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
-    var relScore = 0;
-    for (var ri = 0; ri < ranked.length; ri++) {
-      if (ranked[ri].mode === relMode && ranked[ri].root === relRoot) { relScore = ranked[ri].score; break; }
-    }
+    // ============ 第二步：主音锁定后，只在同主音大小调之间二选一 ============
+    var md = decideMode(notes, bestRoot, hist);
+    var mode = md.mode;
+    // 调式证据接近时（大小调难分）→ 置信度封顶，别过度自信
+    if (Math.abs(md.majorE - md.minorE) < 0.06) confidence = Math.min(confidence, 0.6);
 
-    // 关系大小调裁判（主和弦骨架/导音/试唱，已移除终点一票否决）
-    var judge = null;
-    var origDetected = null;
-    if (best.mode === 'minor') {
-      var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root, best.mode);
-      if (judge.verdict === 'major') {
-        origDetected = { mode: 'minor', root: best.root, score: best.score };
-        best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents };
-      }
-    } else {
-      var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot, best.mode);
-      if (judge.verdict === 'minor') {
-        origDetected = { mode: 'major', root: best.root, score: best.score };
-        best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents };
-      }
-    }
-    // 关系大小调裁判若「归属接近」（L4 兜底），说明大小调本身模糊 → 置信度封顶，别过度自信
-    if (judge && judge.source === 'L4') confidence = Math.min(confidence, 0.6);
+    var doName = SPELL[bestRoot];
+    var keyName = mode === 'major' ? doName + '大调' : doName + '小调';
+    var relMode = mode === 'minor' ? 'major' : 'minor';
+    var relRoot = mode === 'minor' ? (bestRoot + 3) % 12 : (bestRoot + 9) % 12;
 
-    // 重新计算关系调（best 可能已被翻转）
-    var relMode = (best.mode === 'minor') ? 'major' : 'minor';
-    var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
-    var relScore = 0;
-    for (var ri2 = 0; ri2 < ranked.length; ri2++) {
-      if (ranked[ri2].mode === relMode && ranked[ri2].root === relRoot) { relScore = ranked[ri2].score; break; }
-    }
-
-    var doName = SPELL[best.root];
-    var keyName = (best.mode === 'major' ? doName + '大调' : doName + '小调');
-
-    // 证据链：重心音 + 音级分布 + 结束音（权重倍率）+ 裁判证据
-    var evidence = ['重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）'];
-    if (judge && judge.evidence && judge.evidence.length) evidence = evidence.concat(judge.evidence);
+    // 证据链：主音证据 + 调式证据（大三度/小三度、三和弦、导音），逻辑自洽
+    var evidence = [
+      '重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）',
+      '主音 ' + SPELL[bestRoot] + '：大三度 ' + SPELL[(bestRoot + 4) % 12] + '=' + md.majorThird.toFixed(2) + ' vs 小三度 ' + SPELL[(bestRoot + 3) % 12] + '=' + md.minorThird.toFixed(2) +
+        ' · 大三和弦=' + md.majorTriad.toFixed(2) + ' vs 小三和弦=' + md.minorTriad.toFixed(2) + ' · 导音 ' + md.leading + ' 次 → ' + (mode === 'major' ? '大调' : '小调')
+    ];
 
     return {
-      mode: best.mode,
-      rootPC: best.root,
-      score: best.score,
-      second: second,
+      mode: mode,
+      rootPC: bestRoot,
+      score: tonicScores[bestRoot],
+      second: { mode: (tonicDetails[bestRoot].major >= tonicDetails[bestRoot].minor ? 'minor' : 'major'), root: bestRoot, score: Math.min(tonicDetails[bestRoot].major, tonicDetails[bestRoot].minor) },
       margin: margin,
       confidence: confidence,
       bestShift: shiftCents,
@@ -371,16 +352,17 @@
       keyName: keyName,
       relMode: relMode,
       relRoot: relRoot,
-      relScore: relScore,
+      relScore: 0,
       relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
-      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: evidence } : null,
-      origDetected: origDetected,
+      judge: { verdict: mode, source: 'decideMode', confidence: confidence, evidence: evidence },
+      origDetected: null,
       centroidNote: midiName(centroid),
       dominantPC: dominantPC,
       dominantNote: SPELL[dominantPC],
       endingNote: midiName(lastM),
       endingMult: endingMult,
-      candidateScores: ranked.slice(0, 4).map(function (r) { return { root: r.root, mode: r.mode, score: +r.score.toFixed(3) }; }),
+      candidateScores: tonicDetails.slice().sort(function (a, b) { return b.tonic - a.tonic; }).slice(0, 4).map(function (t) { return { root: t.root, mode: (t.major >= t.minor ? 'major' : 'minor'), score: +t.tonic.toFixed(3) }; }),
+      modeEvidence: { majorThird: md.majorThird, minorThird: md.minorThird, majorTriad: md.majorTriad, minorTriad: md.minorTriad, leading: md.leading },
       noteCount: notes.length,
       totalDur: totalDur
     };

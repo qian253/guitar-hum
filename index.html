@@ -890,6 +890,24 @@ window.addEventListener('unhandledrejection', function (e) {
     evidence.push('L4:归属接近，保持大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.5, source: 'L4' };
   }
 
+  // 调式判定：主音已锁定（rootPC），只在「同主音大小调」之间二选一
+  function decideMode(notes, rootPC, hist) {
+    var majorThird = hist[(rootPC + 4) % 12];
+    var minorThird = hist[(rootPC + 3) % 12];
+    var majorTriad = hist[rootPC] + hist[(rootPC + 4) % 12] + hist[(rootPC + 7) % 12];
+    var minorTriad = hist[rootPC] + hist[(rootPC + 3) % 12] + hist[(rootPC + 7) % 12];
+    var leading = 0;
+    for (var i = 1; i < notes.length; i++) {
+      var p1 = pc(Math.round(notes[i - 1].midi));
+      var p2 = pc(Math.round(notes[i].midi));
+      if (p1 === (rootPC + 11) % 12 && p2 === rootPC) leading++;
+    }
+    var majorE = majorThird * 2 + (majorTriad - minorTriad) * 0.4 + leading * 0.4;
+    var minorE = minorThird * 2 + (minorTriad - majorTriad) * 0.4;
+    var mode = (minorE > majorE * 1.25) ? 'minor' : 'major';
+    return { mode: mode, majorThird: majorThird, minorThird: minorThird, majorTriad: majorTriad, minorTriad: minorTriad, leading: leading, majorE: majorE, minorE: minorE };
+  }
+
   function detectKey(notes, opts) {
     opts = opts || {};
     if (!notes || notes.length < 2) return null;
@@ -947,70 +965,62 @@ window.addEventListener('unhandledrejection', function (e) {
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
 
-    // 24 候选评分：K-S + 音阶成员 + 重心音 + 音级分布 + 吉他偏好
-    var cands = [];
+    // ============ 第一步：锁定主音（与调式解耦） ============
+    var tonicScores = new Array(12).fill(0);
+    var tonicDetails = [];
     for (var root = 0; root < 12; root++) {
-      var ms = corr(hist, shiftProfile(MAJOR_PROF, root));
-      var ns = corr(hist, shiftProfile(MINOR_PROF, root));
-      ms += SCALE_BONUS * scaleMembership(hist, root, 'major');
-      ns += SCALE_BONUS * scaleMembership(hist, root, 'minor');
+      var majScore = corr(hist, shiftProfile(MAJOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'major');
+      var minScore = corr(hist, shiftProfile(MINOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'minor');
       var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
-      ms += cBonus; ns += cBonus;
       var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;
-      ms += domBonus; ns += domBonus;
-      if (GUILD.major.indexOf(root) >= 0) ms += GUITAR_BIAS;
-      if (GUILD.minor.indexOf(root) >= 0) ns += GUITAR_BIAS;
-      cands.push({ mode: 'major', root: root, score: ms, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
-      cands.push({ mode: 'minor', root: root, score: ns, shift: shiftCents, centroidBonus: cBonus, dominantBonus: domBonus });
+      var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
+      var tScore = Math.max(majScore, minScore) + cBonus + domBonus + guitarBonus;
+      tonicScores[root] = tScore;
+      tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }
-    var seen = {};
-    for (var ci = 0; ci < cands.length; ci++) { var c = cands[ci]; var key = c.mode + '_' + c.root; if (!seen[key] || c.score > seen[key].score) seen[key] = c; }
-    var ranked = Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (a, b) { return b.score - a.score; });
-    var best = ranked[0], second = ranked[1] || { mode: 'major', root: (best.root + 7) % 12, score: 0 };
-    var margin = best.score - second.score;
+    var bestRoot = 0, secondRoot = (tonicScores[1] >= tonicScores[0] ? 0 : 1);
+    for (var tr = 0; tr < 12; tr++) {
+      if (tonicScores[tr] > tonicScores[bestRoot]) { secondRoot = bestRoot; bestRoot = tr; }
+      else if (tr !== bestRoot && tonicScores[tr] > tonicScores[secondRoot]) secondRoot = tr;
+    }
+    var margin = tonicScores[bestRoot] - tonicScores[secondRoot];
     var confidence = Math.max(0, Math.min(1, margin / 0.18));
-    if (centroidPC === dominantPC && dominantPC === best.root) confidence = Math.min(1, confidence + 0.12);
+    if (centroidPC === dominantPC && dominantPC === bestRoot) confidence = Math.min(1, confidence + 0.12);
     if (totalDur < 3 || notes.length < 5) confidence = Math.min(confidence, 0.7);
 
-    // 关系大小调 + 裁判（无终点一票否决）
-    var relMode = (best.mode === 'minor') ? 'major' : 'minor';
-    var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
-    var relScore = 0;
-    for (var ri = 0; ri < ranked.length; ri++) if (ranked[ri].mode === relMode && ranked[ri].root === relRoot) { relScore = ranked[ri].score; break; }
-    var judge = null, origDetected = null;
-    if (best.mode === 'minor') {
-      var relMajRoot = (best.root + 3) % 12;
-      judge = judgeRelative(notes, relMajRoot, best.root, best.mode);
-      if (judge.verdict === 'major') { origDetected = { mode: 'minor', root: best.root, score: best.score }; best = { mode: 'major', root: relMajRoot, score: relScore, shift: shiftCents }; }
-    } else {
-      var relMinRoot = (best.root + 9) % 12;
-      judge = judgeRelative(notes, best.root, relMinRoot, best.mode);
-      if (judge.verdict === 'minor') { origDetected = { mode: 'major', root: best.root, score: best.score }; best = { mode: 'minor', root: relMinRoot, score: relScore, shift: shiftCents }; }
-    }
-    if (judge && judge.source === 'L4') confidence = Math.min(confidence, 0.6);
-    var relMode = (best.mode === 'minor') ? 'major' : 'minor';
-    var relRoot = (best.mode === 'minor') ? (best.root + 3) % 12 : (best.root + 9) % 12;
-    var relScore = 0;
-    for (var ri2 = 0; ri2 < ranked.length; ri2++) if (ranked[ri2].mode === relMode && ranked[ri2].root === relRoot) { relScore = ranked[ri2].score; break; }
+    // ============ 第二步：主音锁定后，只在同主音大小调之间二选一 ============
+    var md = decideMode(notes, bestRoot, hist);
+    var mode = md.mode;
+    if (Math.abs(md.majorE - md.minorE) < 0.06) confidence = Math.min(confidence, 0.6);
 
-    var evidence = ['重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）'];
-    if (judge && judge.evidence && judge.evidence.length) evidence = evidence.concat(judge.evidence);
+    var doName = SPELL[bestRoot];
+    var keyName = mode === 'major' ? doName + '大调' : doName + '小调';
+    var relMode = mode === 'minor' ? 'major' : 'minor';
+    var relRoot = mode === 'minor' ? (bestRoot + 3) % 12 : (bestRoot + 9) % 12;
+
+    var evidence = [
+      '重心音 ' + midiName(centroid) + ' · 时长最长音级 ' + SPELL[dominantPC] + ' · 结束音 ' + midiName(lastM) + '（权重×' + endingMult + '）',
+      '主音 ' + SPELL[bestRoot] + '：大三度 ' + SPELL[(bestRoot + 4) % 12] + '=' + md.majorThird.toFixed(2) + ' vs 小三度 ' + SPELL[(bestRoot + 3) % 12] + '=' + md.minorThird.toFixed(2) +
+        ' · 大三和弦=' + md.majorTriad.toFixed(2) + ' vs 小三和弦=' + md.minorTriad.toFixed(2) + ' · 导音 ' + md.leading + ' 次 → ' + (mode === 'major' ? '大调' : '小调')
+    ];
 
     return {
-      mode: best.mode, rootPC: best.root, score: best.score, second: second,
+      mode: mode, rootPC: bestRoot, score: tonicScores[bestRoot],
+      second: { mode: (tonicDetails[bestRoot].major >= tonicDetails[bestRoot].minor ? 'minor' : 'major'), root: bestRoot, score: Math.min(tonicDetails[bestRoot].major, tonicDetails[bestRoot].minor) },
       margin: margin, confidence: confidence, bestShift: shiftCents,
-      doName: SPELL[best.root],
-      keyName: (best.mode === 'major' ? SPELL[best.root] + '大调' : SPELL[best.root] + '小调'),
-      relMode: relMode, relRoot: relRoot, relScore: relScore,
+      doName: doName,
+      keyName: keyName,
+      relMode: relMode, relRoot: relRoot, relScore: 0,
       relKeyName: SPELL[relRoot] + (relMode === 'major' ? '大调' : '小调'),
-      judge: judge ? { verdict: judge.verdict, source: judge.source, confidence: judge.confidence, evidence: evidence } : null,
-      origDetected: origDetected,
+      judge: { verdict: mode, source: 'decideMode', confidence: confidence, evidence: evidence },
+      origDetected: null,
       centroidNote: midiName(centroid),
       dominantPC: dominantPC,
       dominantNote: SPELL[dominantPC],
       endingNote: midiName(lastM),
       endingMult: endingMult,
-      candidateScores: ranked.slice(0, 4).map(function (r) { return { root: r.root, mode: r.mode, score: +r.score.toFixed(3) }; }),
+      candidateScores: tonicDetails.slice().sort(function (a, b) { return b.tonic - a.tonic; }).slice(0, 4).map(function (t) { return { root: t.root, mode: (t.major >= t.minor ? 'major' : 'minor'), score: +t.tonic.toFixed(3) }; }),
+      modeEvidence: { majorThird: md.majorThird, minorThird: md.minorThird, majorTriad: md.majorTriad, minorTriad: md.minorTriad, leading: md.leading },
       noteCount: notes.length,
       totalDur: totalDur
     };
@@ -2029,20 +2039,52 @@ window.addEventListener('unhandledrejection', function (e) {
     return playCtx;
   }
   var activeOscs = [];
+  // Karplus-Strong 拨弦物理建模：零采样、不依赖网络，音色接近尼龙弦（采样加载失败/被墙时的降级音色）
   function toneOsc(midi, when, dur, vol) {
     try {
       var ctx = getPlayCtx();
-      var osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
-      g.gain.setValueAtTime(0.0001, when);
-      g.gain.exponentialRampToValueAtTime(vol || 0.25, when + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(when); osc.stop(when + dur + 0.03);
-      activeOscs.push(osc);
-      osc.onended = function () { var i = activeOscs.indexOf(osc); if (i >= 0) activeOscs.splice(i, 1); };
-    } catch (e) {}
+      var sr = ctx.sampleRate;
+      var freq = 440 * Math.pow(2, (midi - 69) / 12);
+      var N = Math.max(2, Math.round(sr / freq));
+      // 激励：短噪声 burst（模拟拨弦瞬态）
+      var nb = ctx.createBuffer(1, N, sr);
+      var nd = nb.getChannelData(0);
+      for (var i = 0; i < N; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / N);
+      var src = ctx.createBufferSource(); src.buffer = nb;
+      // K-S 循环：延迟线 + 低通阻尼 + 反馈
+      var delay = ctx.createDelay(2.0); delay.delayTime.value = N / sr;
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(5000, freq * 8);
+      var fb = ctx.createGain(); fb.gain.value = 0.985;
+      // 输出包络
+      var out = ctx.createGain();
+      out.gain.setValueAtTime(0.0001, when);
+      out.gain.exponentialRampToValueAtTime(vol || 0.3, when + 0.006);
+      out.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      src.connect(delay);
+      delay.connect(lp);
+      lp.connect(fb);
+      fb.connect(delay);
+      lp.connect(out);
+      out.connect(ctx.destination);
+      src.start(when); src.stop(when + 0.02);
+      activeOscs.push(src);
+      src.onended = function () { var i = activeOscs.indexOf(src); if (i >= 0) activeOscs.splice(i, 1); };
+    } catch (e) {
+      // 兜底：老浏览器不支持 K-S 时退回三角波
+      try {
+        var c2 = getPlayCtx();
+        var osc = c2.createOscillator(), g2 = c2.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+        g2.gain.setValueAtTime(0.0001, when);
+        g2.gain.exponentialRampToValueAtTime(vol || 0.25, when + 0.012);
+        g2.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+        osc.connect(g2); g2.connect(c2.destination);
+        osc.start(when); osc.stop(when + dur + 0.03);
+        activeOscs.push(osc);
+        osc.onended = function () { var i = activeOscs.indexOf(osc); if (i >= 0) activeOscs.splice(i, 1); };
+      } catch (e2) {}
+    }
   }
   // 统一发声入口：offset 相对当前时刻（秒）。优先真实采样，回退 oscillator。
   // 前提：调用前已 await ensureAudioStarted()（音频上下文已唤醒）
@@ -2109,7 +2151,7 @@ window.addEventListener('unhandledrejection', function (e) {
   async function playRhythm(p, shapeName) {
     stopAllTones();
     await ensureAudioStarted();
-    await waitSampler(6000);
+    await waitSampler(2000);
     var voicing = SHAPE_VOICING[shapeName];
     var eighth = 0.24, t = 0.05, bars = 2;
     if (p.type === 'strum') {
@@ -2294,7 +2336,7 @@ window.addEventListener('unhandledrejection', function (e) {
   async function playProgression(prog, relMajorPc) {
     stopAllTones();
     await ensureAudioStarted();
-    await waitSampler(6000);
+    await waitSampler(2000);
     var t = 0.05, cd = 0.85;
     prog.degrees.forEach(function (deg) {
       var root = (relMajorPc + MAJOR_SEMS[deg - 1]) % 12;
@@ -2366,16 +2408,18 @@ window.addEventListener('unhandledrejection', function (e) {
   // 测试声音：播放标准音 A4，确认设备出声正常
   $('testSoundBtn').addEventListener('click', async function () {
     var tip = $('testSoundTip');
-    tip.textContent = '音色加载中…';
     try {
       await ensureAudioStarted();
-      var ok = await waitSampler(6000);
-      if (ok) {
-        toneSampler.triggerAttackRelease(69, 1.0, Tone.now() + 0.03, 0.85); // A4
-        tip.textContent = '已播放标准音 A4 ✓（听到即正常）';
+      var diag = '';
+      if (window.Tone && Tone.Master) {
+        try { diag = ' · 音量 ' + Tone.Master.volume.value + 'dB' + (Tone.Master.mute ? ' · 已静音!' : ''); } catch (e) {}
+      }
+      // 立即用 Karplus-Strong 拨弦发声，不等待采样加载，保证立刻有声
+      playNote(69, 0.03, 1.0, 0.7);
+      if (toneSamplerReady()) {
+        tip.textContent = '已播放标准音 A4（真实吉他采样）' + diag;
       } else {
-        playNote(69, 0.03, 1.0, 0.7);
-        tip.textContent = '已播放标准音 A4（简易音色）';
+        tip.textContent = '已播放标准音 A4（简易拨弦' + (toneLoadFailed ? '，采样加载失败' : '，采样仍在加载') + '）' + diag;
       }
     } catch (e) {
       tip.textContent = '播放失败，请再试一次';
@@ -2473,7 +2517,7 @@ window.addEventListener('unhandledrejection', function (e) {
     if (!recordedNotes || !lastKeyResult) return;
     stopAllTones();
     await ensureAudioStarted();
-    await waitSampler(6000);
+    await waitSampler(2000);
     var t = 0.05;
     recordedNotes.forEach(function (n, idx) {
       var midi = Math.round(n.midi);
