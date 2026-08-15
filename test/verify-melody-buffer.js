@@ -138,5 +138,24 @@ function winPeak(buf, t0, t1) {
   ok('连续极短音全部有能量', w0 > 0.05 && w1 > 0.05 && w2 > 0.05, '峰值 ' + w0.toFixed(3) + '/' + w1.toFixed(3) + '/' + w2.toFixed(3));
 }
 
+// ===== 场景4：逆序输入（实测 basic-pitch 曾返回逆序 → 回放叠音） =====
+{
+  console.log('  === 场景4：逆序输入自动排序 ===');
+  const reversed = NOTES.slice().reverse(); // 时间倒序输入
+  const buf = ctx.renderMelodyBuffer(reversed, SR, null);
+  const t0 = NOTES[0].start;
+  // 排序后，每个音应出现在自己的真实时间窗口
+  const rmsSorted = NOTES.map(n => {
+    const s = n.start - t0;
+    return winRms(buf, s + 0.01, s + Math.min(0.3, (n.end - n.start) * 0.8));
+  });
+  let allEnergySorted = true;
+  for (let i = 0; i < NOTES.length; i++) if (rmsSorted[i] < 0.03) allEnergySorted = false;
+  ok('逆序输入下每个音仍在真实时间窗口有能量（自动排序生效）', allEnergySorted, rmsSorted.map(v => v.toFixed(3)).join(', '));
+  // 第一个窗口（0-0.1s）应只有音1、无叠音爆发：rms 不应远超单音水平
+  const firstWin = winRms(buf, 0.01, 0.11);
+  ok('首窗口无叠音（不是所有音挤在一起）', firstWin < 0.35, '首窗rms=' + firstWin.toFixed(3));
+}
+
 console.log('\n' + (failures === 0 ? '旋律预渲染缓冲验证全部通过 ✓' : failures + ' 项失败 ✗'));
 process.exit(failures === 0 ? 0 : 1);

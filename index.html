@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.14 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.15 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1262,7 +1262,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.14', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.11.15', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1609,6 +1609,9 @@ window.addEventListener('unhandledrejection', function (e) {
         showError('这段有点短，只听到 ' + melNotes.length + ' 个音。<br>请<b>再哼长一点</b>（唱完整一句副歌，4~8 秒）再试。');
         return;
       }
+      // 音符按起音时间排序：basic-pitch 返回顺序不保证（实测出现过逆序，导致回放叠音/结束音判断错误）
+      notes = notes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
+      melNotes = melNotes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
       // 每段单独定调（保留每段自己的倾向），再把所有段合并后重新定调
       var segKey = window.KeyDetect.detectKey(notes, { recordingDur: durSec, noEndingBoost: false });
       state.segments = state.segments || [];
@@ -2897,6 +2900,8 @@ window.addEventListener('unhandledrejection', function (e) {
   // （噪声激励 + 两点平均 0.5(x+x·z⁻¹) + 阻尼 0.996 + 起音/衰减包络），
   // 纯 JS 可测：verify-melody-buffer.js 在 Node 里逐音断言能量。
   function renderMelodyBuffer(notes, sr, st) {
+    // 防御性排序：无论输入顺序如何，都按起音时间渲染
+    notes = notes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
     var t0 = notes[0].start || 0;
     var totalEnd = 0;
     for (var i0 = 0; i0 < notes.length; i0++) {
