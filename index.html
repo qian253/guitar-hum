@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.13.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.13.1 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1262,7 +1262,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.13.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.13.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -3034,7 +3034,6 @@ window.addEventListener('unhandledrejection', function (e) {
       var bends = note.bends || null;
       var dur = Math.max(0.09, (note.end != null ? note.end : (note.start || 0) + (note.dur || 0.25)) - (note.start || 0));
       var vel = vels[ni];
-      var baseFreq = 440 * Math.pow(2, (baseMidi - 69) / 12);
       var startIdx = Math.max(0, Math.round(((note.start || 0) - t0) * sr));
       var nSamp = Math.max(0, Math.min(Math.floor(dur * sr), len - startIdx));
       var hold = dur * 0.7;
@@ -3043,7 +3042,7 @@ window.addEventListener('unhandledrejection', function (e) {
         var t = s0 / sr;
         var frac = t / dur;
         var bend = bends ? bendAt(bends, frac) : 0;
-        var step = (baseFreq / sr) * Math.pow(2, (centsOff + bend) / 1200);
+        var step = (sSrc / sr) * Math.pow(2, (centsOff + bend) / 1200); // 源采样步进 = 采样率比 × 音高比
         phase += step;
         var i1 = Math.floor(phase), fr = phase - i1;
         if (i1 + 1 >= src.length) break;

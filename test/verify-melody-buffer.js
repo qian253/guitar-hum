@@ -39,6 +39,8 @@ const ctx = { Math, Float32Array };
 ctx.velByPitch = new Function('with(this){ return (' + extractFn(html, 'velByPitch') + '); }').call(ctx);
 ctx.computeNoteVels = new Function('with(this){ return (' + extractFn(html, 'computeNoteVels') + '); }').call(ctx);
 ctx.renderMelodyBuffer = new Function('with(this){ return (' + extractFn(html, 'renderMelodyBuffer') + '); }').call(ctx);
+ctx.bendAt = new Function('with(this){ return (' + extractFn(html, 'bendAt') + '); }').call(ctx);
+ctx.renderSampledMelodyBuffer = new Function('with(this){ return (' + extractFn(html, 'renderSampledMelodyBuffer') + '); }').call(ctx);
 
 const SR = 44100;
 const NOTES = [
@@ -156,6 +158,45 @@ function winPeak(buf, t0, t1) {
   // 第一个窗口（0-0.1s）应只有音1、无叠音爆发：rms 不应远超单音水平
   const firstWin = winRms(buf, 0.01, 0.11);
   ok('首窗口无叠音（不是所有音挤在一起）', firstWin < 0.35, '首窗rms=' + firstWin.toFixed(3));
+}
+
+// ===== 场景5：采样级渲染的音高正确性（回归：步进公式曾少乘采样率比 → 1.5Hz 次声波静音） =====
+{
+  console.log('  === 场景5：采样渲染音高正确 ===');
+  // 构造采样缓存：midi 60 = 261.63Hz 正弦、midi 64 = 329.63Hz 正弦
+  const sSrc = 44100;
+  function makeSine(freq, secs) {
+    const p = new Float32Array(Math.floor(sSrc * secs));
+    for (let i = 0; i < p.length; i++) p[i] = Math.sin(2 * Math.PI * freq * i / sSrc) * 0.8;
+    return p;
+  }
+  const cache = { 60: { pcm: makeSine(261.63, 2.0), sr: sSrc }, 64: { pcm: makeSine(329.63, 2.0), sr: sSrc } };
+  function zeroCrossFreq(buf, t0, t1) {
+    let crosses = 0, prev = 0;
+    const a = Math.max(0, Math.floor(t0 * SR)), b = Math.min(buf.length, Math.ceil(t1 * SR));
+    for (let i = a; i < b; i++) {
+      if (prev <= 0 && buf[i] > 0) crosses++;
+      prev = buf[i];
+    }
+    return crosses / (t1 - t0); // 每个周期一个上升沿 → 频率 = 上升沿数/时长
+  }
+  const notes2 = [{ midi: 60, start: 0.0, end: 0.5, dur: 0.5 }];
+  const buf2 = ctx.renderSampledMelodyBuffer(notes2, SR, null, cache);
+  const fMeasured = zeroCrossFreq(buf2, 0.15, 0.45);
+  ok('采样渲染音高正确（261.6Hz ±3%）', Math.abs(fMeasured - 261.63) / 261.63 < 0.03, '实测 ' + fMeasured.toFixed(1) + 'Hz');
+  // 不同音高不同频率
+  const notes3 = [{ midi: 64, start: 0.0, end: 0.5, dur: 0.5 }];
+  const buf3 = ctx.renderSampledMelodyBuffer(notes3, SR, null, cache);
+  const f3 = zeroCrossFreq(buf3, 0.15, 0.45);
+  ok('不同音高采样渲染正确（329.6Hz ±3%）', Math.abs(f3 - 329.63) / 329.63 < 0.03, '实测 ' + f3.toFixed(1) + 'Hz');
+  // 弯音：前半段 +0 音分、后半段 +200 音分 → 后半段频率应为前半段的 2^(200/1200)≈1.122 倍
+  const bendsUp = [0, 0, 0, 0, 0, 0, 100, 150, 200, 200, 200, 200];
+  const notes4 = [{ midi: 60, start: 0.0, end: 1.0, dur: 1.0, bends: bendsUp }];
+  const buf4 = ctx.renderSampledMelodyBuffer(notes4, SR, null, cache);
+  const fFirst = zeroCrossFreq(buf4, 0.2, 0.4);
+  const fLast = zeroCrossFreq(buf4, 0.7, 0.9);
+  ok('弯音曲线生效（后半段频率高于前半段）', fLast > fFirst * 1.05, '前半 ' + fFirst.toFixed(1) + 'Hz → 后半 ' + fLast.toFixed(1) + 'Hz');
+  ok('弯音插值函数', Math.abs(ctx.bendAt([0, 100], 0.5) - 50) < 1e-9 && ctx.bendAt([0, 100], 1) === 100);
 }
 
 console.log('\n' + (failures === 0 ? '旋律预渲染缓冲验证全部通过 ✓' : failures + ' 项失败 ✗'));
