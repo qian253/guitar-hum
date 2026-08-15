@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-/* verify-replay.js — 验证「听旋律」节奏高还原调度（从 index.html 提取真实 replayMelody 模拟运行）
+/* verify-replay.js — 验证「听旋律」节奏/音色/重音还原（从 index.html 提取真实 replayMelody 模拟运行）
  * 模拟：快音/长音/停顿/响度差异的真实旋律时间戳，检查：
  *   1. 每个音都被调度且按顺序发声（不丢音）
  *   2. 起音时刻 = 真实 start 归一化（快慢/停顿保留）
- *   3. 每次发声只短程调度（offset≈0.02s），不再长距离预调度（防「只听到最后个音」）
- *   4. 音长不压过下一音起音
- *   5. 响度大 → 力度大（basic-pitch 振幅）
- *   6. 浮点 midi 保留（音分偏移不丢）
+ *   3. 音色路径计数正确（采样器就绪→采样，否则→K-S）
+ *   4. 重音还原：basic-pitch 振幅 → 力度；无振幅时从录音 PCM 按窗口 RMS 算力度
+ *   5. 音长不压过下一音起音；浮点 midi 保留（音分偏移不丢）
  */
 const fs = require('fs');
 const path = require('path');
@@ -18,11 +17,10 @@ function ok(name, cond, extra) {
   if (!cond) failures++;
 }
 
-function extractFn(source, name) {
+function extractFn(source, name, isAsync) {
   const idx = source.indexOf('function ' + name + '(');
   if (idx < 0) throw new Error('not found: ' + name);
-  // async 函数：连同 'async ' 前缀一起提取
-  const start = (idx >= 6 && source.slice(idx - 6, idx) === 'async ') ? idx - 6 : idx;
+  const start = (isAsync && idx >= 6 && source.slice(idx - 6, idx) === 'async ') ? idx - 6 : idx;
   let i = source.indexOf('{', idx), depth = 0, inS = null, inLine = false, inBlock = false;
   for (; i < source.length; i++) {
     const c = source[i], n = source[i + 1];
@@ -38,71 +36,108 @@ function extractFn(source, name) {
   throw new Error('unbalanced: ' + name);
 }
 
-(async function () {
-  // 模拟一段有快音/长音/停顿/响度差异的旋律（时间戳单位：秒）
-  const notes = [
-    { midi: 59.2, start: 0.50, end: 1.20, dur: 0.7, amp: 0.9 },
-    { midi: 62.0, start: 1.20, end: 1.60, dur: 0.4, amp: 0.3 },
-    { midi: 66.1, start: 1.90, end: 3.40, dur: 1.5, amp: 0.5 },
-    { midi: 62.3, start: 3.40, end: 3.90, dur: 0.5, amp: 0.2 },
-    { midi: 59.4, start: 4.20, end: 5.80, dur: 1.6, amp: 0.7 },
-  ];
-  const calls = [];       // {midi, dur, vel, t}（playMelodyNote 捕获）
+const NOTES = [
+  { midi: 59.2, start: 0.50, end: 1.20, dur: 0.7, amp: 0.9 },
+  { midi: 62.0, start: 1.20, end: 1.60, dur: 0.4, amp: 0.3 },
+  { midi: 66.1, start: 1.90, end: 3.40, dur: 1.5, amp: 0.5 },
+  { midi: 62.3, start: 3.40, end: 3.90, dur: 0.5, amp: 0.2 },
+  { midi: 59.4, start: 4.20, end: 5.80, dur: 1.6, amp: 0.7 },
+];
+
+async function runCase(name, opts) {
+  const calls = [];       // {midi, offset, dur, vel, t}
   const timers = [];      // {fn, delay}
   const ctx = {
-    recordedNotes: notes,
+    recordedNotes: opts.notes || NOTES,
     lastKeyResult: { rootPC: 11 },
     melodyTimers: [],
     diag: { lastReplay: null },
+    state: opts.state || { recordedSr: 44100, recordedPcm: null },
     now: 0,
     stopAllTones: function () {},
     ensureAudioStarted: async function () {},
-    waitSampler: async function () { return false; },
+    waitSampler: async function () { return opts.samplerReady || false; },
+    toneSamplerReady: function () { return !!(opts.samplerReady || false); },
     $: function () { return { querySelectorAll: function () { return []; } }; },
     velByPitch: function (midi, base) { return Math.max(0.62, Math.min(0.95, (base || 0.9) - (midi - 60) * 0.006)); },
     setTimeout: function (fn, delay) { timers.push({ fn: fn, delay: delay }); return timers.length; },
     clearTimeout: function () {},
   };
-  // 用 bind 让 playMelodyNote 里的 this 指向 ctx，从而读到模拟时钟 this.now
-  ctx.playMelodyNote = function (midi, dur, vel) {
-    calls.push({ midi: midi, dur: dur, vel: vel, t: this.now });
+  ctx.playNote = function (midi, offset, dur, vel) {
+    calls.push({ midi: midi, offset: offset, dur: dur, vel: vel, t: this.now });
   }.bind(ctx);
 
-  const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody') + '); }').call(ctx);
+  const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody', true) + '); }').call(ctx);
   await replay.call(ctx);
 
-  ok('为每个音都注册了定时器', timers.length >= notes.length, timers.length + ' 个定时器（预期 ' + notes.length + ' 音 + 1 清高亮）');
-
-  // 按时间顺序触发定时器（模拟真实时钟推进）
   const sorted = timers.slice().sort(function (a, b) { return a.delay - b.delay; });
   for (const tm of sorted) { ctx.now = tm.delay; tm.fn(); }
 
-  ok('每个音都实际发声（不丢音）', calls.length === notes.length, '发声 ' + calls.length + '/' + notes.length);
-  ok('自诊断计数完整（diag.lastReplay）', ctx.diag.lastReplay && ctx.diag.lastReplay.fired === notes.length && ctx.diag.lastReplay.total === notes.length,
+  console.log('  === ' + name + ' ===');
+  ok('每个音都实际发声（不丢音）', calls.length === (opts.notes || NOTES).length, '发声 ' + calls.length + '/' + (opts.notes || NOTES).length);
+  ok('自诊断计数完整', ctx.diag.lastReplay && ctx.diag.lastReplay.fired === calls.length && ctx.diag.lastReplay.total === calls.length,
     JSON.stringify(ctx.diag.lastReplay));
-
-  // 起音时间 = 真实节奏（归一化后）：t_i ≈ 60ms + (start_i - start_0)*1000
   let rhythmOk = true;
+  const src = opts.notes || NOTES;
   for (let i = 0; i < calls.length; i++) {
-    const expect = 60 + Math.round((notes[i].start - notes[0].start) * 1000);
+    const expect = 60 + Math.round((src[i].start - src[0].start) * 1000);
     if (Math.abs(calls[i].t - expect) > 1) rhythmOk = false;
   }
   ok('起音时刻与真实节奏一致（快慢/停顿保留）', rhythmOk, calls.map(c => c.t + 'ms').join(', '));
-
-  ok('走 K-S 专用通道（playMelodyNote，不经采样器状态机）', calls.length === notes.length && calls.every(c => typeof c.midi === 'number'));
-
+  ok('每次发声短程调度（offset≈0.02s）', calls.every(c => Math.abs(c.offset - 0.02) < 0.001), calls.map(c => c.offset).join(', '));
   let noOverlap = true;
   for (let i = 0; i < calls.length - 1; i++) {
     if (calls[i].t + calls[i].dur * 1000 > calls[i + 1].t + 1) noOverlap = false;
   }
   ok('音长不压过下一音起音', noOverlap, calls.map(c => c.dur.toFixed(2) + 's').join(', '));
+  return { ctx, calls };
+}
 
-  const loud = calls[0], soft = calls[3];
-  ok('响的地方弹得重（amp 0.9 > 0.2 → vel 更大）', loud.vel > soft.vel, 'vel ' + loud.vel.toFixed(2) + ' vs ' + soft.vel.toFixed(2));
+(async function () {
+  // 场景1：basic-pitch 振幅 → 重音；采样器未就绪 → 全走 K-S
+  {
+    const { ctx, calls } = await runCase('场景1：振幅重音 + K-S 路径', { samplerReady: false });
+    ok('路径计数全 K-S', ctx.diag.lastReplay.pathCounts.ks === 5 && ctx.diag.lastReplay.pathCounts.sampler === 0,
+      JSON.stringify(ctx.diag.lastReplay.pathCounts));
+    const loud = calls[0], soft = calls[3];
+    ok('响的地方弹得重（amp 0.9 > 0.2）', loud.vel > soft.vel, 'vel ' + loud.vel.toFixed(2) + ' vs ' + soft.vel.toFixed(2));
+    ok('浮点 midi 保留（音分偏移不丢）', Math.abs(calls[0].midi - 59.2) < 1e-9 && Math.abs(calls[4].midi - 59.4) < 1e-9,
+      'midi ' + calls[0].midi + ' / ' + calls[4].midi);
+  }
 
-  ok('浮点 midi 保留（音分偏移不丢）', Math.abs(calls[0].midi - 59.2) < 1e-9 && Math.abs(calls[4].midi - 59.4) < 1e-9,
-    'midi ' + calls[0].midi + ' / ' + calls[4].midi);
+  // 场景2：采样器就绪 → 全走采样
+  {
+    const { ctx } = await runCase('场景2：采样器路径', { samplerReady: true });
+    ok('路径计数全采样', ctx.diag.lastReplay.pathCounts.sampler === 5 && ctx.diag.lastReplay.pathCounts.ks === 0,
+      JSON.stringify(ctx.diag.lastReplay.pathCounts));
+  }
 
-  console.log('\n' + (failures === 0 ? '旋律节奏还原验证全部通过 ✓' : failures + ' 项失败 ✗'));
+  // 场景3：无振幅（快速模式）→ 从录音 PCM 按窗口 RMS 还原重音
+  {
+    const sr = 1000; // 用小采样率便于构造
+    const pcm = new Float32Array(6000); // 6 秒录音
+    // 按每个音的 [start,end] 窗口填不同幅度：第2音窗口最大幅度 → 应最重
+    const segs = [
+      { s: 0.50, e: 1.20, amp: 0.2 },
+      { s: 1.20, e: 1.60, amp: 0.9 },
+      { s: 1.90, e: 3.40, amp: 0.4 },
+      { s: 3.40, e: 3.90, amp: 0.1 },
+      { s: 4.20, e: 5.80, amp: 0.3 },
+    ];
+    for (const sg of segs) {
+      for (let i = Math.floor(sg.s * sr); i < Math.floor(sg.e * sr); i++) pcm[i] = sg.amp;
+    }
+    const noAmpNotes = NOTES.map(function (n) { return { midi: n.midi, start: n.start, end: n.end, dur: n.dur }; });
+    const { ctx, calls } = await runCase('场景3：PCM-RMS 重音（快速模式无振幅）', {
+      samplerReady: false,
+      notes: noAmpNotes,
+      state: { recordedSr: sr, recordedPcm: pcm },
+    });
+    ok('窗口 RMS 还原重音（第2音窗口最响 → 力度最大）',
+      calls[1].vel >= calls[0].vel && calls[1].vel >= calls[3].vel,
+      calls.map(c => c.vel.toFixed(2)).join(', '));
+  }
+
+  console.log('\n' + (failures === 0 ? '旋律节奏/音色/重音还原验证全部通过 ✓' : failures + ' 项失败 ✗'));
   process.exit(failures === 0 ? 0 : 1);
 })();

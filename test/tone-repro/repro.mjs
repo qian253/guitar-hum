@@ -83,6 +83,7 @@ async function runRound(label, samplerReady, toneOscSrc) {
     lastKeyResult: { rootPC: 11 },
     melodyTimers: [],
     diag: { lastReplay: null },
+    state: { recordedSr: raw.sampleRate, recordedPcm: null },
     Tone: Tone,
     toneSampler: sampler,
     toneSamplerReady: function () { return samplerReady && !!sampler.loaded; },
@@ -99,11 +100,10 @@ async function runRound(label, samplerReady, toneOscSrc) {
   ctx.velByPitch = new Function('with(this){ return (' + extractFn(html, 'velByPitch') + '); }').call(ctx);
   const baseOsc = new Function('with(this){ return (' + (toneOscSrc || extractFn(html, 'toneOsc')) + '); }').call(ctx);
   ctx.toneOsc = function (midi, when, dur, vol) {
-    try { const r = baseOsc(midi, when, dur, vol); console.log('    [osc] ok midi=' + midi + ' when=' + (+when).toFixed(3)); return r; }
+    try { const r = baseOsc(midi, when, dur, vol); return r; }
     catch (e) { console.log('    [osc] THROW midi=' + midi + ': ' + e.message); }
   };
   ctx.playNote = new Function('with(this){ return (' + extractFn(html, 'playNote') + '); }').call(ctx);
-  ctx.playMelodyNote = new Function('with(this){ return (' + extractFn(html, 'playMelodyNote') + '); }').call(ctx);
   const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody', true) + '); }').call(ctx);
 
   const winLog = [];

@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.2 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.3 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.2', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
+  var diag = { version: 'v2.11.3', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1266,7 +1266,7 @@ window.addEventListener('unhandledrejection', function (e) {
       ['后端', getBackendUrl() ? '高精度 ' + getBackendUrl().replace(/^https?:\/\//, '') : '本地快速模式'],
       ['采样', toneLoadFailed ? '降级拨弦（网络不通）' : (toneSamplerReady() ? '真实采样 ✓' : '采样加载中…')],
       ['采样率', (function () { var s = []; try { s.push(getPlayCtx().sampleRate + 'Hz'); } catch (e) {} try { if (window.Tone && Tone.getContext) s.push('Tone ' + Tone.getContext().rawContext.sampleRate + 'Hz'); } catch (e2) {} return s.join(' / ') || '—'; })()],
-      ['最近回放', diag.lastReplay ? ('触发 ' + diag.lastReplay.fired + '/' + diag.lastReplay.total + ' · ' + diag.lastReplay.path) : '—'],
+      ['最近回放', diag.lastReplay ? ('触发 ' + diag.lastReplay.fired + '/' + diag.lastReplay.total + ' · 采样' + diag.lastReplay.pathCounts.sampler + '/K-S' + diag.lastReplay.pathCounts.ks) : '—'],
       ['浏览器', diag.ua],
       ['AudioContext', ctxState],
       ['麦克风', diag.mic],
@@ -2324,13 +2324,6 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var mti = 0; mti < melodyTimers.length; mti++) clearTimeout(melodyTimers[mti]);
     melodyTimers = [];
   }
-  // 旋律回放专用发声：直接 Karplus-Strong 拨弦（不经采样器）。
-  // 采样器依赖 37 个网络采样文件 + Tone 状态机，在部分浏览器（360/QQ/微信内置等）
-  // 会出现「前面音全部静默、只剩最后一个」的环境性问题；K-S 只用核心 Web Audio API
-  // （createBuffer/createDelay/BiquadFilter/createGain），全环境可靠（已用真实音频引擎复现验证）。
-  function playMelodyNote(midi, dur, vel) {
-    toneOsc(midi, getPlayCtx().currentTime + 0.02, dur, vel);
-  }
   function stopAllTones() {
     clearMelodyTimers();
     activeOscs.slice().forEach(function (o) { try { o.stop(); } catch (e) {} });
@@ -2771,9 +2764,29 @@ window.addEventListener('unhandledrejection', function (e) {
       var av = notes[ai].amp || notes[ai].amplitude || 0;
       if (av > 0) { hasAmp = true; if (av > maxAmp) maxAmp = av; }
     }
+    // 每音力度来源：优先 basic-pitch 振幅；没有振幅时（快速模式）从录音 PCM
+    // 按每个音的 [start,end] 窗口算 RMS → 归一化成力度，还原哼唱的重音/弱音。
+    var srRec = state.recordedSr || 44100;
+    var pcm = state.recordedPcm || null;
+    var rmsVels = null;
+    if (!hasAmp && pcm && pcm.length > 0) {
+      rmsVels = [];
+      var rmsMax = 0;
+      for (var ri = 0; ri < notes.length; ri++) {
+        var n0 = Math.max(0, Math.floor((notes[ri].start || 0) * srRec));
+        var endR = (notes[ri].end != null) ? notes[ri].end : (notes[ri].start || 0) + (notes[ri].dur || 0.25);
+        var n1 = Math.min(pcm.length, Math.ceil(endR * srRec));
+        var s2 = 0, c2 = 0;
+        for (var jj = n0; jj < n1; jj++) { s2 += pcm[jj] * pcm[jj]; c2++; }
+        var r = c2 > 0 ? Math.sqrt(s2 / c2) : 0;
+        rmsVels.push(r);
+        if (r > rmsMax) rmsMax = r;
+      }
+      for (var rk = 0; rk < rmsVels.length; rk++) rmsVels[rk] = rmsMax > 0 ? (0.6 + 0.4 * Math.min(1, rmsVels[rk] / rmsMax)) : 1;
+    }
     var t0 = notes[0].start || 0;
     var leadMs = 60; // 起播小延迟
-    diag.lastReplay = { total: notes.length, fired: 0, path: 'K-S 拨弦' };
+    diag.lastReplay = { total: notes.length, fired: 0, pathCounts: { sampler: 0, ks: 0 } };
     var evs = [];
     var lastEndMs = 0;
     for (var ei = 0; ei < notes.length; ei++) {
@@ -2787,13 +2800,19 @@ window.addEventListener('unhandledrejection', function (e) {
       if (hasAmp) {
         var a = n.amp || n.amplitude || 0;
         vel *= 0.6 + 0.4 * Math.min(1, a / maxAmp); // 哼得响的地方弹得重
+      } else if (rmsVels) {
+        vel *= rmsVels[ei]; // 从录音波形还原的重音
       }
       evs.push({ midi: n.midi, delay: leadMs + Math.round(onset * 1000), dur: dur, vel: vel, idx: ei });
       lastEndMs = Math.max(lastEndMs, leadMs + Math.round((onset + dur) * 1000));
     }
     evs.forEach(function (ev) {
       var tm = setTimeout(function () {
-        playMelodyNote(ev.midi, ev.dur, ev.vel);
+        // 音色：采样器就绪用真实采样（正常音色），否则用修复后的 K-S 拨弦；
+        // 每个音独立决策并计数，诊断面板可见路径分布
+        var useSampler = toneSamplerReady();
+        if (diag.lastReplay) diag.lastReplay.pathCounts[useSampler ? 'sampler' : 'ks']++;
+        playNote(ev.midi, 0.02, ev.dur, ev.vel);
         if (diag.lastReplay) diag.lastReplay.fired++;
         // 简谱字幕高亮：与发声同刻
         var els = $('jianpuLine').querySelectorAll('.jp');
