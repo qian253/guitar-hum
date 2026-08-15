@@ -57,7 +57,7 @@ async function runCase(name, opts) {
     stopAllTones: function () {},
     ensureAudioStarted: async function () {},
     waitSampler: async function () { return false; },
-    $: function () { return { querySelectorAll: function () { return []; } }; },
+    $: function () { return { querySelectorAll: function () { return []; }, style: {}, className: '', textContent: '' }; },
     velByPitch: function (midi, base) { return Math.max(0.62, Math.min(0.95, (base || 0.9) - (midi - 60) * 0.006)); },
     setTimeout: function (fn, delay) { timers.push({ fn: fn, delay: delay }); return timers.length; },
     clearTimeout: function () {},

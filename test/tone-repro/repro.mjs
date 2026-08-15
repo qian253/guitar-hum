@@ -90,7 +90,7 @@ async function runRound(label, samplerReady, toneOscSrc) {
     stopAllTones: function () { try { sampler.releaseAll(); } catch (e) {} },
     ensureAudioStarted: async function () { await Tone.start(); },
     waitSampler: async function () { return samplerReady; },
-    $: function () { return { querySelectorAll: function () { return []; } }; },
+    $: function () { return { querySelectorAll: function () { return []; }, style: {}, className: '', textContent: '' }; },
     setTimeout: function (fn, delay) { return global.setTimeout(fn, delay * SCALE); },
     clearTimeout: function (id) { global.clearTimeout(id); },
     getPlayCtx: function () { return ksc; },
@@ -145,7 +145,7 @@ async function runRound(label, samplerReady, toneOscSrc) {
 const r1 = await runRound('旋律回放 K-S（提取自 index.html）', false);
 
 // ============ A/B：旧 biquad 环路 vs 新两点平均环路（各自全新 AudioContext 隔离测量） ============
-async function loopAB(label, useBiquad) {
+async function loopAB(label, useBiquad, damping) {
   const ac2 = new AudioContext({ sampleRate: 44100 });
   const an = ac2.createAnalyser(); an.fftSize = 2048; an.connect(ac2.destination);
   const sr = ac2.sampleRate, freq = 233.08; // midi 59 ≈ B3
@@ -157,11 +157,9 @@ async function loopAB(label, useBiquad) {
   const src = ac2.createBufferSource(); src.buffer = nb;
   const delay = ac2.createDelay(2.0); delay.delayTime.value = N / sr;
   const sum = ac2.createGain(); sum.gain.value = 1.0;
-  const fb = ac2.createGain(); fb.gain.value = 0.985;
+  const fb = ac2.createGain(); fb.gain.value = damping;
   const out = ac2.createGain();
-  out.gain.setValueAtTime(0.0001, when);
-  out.gain.exponentialRampToValueAtTime(0.65, when + 0.006);
-  out.gain.exponentialRampToValueAtTime(0.0001, when + 1.0);
+  out.gain.setValueAtTime(0.65, when); // 平直包络：单独测环路余音衰减，不被包络干扰
   src.connect(delay);
   if (useBiquad) {
     const lp = ac2.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(900, Math.min(6000, freq * 4));
@@ -176,8 +174,8 @@ async function loopAB(label, useBiquad) {
   }
   out.connect(an);
   src.start(when); src.stop(when + 0.02);
-  // 采样 1.2 秒内的 RMS 峰值与频谱平坦度
-  let maxRms = 0, flatSum = 0, flatN = 0;
+  // 采样 1.2 秒内的 RMS 峰值、800ms 后的余音、频谱平坦度
+  let maxRms = 0, rmsAt800 = 0, flatSum = 0, flatN = 0, kCount = 0;
   const td = new Float32Array(an.fftSize);
   const fd = new Float32Array(an.frequencyBinCount);
   const binLo = Math.max(1, Math.floor(200 / (sr / an.fftSize)));
@@ -189,6 +187,8 @@ async function loopAB(label, useBiquad) {
     for (let i = 0; i < td.length; i++) s += td[i] * td[i];
     const rms = Math.sqrt(s / td.length);
     if (rms > maxRms) maxRms = rms;
+    if (kCount >= 14 && kCount <= 16) rmsAt800 = Math.max(rmsAt800, rms); // ~700-800ms 处的余音
+    kCount++;
     an.getFloatFrequencyData(fd);
     let sumLin = 0, sumLog = 0, n = 0;
     for (let b = binLo; b <= binHi; b++) {
@@ -200,11 +200,15 @@ async function loopAB(label, useBiquad) {
   }
   await ac2.close();
   const bounded = Number.isFinite(maxRms) && maxRms < 2;
-  console.log('  ' + label + ': 峰值rms=' + (Number.isFinite(maxRms) ? maxRms.toFixed(4) : '∞') + (bounded ? ' ✓ 有界' : ' ✗ 失稳爆炸') + ' · 平均平坦度=' + (flatSum / flatN).toFixed(3) + '（<0.5 乐音，>0.7 噪声）');
-  return bounded;
+  const sustain = maxRms > 0 ? rmsAt800 / maxRms : 0;
+  console.log('  ' + label + ': 峰值rms=' + (Number.isFinite(maxRms) ? maxRms.toFixed(4) : '∞') + (bounded ? ' ✓ 有界' : ' ✗ 失稳爆炸') + ' · 800ms余音比=' + sustain.toFixed(2) + (sustain > 0.2 ? ' ✓ 有余音' : ' ✗ 无余音(只剩起音滋声)') + ' · 平均平坦度=' + (flatSum / flatN).toFixed(3));
+  return bounded && sustain > 0.2;
 }
 console.log('==== 环路稳定性 A/B（各自全新上下文，隔离测量）====');
-const okBiquad = await loopAB('旧 biquad 低通环路', true);
-const okMA = await loopAB('新两点平均环路', false);
-console.log('\n结论: 新环路' + (okMA ? ' rms 有界 → 电流声根因（反馈环路失稳爆炸）已消除 ✓' : ' 仍失稳 ✗'));
+const okBiquad = await loopAB('旧 biquad 低通环路（阻尼 0.985）', true, 0.985);
+const okMA985 = await loopAB('两点平均 · 阻尼 0.985（旧）', false, 0.985);
+const okMA99 = await loopAB('两点平均 · 阻尼 0.99（v2.11.4）', false, 0.99);
+const okMA996 = await loopAB('两点平均 · 阻尼 0.996', false, 0.996);
+const okMA999 = await loopAB('两点平均 · 阻尼 0.999（v2.11.5 采用）', false, 0.999);
+console.log('\n结论: 阻尼 0.999 环路' + (okMA999 ? ' rms 有界 + 800ms 余音可闻 → 「小滋一声就没了」根因（阻尼过小衰减过快）已消除 ✓' : ' 仍有问题 ✗'));
 process.exit(0);

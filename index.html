@@ -325,6 +325,9 @@
 
   /* ============ 按钮 / actions ============ */
   .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .replay-status { margin-top: 10px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .replay-status.ok { color: var(--good); }
+  .replay-status.warn { color: var(--warn); }
   .btn { flex: 1; min-height: 52px; font-family: var(--font); font-size: 14.5px; font-weight: 700; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); padding: 12px; border-radius: 16px; cursor: pointer; transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease, background 0.2s ease; touch-action: manipulation; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   .btn.primary { background: linear-gradient(140deg, var(--g1), var(--g2)); color: #fff; border-color: transparent; box-shadow: 0 8px 22px color-mix(in srgb, var(--g1) 35%, transparent); }
   .btn:active { transform: scale(0.95); }
@@ -397,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.4 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.5 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -528,6 +531,8 @@ window.addEventListener('unhandledrejection', function (e) {
       <button class="btn" id="replayBtn">♪ 听旋律</button>
       <button class="btn" id="againBtn">↻ 再测一次</button>
     </div>
+
+    <div class="replay-status" id="replayStatus" style="display:none"></div>
 
     <div class="card" id="capoCard" style="display:none">
       <div class="card-title">变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
@@ -1255,7 +1260,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.4', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
+  var diag = { version: 'v2.11.5', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2272,7 +2277,7 @@ window.addEventListener('unhandledrejection', function (e) {
       var g1 = ctx.createGain(); g1.gain.value = 0.5;
       var g2 = ctx.createGain(); g2.gain.value = 0.5;
       var sum = ctx.createGain(); sum.gain.value = 1.0;
-      var fb = ctx.createGain(); fb.gain.value = 0.99; // 阻尼：每周期保留 99%，指数衰减（余音稍长更悦耳）
+      var fb = ctx.createGain(); fb.gain.value = 0.999; // 阻尼：每周期保留 99.9%（0.985/0.99 衰减太快→听感只剩起音「滋」；输出包络按音长淡出，音末强制静音，不会糊）
       // 环外提亮：放在反馈环之后，只影响输出音色、不影响环路稳定性
       var bright = ctx.createBiquadFilter(); bright.type = 'highshelf'; bright.frequency.value = 7000; bright.gain.value = 3;
       // 输出包络
@@ -2627,6 +2632,7 @@ window.addEventListener('unhandledrejection', function (e) {
     $('altHint').style.display = 'none';
     $('segSummary').style.display = 'none';
     $('addBtn').style.display = '';
+    $('replayStatus').style.display = 'none';
     $('hearSelfBtn').style.display = 'none';
     $('singBtn').style.display = 'none';
     $('timbreBar').style.display = 'none';
@@ -2761,7 +2767,7 @@ window.addEventListener('unhandledrejection', function (e) {
     if (!recordedNotes || !lastKeyResult) return;
     stopAllTones();
     await ensureAudioStarted();
-    await waitSampler(2000);
+    // 注：旋律回放走 K-S 专用通道，不再等待采样器（去掉 2 秒无谓等待）
     // 按哼唱的真实节奏高还原演奏：
     //   起音时间/时值取转录的 start/end；音高用浮点 midi 保留音分偏移；
     //   力度跟随哼唱响度（basic-pitch 振幅归一化）。
@@ -2796,6 +2802,8 @@ window.addEventListener('unhandledrejection', function (e) {
     var t0 = notes[0].start || 0;
     var leadMs = 60; // 起播小延迟
     diag.lastReplay = { total: notes.length, fired: 0, path: 'K-S 拨弦' };
+    var rsEl = $('replayStatus');
+    if (rsEl) { rsEl.style.display = 'block'; rsEl.className = 'replay-status'; rsEl.textContent = '正在演奏 ' + notes.length + ' 个音…'; }
     var evs = [];
     var lastEndMs = 0;
     for (var ei = 0; ei < notes.length; ei++) {
@@ -2826,10 +2834,21 @@ window.addEventListener('unhandledrejection', function (e) {
       }, ev.delay);
       melodyTimers.push(tm);
     });
-    // 全部奏完清除高亮
+    // 全部奏完：回放报告（触发数可直接看到，便于定位「只播一个音」类问题）
     var endTm = setTimeout(function () {
       var els = $('jianpuLine').querySelectorAll('.jp');
       if (els) for (var e2 = 0; e2 < els.length; e2++) els[e2].classList.remove('hl');
+      var rsEl2 = $('replayStatus');
+      if (rsEl2) {
+        var fired = diag.lastReplay ? diag.lastReplay.fired : 0;
+        if (fired >= notes.length) {
+          rsEl2.className = 'replay-status ok';
+          rsEl2.textContent = '回放完成 · 触发 ' + fired + '/' + notes.length + ' 个音 ✓';
+        } else {
+          rsEl2.className = 'replay-status warn';
+          rsEl2.textContent = '⚠ 只触发了 ' + fired + '/' + notes.length + ' 个音，把这条信息告诉开发者';
+        }
+      }
     }, lastEndMs + 250);
     melodyTimers.push(endTm);
   }
