@@ -25,7 +25,7 @@
   var GUITAR_BIAS = 0.02;     // 吉他友好调微调（仅在分数接近时起作用）
   var SCALE_BONUS = 0.20;     // 音阶成员加权：旋律落在该调音阶内的比例（强判别）
   var CENTROID_WEIGHT = 0.04; // 重心音：弱证据（对称旋律会落音阶中段，不宜过重）
-  var DOMINANT_WEIGHT = 0.04; // 音级分布最长音级：弱证据，按「支配度」缩放
+  var STABILITY_WEIGHT = 0.10; // 音级稳定性 K-S（v2.15）：稳定性点积比「出现最久音级」更能抓主音
   var ENDING_MAX_MULT = 1.5;  // 结束音最大加权倍率（仅完整终止时触发）
   var GUILD = { // 吉他友好（开放和弦优先）的大调与小调主音（pc）
     major: [0, 7, 2, 9, 4, 5],   // C, G, D, A, E, F
@@ -314,6 +314,30 @@
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
 
+    // ============ 音级分布模块 v2.15：基于音级稳定性权重的 K-S ============
+    // K-S 探测音谱本质是「音级稳定性权重」（主音最稳、导音最不稳）。
+    // 用「点积」而非 Pearson 相关：直方图质量直接加权稳定性，短旋律更稳健
+    // （Pearson 会把稀有的离调音也放大权重，主音反而被拉偏）。
+    // 输出：24 候选调的稳定性分 + 模块自身的主音判断 stabBestRoot。
+    var stabTable = [];
+    var stabMin = Infinity, stabMax = -Infinity;
+    for (var sroot = 0; sroot < 12; sroot++) {
+      var smaj = 0, smin = 0;
+      var pm = shiftProfile(MAJOR_PROF, sroot);
+      var pn = shiftProfile(MINOR_PROF, sroot);
+      for (var si = 0; si < 12; si++) { smaj += hist[si] * pm[si]; smin += hist[si] * pn[si]; }
+      stabTable.push({ root: sroot, major: smaj, minor: smin, best: Math.max(smaj, smin), bestMode: (smaj >= smin ? 'major' : 'minor') });
+      if (smaj < stabMin) stabMin = smaj;
+      if (smin < stabMin) stabMin = smin;
+      if (smaj > stabMax) stabMax = smaj;
+      if (smin > stabMax) stabMax = smin;
+    }
+    var stabSpan = (stabMax - stabMin) || 1;
+    var stabBestRoot = 0;
+    for (var sr2 = 1; sr2 < 12; sr2++) {
+      if (stabTable[sr2].best > stabTable[stabBestRoot].best) stabBestRoot = sr2;
+    }
+
     // ============ 第一步：锁定主音（与调式解耦） ============
     // 对每个根音取「大调/小调中较高分」作为主音得分（K-S + 音阶成员 + 重心 + 音级分布 + 吉他偏好）
     var tonicScores = new Array(12).fill(0);
@@ -322,9 +346,9 @@
       var majScore = corr(hist, shiftProfile(MAJOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'major');
       var minScore = corr(hist, shiftProfile(MINOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'minor');
       var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
-      var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;
+      var stabBonus = STABILITY_WEIGHT * ((stabTable[root].best - stabMin) / stabSpan); // 音级稳定性（v2.15，替代旧「最长音级」加成）
       var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
-      var tScore = Math.max(majScore, minScore) + cBonus + domBonus + guitarBonus;
+      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + guitarBonus;
       tonicScores[root] = tScore;
       tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }
@@ -364,6 +388,17 @@
         ' · 大三和弦=' + md.majorTriad.toFixed(2) + ' vs 小三和弦=' + md.minorTriad.toFixed(2) + ' · 导音 ' + md.leading + ' 次 → ' + (mode === 'major' ? '大调' : '小调')
     ];
 
+    // 音级稳定性输出（v2.15）：相对最终主音的 12 个音级稳定性得分（直方图质量 × K-S 稳定性权重，归一化到合计 100）
+    var stabilityByDegree = new Array(12).fill(0);
+    {
+      var sProf = shiftProfile(mode === 'major' ? MAJOR_PROF : MINOR_PROF, bestRoot);
+      var degSum = 0;
+      for (var sd0 = 0; sd0 < 12; sd0++) { var scv = hist[sd0] * sProf[sd0]; stabilityByDegree[sd0] = scv; degSum += scv; }
+      for (var sd1 = 0; sd1 < 12; sd1++) stabilityByDegree[sd1] = degSum > 0 ? +((stabilityByDegree[sd1] / degSum) * 100).toFixed(1) : 0;
+    }
+    evidence.push('音级稳定性（模块主音判断 ' + SPELL[stabBestRoot] + (stabTable[stabBestRoot].bestMode === 'major' ? '大' : '小') + '）：' +
+      stabilityByDegree.map(function (v, idx) { return SPELL[(bestRoot + idx) % 12] + ' ' + v; }).join(' / '));
+
     return {
       mode: mode,
       rootPC: bestRoot,
@@ -387,6 +422,7 @@
       endingMult: endingMult,
       candidateScores: tonicDetails.slice().sort(function (a, b) { return b.tonic - a.tonic; }).slice(0, 4).map(function (t) { return { root: t.root, mode: (t.major >= t.minor ? 'major' : 'minor'), score: +t.tonic.toFixed(3) }; }),
       modeEvidence: { majorThird: md.majorThird, minorThird: md.minorThird, majorTriad: md.majorTriad, minorTriad: md.minorTriad, leading: md.leading },
+      stability: { scores: stabilityByDegree, tonic: { rootPC: stabBestRoot, mode: stabTable[stabBestRoot].bestMode }, weight: STABILITY_WEIGHT },
       top2: top2,
       ampWeighted: hasAmp,
       noteCount: notes.length,

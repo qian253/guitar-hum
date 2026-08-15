@@ -525,6 +525,101 @@
   }
 
   </style>
+  <style>
+/* ============ 动态真手绘层（v2.14.1）============
+ * 原则：只用 transform/opacity 动画保证移动端流畅；
+ * 描边动画 ≤1.2s；全部装饰 pointer-events:none 不挡交互。 */
+
+/* --- 纸张纹理（feTurbulence 噪点，极淡） --- */
+#paperTex {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* --- 水彩晕染色块（低透明度、不规则边缘，CSS 模糊模拟扩散） --- */
+#watercolorLayer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.wc-blob { position: absolute; border-radius: 46% 54% 58% 42% / 48% 44% 56% 52%; filter: blur(36px); opacity: 0.32; }
+.wc-b1 { width: 300px; height: 300px; left: -80px; top: -60px; background: #FFD9C8; animation: wcDrift 26s ease-in-out infinite alternate; }
+.wc-b2 { width: 340px; height: 340px; right: -100px; top: 30%; background: #CDEBDB; animation: wcDrift 32s ease-in-out infinite alternate-reverse; }
+.wc-b3 { width: 280px; height: 280px; left: -60px; bottom: 8%; background: #E4DBFA; animation: wcDrift 38s ease-in-out infinite alternate; }
+.wc-b4 { width: 240px; height: 240px; right: 15%; bottom: -60px; background: #FFF0C9; animation: wcDrift 30s ease-in-out infinite alternate-reverse; }
+@keyframes wcDrift { from { transform: translate(0,0) rotate(0deg) scale(1); } to { transform: translate(26px,18px) rotate(9deg) scale(1.12); } }
+
+/* --- 手绘描边 SVG（由 JS 生成 wobbly path） --- */
+.sketch-border {
+  position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px);
+  pointer-events: none; z-index: 1; overflow: visible;
+}
+.sketch-border path { fill: none; stroke: #E4CDB4; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.sketch-border .sketch-shadow { stroke: rgba(214,150,120,0.28); stroke-width: 4.5; transform: translate(1.5px, 2.5px); }
+.sketch-border path.draw-line { stroke-dasharray: var(--len, 2000); stroke-dashoffset: var(--len, 2000); animation: sketchDraw 1s cubic-bezier(0.4,0,0.2,1) forwards; }
+@keyframes sketchDraw { to { stroke-dashoffset: 0; } }
+
+/* --- 背景手绘小元素：缓慢浮动 + 轻微旋转/缩放（像被风吹） --- */
+#doodleLayer .doodle {
+  animation: doodleFloat 9s ease-in-out infinite, doodleSway 14s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes doodleSway {
+  0%, 100% { transform: rotate(-6deg) scale(1); }
+  25% { transform: rotate(5deg) scale(1.06); }
+  50% { transform: rotate(-2deg) scale(0.97); }
+  75% { transform: rotate(7deg) scale(1.05); }
+}
+
+/* --- 按钮「画笔压感」：按下缩 + 边框变粗 --- */
+.btn:active, .quick-card:active, .rhythm-play:active, .timbre-btn:active, .nav-item:active, .practice-mic:active, .tab:active {
+  transform: scale(0.93) rotate(-0.5deg);
+  box-shadow: 0 0 0 3px rgba(255,138,122,0.28), var(--shadow-sm);
+}
+.btn:active::after, .card:active::after { border-width: 2.5px; }
+
+/* --- 调性文字「被写出来」：逐字显现 --- */
+.ji-char { display: inline-block; opacity: 0; animation: charIn 0.45s cubic-bezier(0.22,0.9,0.3,1) forwards; }
+@keyframes charIn { from { opacity: 0; transform: translateY(10px) scale(1.15); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+
+/* --- 调调猫：先描轮廓再填充 --- */
+#catBuddy.show #catSvg svg .cat-line {
+  stroke-dasharray: 420; stroke-dashoffset: 420;
+  animation: lineDraw 0.65s ease-out forwards;
+}
+@keyframes lineDraw { to { stroke-dashoffset: 0; } }
+#catBuddy.show #catSvg svg .cat-fill { opacity: 0; animation: fillIn 0.5s ease-out 0.45s forwards; }
+@keyframes fillIn { to { opacity: 1; } }
+#catBuddy.show #catSvg svg .cat-late { opacity: 0; animation: fillIn 0.4s ease-out 0.7s forwards; }
+
+/* --- 手绘小花绽放（花瓣描边一片片出现） --- */
+.burst-flower { position: fixed; z-index: 95; pointer-events: none; animation: bloomRise 1.1s ease-out forwards; }
+.burst-flower .petal { stroke-dasharray: 60; stroke-dashoffset: 60; }
+.burst-flower .p1 { animation: petalIn 0.35s ease-out forwards; }
+.burst-flower .p2 { animation: petalIn 0.35s ease-out 0.08s forwards; }
+.burst-flower .p3 { animation: petalIn 0.35s ease-out 0.16s forwards; }
+.burst-flower .p4 { animation: petalIn 0.35s ease-out 0.24s forwards; }
+.burst-flower .p5 { animation: petalIn 0.35s ease-out 0.32s forwards; }
+.burst-flower .center { opacity: 0; animation: fillIn 0.3s ease-out 0.5s forwards; }
+@keyframes petalIn { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+@keyframes bloomRise {
+  0% { transform: translateY(0) scale(0.6) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-70px) scale(1.25) rotate(14deg); opacity: 0; }
+}
+
+/* --- 卡片微倾斜水彩底（渐变晕染块） --- */
+.card { background-image: radial-gradient(120px 90px at 8% 6%, rgba(255,179,156,0.10), transparent 70%), radial-gradient(140px 110px at 96% 94%, rgba(168,230,207,0.12), transparent 70%); }
+
+/* --- 收藏墙解锁弹跳升级 --- */
+.wall-item.unlocked { animation: unlockPop 0.55s cubic-bezier(0.34,1.56,0.64,1), unlockWiggle 1.2s ease-in-out 0.55s; }
+@keyframes unlockWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg) scale(1.05); } 75% { transform: rotate(8deg) scale(1.05); } }
+
+/* 尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .sketch-border path.draw-line, #doodleLayer .doodle, .ji-char, .wc-blob,
+  #catBuddy.show #catSvg svg .cat-line, .burst-flower { animation: none !important; }
+  .sketch-border path.draw-line { stroke-dashoffset: 0; }
+  .ji-char, .burst-flower .center, #catBuddy.show #catSvg svg .cat-fill { opacity: 1; }
+}
+
+  </style>
 </head>
 <body>
 <script>
@@ -548,7 +643,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.1 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1058,7 +1153,7 @@ window.addEventListener('unhandledrejection', function (e) {
   function norm(p) { var m = 0; for (var i = 0; i < p.length; i++) m += p[i]; m /= p.length; return p.map(function (v) { return v / m; }); }
   var MAJOR_PROF = norm(KS_MAJOR), MINOR_PROF = norm(KS_MINOR);
   var GUITAR_BIAS = 0.02, SCALE_BONUS = 0.20;
-  var CENTROID_WEIGHT = 0.04, DOMINANT_WEIGHT = 0.04, ENDING_MAX_MULT = 1.5;
+  var CENTROID_WEIGHT = 0.04, STABILITY_WEIGHT = 0.10, ENDING_MAX_MULT = 1.5;
   var GUILD = { major: [0, 7, 2, 9, 4, 5], minor: [0, 7, 2, 5] };
   var MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11], MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
   var SPELL = { 0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F', 6: 'F#', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B' };
@@ -1217,6 +1312,30 @@ window.addEventListener('unhandledrejection', function (e) {
     if (total <= 0) return null;
     for (var h = 0; h < 12; h++) hist[h] /= total;
 
+    // ============ 音级分布模块 v2.15：基于音级稳定性权重的 K-S ============
+    // K-S 探测音谱本质是「音级稳定性权重」（主音最稳、导音最不稳）。
+    // 用「点积」而非 Pearson 相关：直方图质量直接加权稳定性，短旋律更稳健
+    // （Pearson 会把稀有的离调音也放大权重，主音反而被拉偏）。
+    // 输出：24 候选调的稳定性分 + 模块自身的主音判断 stabBestRoot。
+    var stabTable = [];
+    var stabMin = Infinity, stabMax = -Infinity;
+    for (var sroot = 0; sroot < 12; sroot++) {
+      var smaj = 0, smin = 0;
+      var pm = shiftProfile(MAJOR_PROF, sroot);
+      var pn = shiftProfile(MINOR_PROF, sroot);
+      for (var si = 0; si < 12; si++) { smaj += hist[si] * pm[si]; smin += hist[si] * pn[si]; }
+      stabTable.push({ root: sroot, major: smaj, minor: smin, best: Math.max(smaj, smin), bestMode: (smaj >= smin ? 'major' : 'minor') });
+      if (smaj < stabMin) stabMin = smaj;
+      if (smin < stabMin) stabMin = smin;
+      if (smaj > stabMax) stabMax = smaj;
+      if (smin > stabMax) stabMax = smin;
+    }
+    var stabSpan = (stabMax - stabMin) || 1;
+    var stabBestRoot = 0;
+    for (var sr2 = 1; sr2 < 12; sr2++) {
+      if (stabTable[sr2].best > stabTable[stabBestRoot].best) stabBestRoot = sr2;
+    }
+
     // ============ 第一步：锁定主音（与调式解耦） ============
     var tonicScores = new Array(12).fill(0);
     var tonicDetails = [];
@@ -1224,9 +1343,9 @@ window.addEventListener('unhandledrejection', function (e) {
       var majScore = corr(hist, shiftProfile(MAJOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'major');
       var minScore = corr(hist, shiftProfile(MINOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'minor');
       var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
-      var domBonus = (root === dominantPC) ? DOMINANT_WEIGHT * dominance : 0;
+      var stabBonus = STABILITY_WEIGHT * ((stabTable[root].best - stabMin) / stabSpan); // 音级稳定性（v2.15）
       var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
-      var tScore = Math.max(majScore, minScore) + cBonus + domBonus + guitarBonus;
+      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + guitarBonus;
       tonicScores[root] = tScore;
       tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }
@@ -1480,7 +1599,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.14.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.14.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -3883,6 +4002,217 @@ window.addEventListener('unhandledrejection', function (e) {
   switchView('record');
   renderPractice();
   renderMine();
+})();
+
+</script>
+<script>
+/* ================================================================
+ * 动态真手绘层（v2.14.1）：描边动画 / 纸张纹理 / 水彩色块 / 逐字显现 / 小花绽放
+ * 纯装饰层：不碰任何业务逻辑，全部 pointer-events:none。
+ * ================================================================ */
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 纸张纹理 + 水彩色块层 ---------- */
+  (function () {
+    var tex = document.createElement('div');
+    tex.id = 'paperTex';
+    document.body.insertBefore(tex, document.body.firstChild);
+    var wc = document.createElement('div');
+    wc.id = 'watercolorLayer';
+    for (var i = 1; i <= 4; i++) {
+      var b = document.createElement('div');
+      b.className = 'wc-blob wc-b' + i;
+      wc.appendChild(b);
+    }
+    document.body.insertBefore(wc, document.body.firstChild);
+  })();
+
+  /* ---------- 手绘描边：wobbly 路径生成 ---------- */
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function wobblyPath(w, h, seed) {
+    var rnd = mulberry32(seed || 7);
+    var j = Math.min(4, Math.max(1.5, Math.min(w, h) * 0.035)); // 抖动幅度
+    var n = 12; // 每边采样点
+    var pts = [];
+    function edge(x0, y0, x1, y1) {
+      for (var i = 0; i <= n; i++) {
+        var t = i / n;
+        var px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
+        // 垂直方向抖动
+        var dx = x1 - x0, dy = y1 - y0;
+        var len = Math.sqrt(dx * dx + dy * dy) || 1;
+        var nx = -dy / len, ny = dx / len;
+        var off = (rnd() - 0.5) * 2 * j;
+        if (i === 0 || i === n) off *= 0.4;
+        pts.push([px + nx * off, py + ny * off]);
+      }
+    }
+    edge(2, 2, w - 2, 2);
+    edge(w - 2, 2, w - 2, h - 2);
+    edge(w - 2, h - 2, 2, h - 2);
+    edge(2, h - 2, 2, 2);
+    var d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (var k = 1; k < pts.length; k++) d += 'L' + pts[k][0].toFixed(1) + ' ' + pts[k][1].toFixed(1);
+    return d + 'Z';
+  }
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function applySketch(el) {
+    if (!el || el.dataset.sketched) return;
+    if (el.offsetWidth < 24 || el.offsetHeight < 24) return; // 太小不描
+    el.dataset.sketched = '1';
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'sketch-border');
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    var shadow = document.createElementNS(SVGNS, 'path');
+    shadow.setAttribute('class', 'sketch-shadow');
+    shadow.setAttribute('d', wobblyPath(w, h, 11));
+    svg.appendChild(shadow);
+    var line = document.createElementNS(SVGNS, 'path');
+    line.setAttribute('class', 'draw-line');
+    line.setAttribute('d', wobblyPath(w, h, 7));
+    svg.appendChild(line);
+    try { line.style.setProperty('--len', line.getTotalLength()); } catch (e) {}
+    el.appendChild(svg);
+  }
+  var SKETCH_SEL = '.card, .btn, .rhythm-item, .prog-slide, .history-item, .capo-highlight, .tone-map, .seg-summary, .alt-hint, .melody-chords, .settings-row, .quick-card';
+  function sketchAll(root) {
+    try {
+      var els = (root || document).querySelectorAll(SKETCH_SEL);
+      for (var i = 0; i < els.length; i++) applySketch(els[i]);
+    } catch (e) {}
+  }
+  // 初始描边
+  setTimeout(sketchAll, 150);
+  // 之后新增的元素（结果渲染/切换页）也描边
+  (function () {
+    var obs = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        for (var j = 0; j < muts[i].addedNodes.length; j++) {
+          var nd = muts[i].addedNodes[j];
+          if (nd.nodeType !== 1) continue;
+          if (nd.matches && nd.matches(SKETCH_SEL)) applySketch(nd);
+          else sketchAll(nd);
+        }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  })();
+  window.addEventListener('resize', function () {
+    // 旋转/缩放后重描（防抖）
+    clearTimeout(window.__sketchRt);
+    window.__sketchRt = setTimeout(function () {
+      var olds = document.querySelectorAll('[data-sketched]');
+      for (var i = 0; i < olds.length; i++) {
+        var sv = olds[i].querySelector(':scope > .sketch-border');
+        if (sv) sv.remove();
+        delete olds[i].dataset.sketched;
+      }
+      sketchAll();
+    }, 300);
+  });
+
+  /* ---------- 调性文字「被写出来」：逐字显现 ---------- */
+  function charReveal(el) {
+    if (!el || el.dataset.chared) return;
+    el.dataset.chared = '1';
+    try {
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+      var texts = [];
+      while (walker.nextNode()) texts.push(walker.currentNode);
+      var budget = 10; // 最多处理 10 个字符
+      for (var i = 0; i < texts.length; i++) {
+        var node = texts[i];
+        var txt = node.nodeValue;
+        if (!txt || !txt.trim()) continue;
+        var frag = document.createDocumentFragment();
+        for (var c = 0; c < txt.length && budget > 0; c++, budget--) {
+          var sp = document.createElement('span');
+          sp.className = 'ji-char';
+          sp.style.animationDelay = (c * 0.07) + 's';
+          sp.textContent = txt[c];
+          frag.appendChild(sp);
+        }
+        if (budget <= 0 && c < txt.length) frag.appendChild(document.createTextNode(txt.slice(c)));
+        node.parentNode.replaceChild(frag, node);
+        if (budget <= 0) break;
+      }
+    } catch (e) {}
+  }
+  (function () {
+    var el = $('keyBig');
+    if (!el) return;
+    var obs = new MutationObserver(function () {
+      delete el.dataset.chared;
+      charReveal(el);
+    });
+    obs.observe(el, { childList: true, characterData: true, subtree: true });
+    charReveal(el);
+  })();
+
+  /* ---------- 调调猫：轮廓先描、再填充（后处理 SVG） ---------- */
+  (function () {
+    var box = $('catSvg');
+    if (!box) return;
+    var obs = new MutationObserver(function () {
+      var svg = box.querySelector('svg');
+      if (!svg) return;
+      var shapes = svg.querySelectorAll('path, ellipse, circle, rect, text');
+      for (var i = 0; i < shapes.length; i++) {
+        var s = shapes[i];
+        if (s.getAttribute('stroke') && s.tagName !== 'text') s.classList.add('cat-line');
+        else if (s.tagName === 'text') s.classList.add('cat-late');
+        else s.classList.add('cat-fill');
+      }
+    });
+    obs.observe(box, { childList: true, subtree: true });
+  })();
+
+  /* ---------- 音准过关：手绘小花绽放（观察反馈文字触发） ---------- */
+  function bloomFlower(x, y) {
+    var colors = ['#FF8A7A', '#FFB39C', '#A8E6CF', '#D5C6F5', '#FFE29A'];
+    for (var b = 0; b < 8; b++) {
+      var el = document.createElement('span');
+      el.className = 'burst-flower';
+      el.style.left = (x + (Math.random() - 0.5) * 110) + 'px';
+      el.style.top = (y + (Math.random() - 0.5) * 90) + 'px';
+      el.style.animationDelay = (Math.random() * 0.25) + 's';
+      var col = colors[b % colors.length];
+      var petals = '';
+      for (var p = 0; p < 5; p++) {
+        var ang = (p / 5) * Math.PI * 2;
+        var cx = 16 + Math.cos(ang) * 8, cy = 16 + Math.sin(ang) * 8;
+        petals += '<ellipse class="petal p' + (p + 1) + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" rx="6.5" ry="10" stroke="' + col + '" stroke-width="2.4" fill="none" transform="rotate(' + (ang * 180 / Math.PI).toFixed(0) + ' ' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ')"/>';
+      }
+      el.innerHTML = '<svg width="32" height="32" viewBox="0 0 32 32">' + petals + '<circle class="center" cx="16" cy="16" r="3.5" fill="#FFE29A"/></svg>';
+      document.body.appendChild(el);
+      (function (node) { setTimeout(function () { node.remove(); }, 1500); })(el);
+    }
+  }
+  (function () {
+    var fb = $('practiceFb');
+    if (!fb) return;
+    var obs = new MutationObserver(function () {
+      var t = fb.textContent || '';
+      if (/太棒|通过|成功/.test(t)) {
+        bloomFlower(window.innerWidth / 2, window.innerHeight / 2 - 60);
+        if (window.__bloom) clearTimeout(window.__bloom);
+        window.__bloom = setTimeout(function () {
+          if (/太棒|通过|成功/.test(fb.textContent)) bloomFlower(window.innerWidth / 2, window.innerHeight / 2 - 60);
+        }, 700);
+      }
+    });
+    obs.observe(fb, { childList: true, characterData: true, subtree: true });
+  })();
 })();
 
 </script>
