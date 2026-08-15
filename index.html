@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.15 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.12.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1262,7 +1262,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.15', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.12.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2899,18 +2899,9 @@ window.addEventListener('unhandledrejection', function (e) {
   // 只剩 Web Audio 最基础的「播放一个缓冲」操作。K-S 算法与处理器版一致
   // （噪声激励 + 两点平均 0.5(x+x·z⁻¹) + 阻尼 0.996 + 起音/衰减包络），
   // 纯 JS 可测：verify-melody-buffer.js 在 Node 里逐音断言能量。
-  function renderMelodyBuffer(notes, sr, st) {
-    // 防御性排序：无论输入顺序如何，都按起音时间渲染
-    notes = notes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
-    var t0 = notes[0].start || 0;
-    var totalEnd = 0;
-    for (var i0 = 0; i0 < notes.length; i0++) {
-      var e0 = (notes[i0].end != null ? notes[i0].end : (notes[i0].start || 0) + (notes[i0].dur || 0.25)) + 0.2;
-      if (e0 > totalEnd) totalEnd = e0;
-    }
-    var len = Math.ceil((totalEnd - t0 + 0.3) * sr);
-    var out = new Float32Array(len);
-    // 力度来源：basic-pitch 振幅；无振幅时从录音 PCM 按窗口 RMS 还原重音
+  // 计算每个音符的力度（重音还原）：basic-pitch 振幅优先；无振幅时从录音 PCM 按窗口 RMS
+  // 返回 {vels:[...]}——采样器路径与预渲染路径共用，保证两模式重音一致
+  function computeNoteVels(notes, st) {
     var maxAmp = 0, hasAmp = false;
     for (var a0 = 0; a0 < notes.length; a0++) {
       var av0 = notes[a0].amp || notes[a0].amplitude || 0;
@@ -2934,16 +2925,36 @@ window.addEventListener('unhandledrejection', function (e) {
       }
       for (var rk0 = 0; rk0 < rmsVels.length; rk0++) rmsVels[rk0] = rmsMax > 0 ? (0.6 + 0.4 * Math.min(1, rmsVels[rk0] / rmsMax)) : 1;
     }
+    var vels = [];
+    for (var vi = 0; vi < notes.length; vi++) {
+      var note = notes[vi];
+      var vel = velByPitch(note.midi, 0.9);
+      if (hasAmp) {
+        vel *= 0.55 + 0.45 * Math.min(1, (note.amp || note.amplitude || 0) / maxAmp); // 重音动态范围
+      } else if (rmsVels) {
+        vel *= rmsVels[vi];
+      }
+      vels.push(vel);
+    }
+    return { vels: vels, hasAmp: hasAmp };
+  }
+  function renderMelodyBuffer(notes, sr, st) {
+    // 防御性排序：无论输入顺序如何，都按起音时间渲染
+    notes = notes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
+    var t0 = notes[0].start || 0;
+    var totalEnd = 0;
+    for (var i0 = 0; i0 < notes.length; i0++) {
+      var e0 = (notes[i0].end != null ? notes[i0].end : (notes[i0].start || 0) + (notes[i0].dur || 0.25)) + 0.2;
+      if (e0 > totalEnd) totalEnd = e0;
+    }
+    var len = Math.ceil((totalEnd - t0 + 0.3) * sr);
+    var out = new Float32Array(len);
+    var vels = computeNoteVels(notes, st).vels;
     for (var ni = 0; ni < notes.length; ni++) {
       var note = notes[ni];
       var freq = 440 * Math.pow(2, (note.midi - 69) / 12);
       var dur = Math.max(0.09, (note.end != null ? note.end : (note.start || 0) + (note.dur || 0.25)) - (note.start || 0));
-      var vel = velByPitch(note.midi, 0.9);
-      if (hasAmp) {
-        vel *= 0.6 + 0.4 * Math.min(1, (note.amp || note.amplitude || 0) / maxAmp);
-      } else if (rmsVels) {
-        vel *= rmsVels[ni];
-      }
+      var vel = vels[ni];
       var N = Math.max(2, Math.round(sr / freq));
       var ring = new Float32Array(N);
       for (var b0 = 0; b0 < N; b0++) ring[b0] = (Math.random() * 2 - 1) * (1 - b0 / N);
@@ -2977,45 +2988,65 @@ window.addEventListener('unhandledrejection', function (e) {
     if (!recordedNotes || !lastKeyResult) return;
     stopAllTones();
     await ensureAudioStarted();
-    var notes = recordedNotes;
+    // 防御性排序：basic-pitch 曾返回逆序音符（v2.11.15 根因），一切下游都依赖时间序
+    var notes = recordedNotes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
     var ctx = getPlayCtx();
     var sr = ctx.sampleRate || 44100;
-    diag.lastReplay = { total: notes.length, fired: notes.length, path: '预渲染缓冲' };
+    var t0 = notes[0].start || 0;
+    var noteVels = computeNoteVels(notes, state).vels;
+    // 每音起音/时长（真实节奏；时长不压过下一音起音）
+    var evs = [];
+    var lastEndMs = 0;
+    for (var ei = 0; ei < notes.length; ei++) {
+      var n = notes[ei];
+      var onset = Math.max(0, (n.start || 0) - t0);
+      var end = (n.end != null) ? n.end : (n.start || 0) + (n.dur || 0.25);
+      var rawDur = Math.max(0.09, end - (n.start || 0));
+      var nextOnset = (ei + 1 < notes.length) ? Math.max(0, (notes[ei + 1].start || 0) - t0) : onset + rawDur + 0.15;
+      var dur = Math.min(rawDur, Math.max(0.09, nextOnset - onset - 0.03));
+      evs.push({ midi: n.midi, delay: Math.round(onset * 1000), dur: dur, vel: noteVels[ei], idx: ei });
+      lastEndMs = Math.max(lastEndMs, Math.round((onset + dur) * 1000));
+    }
     var rsEl = $('replayStatus');
     if (rsEl) { rsEl.style.display = 'block'; rsEl.className = 'replay-status'; rsEl.textContent = '正在演奏 ' + notes.length + ' 个音…'; }
-    // 离线合成整条旋律 → 单个缓冲 → 一次播放：没有实时触发、没有竞态
+    function scheduleHighlight(i, delayMs) {
+      var tm = setTimeout(function () {
+        var els = $('jianpuLine').querySelectorAll('.jp');
+        for (var h0 = 0; h0 < els.length; h0++) els[h0].classList.remove('hl');
+        if (els[i]) els[i].classList.add('hl');
+      }, delayMs);
+      melodyTimers.push(tm);
+    }
+    var endCleanup = function () {
+      var els = $('jianpuLine').querySelectorAll('.jp');
+      if (els) for (var e3 = 0; e3 < els.length; e3++) els[e3].classList.remove('hl');
+      var rsEl2 = $('replayStatus');
+      if (rsEl2) { rsEl2.className = 'replay-status ok'; rsEl2.textContent = '回放完成 · ' + notes.length + ' 个音（节奏与重音按你哼的还原）'; }
+    };
+
+    // ===== 路径1：真实采样器逐音触发（音色随「音色」栏切换：尼龙/钢弦/钢琴） =====
+    if (toneSamplerReady()) {
+      diag.lastReplay = { total: notes.length, fired: 0, path: '采样器·' + (TIMBRES[currentTimbre] ? TIMBRES[currentTimbre].label : currentTimbre) };
+      try {
+        evs.forEach(function (ev) {
+          var tm = setTimeout(function () {
+            playNote(ev.midi, 0.02, ev.dur, ev.vel); // 采样器优先；异常自动落 K-S
+            if (diag.lastReplay) diag.lastReplay.fired++;
+            var els = $('jianpuLine').querySelectorAll('.jp');
+            for (var h = 0; h < els.length; h++) els[h].classList.remove('hl');
+            if (els[ev.idx]) els[ev.idx].classList.add('hl');
+          }, ev.delay);
+          melodyTimers.push(tm);
+        });
+      } catch (e) {}
+      var endTm = setTimeout(endCleanup, lastEndMs + 300);
+      melodyTimers.push(endTm);
+      return;
+    }
+
+    // ===== 路径2：采样器未就绪 → K-S 预渲染缓冲一次播放（保底，零触发依赖） =====
+    diag.lastReplay = { total: notes.length, fired: notes.length, path: 'K-S 预渲染缓冲' };
     var pcm = renderMelodyBuffer(notes, sr, state);
-    // 波形自检：直接测量缓冲里每个音时窗的峰值（用于远程定位「只剩一个音」）
-    var selfCheck = [];
-    try {
-      var t0b = notes[0].start || 0;
-      for (var dw = 0; dw < notes.length; dw++) {
-        var nd0 = notes[dw];
-        var ws = Math.max(0, Math.round(((nd0.start || 0) - t0b) * sr));
-        var ndEnd = (nd0.end != null) ? nd0.end : (nd0.start || 0) + (nd0.dur || 0.25);
-        var we = ws + Math.round(Math.max(0.09, ndEnd - (nd0.start || 0)) * sr);
-        var pk = 0;
-        for (var wi = ws; wi < Math.min(we, pcm.length); wi += 32) { var aa = Math.abs(pcm[wi]); if (aa > pk) pk = aa; }
-        selfCheck.push(pk.toFixed(2));
-      }
-    } catch (e) {}
-    var startsTxt = [];
-    var noteTxt = [];
-    var allSameMidi = true;
-    try {
-      var t0c = notes[0].start || 0;
-      for (var sti = 0; sti < notes.length; sti++) startsTxt.push((+(notes[sti].start || 0) - t0c).toFixed(1));
-      for (var nti = 0; nti < notes.length; nti++) {
-        var ndx = notes[nti];
-        var ndDur = (ndx.end != null ? ndx.end : (ndx.start || 0) + (ndx.dur || 0.25)) - (ndx.start || 0);
-        var ndAmp = ndx.amp != null ? ndx.amp : ndx.amplitude;
-        noteTxt.push(Math.round(ndx.midi) + '(' + ndDur.toFixed(2) + 's' + (ndAmp != null ? '·a' + (+ndAmp).toFixed(2) : '') + ')');
-      }
-      // 自动诊断：转录出的音高是否全部相同（同音高 → 听感是「一个音」）
-      var refMidi = Math.round(notes[0].midi);
-      for (var ck = 1; ck < notes.length; ck++) { if (Math.round(notes[ck].midi) !== refMidi) { allSameMidi = false; break; } }
-    } catch (e) {}
-    if (rsEl) { rsEl.textContent = '正在演奏 ' + notes.length + ' 个音 · ' + noteTxt.join(' ') + ' · 起音 ' + startsTxt.join('/') + 's · 缓冲 ' + (pcm.length / sr).toFixed(1) + 's' + (allSameMidi ? ' ⚠ 转录出的音高全部相同（听感会像一个音）' : ''); }
     var buf = ctx.createBuffer(1, pcm.length, sr);
     buf.getChannelData(0).set(pcm);
     var bright = ctx.createBiquadFilter(); bright.type = 'highshelf'; bright.frequency.value = 7000; bright.gain.value = 3;
@@ -3023,40 +3054,12 @@ window.addEventListener('unhandledrejection', function (e) {
     var src = ctx.createBufferSource(); src.buffer = buf;
     src.connect(bright); bright.connect(g); g.connect(ctx.destination);
     melodySource = src;
-    var startMs = Date.now();
     src.onended = function () {
-      var playedMs = Date.now() - startMs;
-      var bufSec = pcm.length / sr;
       melodySource = null;
-      var els = $('jianpuLine').querySelectorAll('.jp');
-      if (els) for (var e3 = 0; e3 < els.length; e3++) els[e3].classList.remove('hl');
-      var rsEl2 = $('replayStatus');
-      if (rsEl2) { rsEl2.className = 'replay-status ok'; rsEl2.textContent = '回放完成 · 实际 ' + (playedMs / 1000).toFixed(1) + 's / 缓冲 ' + bufSec.toFixed(1) + 's · ' + selfCheck.join('/'); }
-      // 看门狗：若实际播放远短于缓冲（被提前打断），用「无人可停」的裸源立即补放整段
-      if (playedMs < (bufSec - 0.3) * 1000) {
-        try {
-          var ctx2 = getPlayCtx();
-          var src2 = ctx2.createBufferSource();
-          src2.buffer = buf;
-          var g2 = ctx2.createGain(); g2.gain.value = 1.0;
-          src2.connect(g2); g2.connect(ctx2.destination);
-          src2.start();
-        } catch (e2) {}
-      }
+      endCleanup();
     };
-    // 简谱高亮：纯视觉、跟随真实起音（失败不影响声音）
     try {
-      var t0 = notes[0].start || 0;
-      for (var hi = 0; hi < notes.length; hi++) {
-        (function (i, delay) {
-          var tm = setTimeout(function () {
-            var els = $('jianpuLine').querySelectorAll('.jp');
-            for (var h0 = 0; h0 < els.length; h0++) els[h0].classList.remove('hl');
-            if (els[i]) els[i].classList.add('hl');
-          }, delay);
-          melodyTimers.push(tm);
-        })(hi, Math.round(((notes[hi].start || 0) - t0) * 1000));
-      }
+      for (var hi = 0; hi < notes.length; hi++) scheduleHighlight(hi, Math.round(((notes[hi].start || 0) - t0) * 1000));
     } catch (e) {}
     src.start();
   }

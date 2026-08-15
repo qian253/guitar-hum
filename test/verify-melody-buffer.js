@@ -37,6 +37,7 @@ function extractFn(source, name) {
 
 const ctx = { Math, Float32Array };
 ctx.velByPitch = new Function('with(this){ return (' + extractFn(html, 'velByPitch') + '); }').call(ctx);
+ctx.computeNoteVels = new Function('with(this){ return (' + extractFn(html, 'computeNoteVels') + '); }').call(ctx);
 ctx.renderMelodyBuffer = new Function('with(this){ return (' + extractFn(html, 'renderMelodyBuffer') + '); }').call(ctx);
 
 const SR = 44100;
