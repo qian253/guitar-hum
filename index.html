@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.10 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.11 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1260,7 +1260,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.10', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.11.11', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2412,7 +2412,7 @@ window.addEventListener('unhandledrejection', function (e) {
     activeOscs = [];
     if (toneSampler) { try { toneSampler.releaseAll(); } catch (e) {} }
     if (playbackSource) { try { playbackSource.stop(); } catch (e) {} playbackSource = null; }
-    if (melodySource) { try { melodySource.stop(); } catch (e) {} melodySource = null; }
+    if (melodySource) { try { melodySource.onended = null; melodySource.stop(); } catch (e) {} melodySource = null; }
   }
   // 微小时值偏移：模拟真人弹奏，不机械（±maxSec 秒内随机）
   function humanize(maxSec) { return (Math.random() * 2 - 1) * (maxSec || 0.01); }
@@ -2898,7 +2898,7 @@ window.addEventListener('unhandledrejection', function (e) {
         // 平台包络：70% 保持满音量，之后 30% 时长内指数衰减到 ~5%——每个音全程可闻
         // （此前 exp(-3t/dur) 从起音即衰减，短音中后段只剩 -20dB 的「滋」）
         var rel = t < hold ? 1 : Math.exp(-3 * (t - hold) / Math.max(0.1, dur - hold));
-        out[startIdx + s0] += y * vel * 2.2 * att * rel;
+        out[startIdx + s0] += y * vel * 1.6 * att * rel;
       }
     }
     // 软削波（多音重叠时防爆音）
@@ -2937,11 +2937,17 @@ window.addEventListener('unhandledrejection', function (e) {
       }
     } catch (e) {}
     var startsTxt = [];
+    var noteTxt = [];
     try {
       var t0c = notes[0].start || 0;
       for (var sti = 0; sti < notes.length; sti++) startsTxt.push((+(notes[sti].start || 0) - t0c).toFixed(1));
+      for (var nti = 0; nti < notes.length; nti++) {
+        var ndx = notes[nti];
+        var ndDur = (ndx.end != null ? ndx.end : (ndx.start || 0) + (ndx.dur || 0.25)) - (ndx.start || 0);
+        noteTxt.push(Math.round(ndx.midi) + '(' + ndDur.toFixed(2) + 's)');
+      }
     } catch (e) {}
-    if (rsEl) { rsEl.textContent = '正在演奏 ' + notes.length + ' 个音 · 起音 ' + startsTxt.join('/') + 's · 波形峰值 ' + selfCheck.join('/'); }
+    if (rsEl) { rsEl.textContent = '正在演奏 ' + notes.length + ' 个音 · ' + noteTxt.join(' ') + ' · 起音 ' + startsTxt.join('/') + 's · 缓冲 ' + (pcm.length / sr).toFixed(1) + 's'; }
     var buf = ctx.createBuffer(1, pcm.length, sr);
     buf.getChannelData(0).set(pcm);
     var bright = ctx.createBiquadFilter(); bright.type = 'highshelf'; bright.frequency.value = 7000; bright.gain.value = 3;
@@ -2949,12 +2955,26 @@ window.addEventListener('unhandledrejection', function (e) {
     var src = ctx.createBufferSource(); src.buffer = buf;
     src.connect(bright); bright.connect(g); g.connect(ctx.destination);
     melodySource = src;
+    var startMs = Date.now();
     src.onended = function () {
+      var playedMs = Date.now() - startMs;
+      var bufSec = pcm.length / sr;
       melodySource = null;
       var els = $('jianpuLine').querySelectorAll('.jp');
       if (els) for (var e3 = 0; e3 < els.length; e3++) els[e3].classList.remove('hl');
       var rsEl2 = $('replayStatus');
-      if (rsEl2) { rsEl2.className = 'replay-status ok'; rsEl2.textContent = '回放完成 · ' + notes.length + ' 个音（波形峰值 ' + selfCheck.join('/') + '）· 若没听到所有音请把此行文字发给开发者'; }
+      if (rsEl2) { rsEl2.className = 'replay-status ok'; rsEl2.textContent = '回放完成 · 实际 ' + (playedMs / 1000).toFixed(1) + 's / 缓冲 ' + bufSec.toFixed(1) + 's · ' + selfCheck.join('/'); }
+      // 看门狗：若实际播放远短于缓冲（被提前打断），用「无人可停」的裸源立即补放整段
+      if (playedMs < (bufSec - 0.3) * 1000) {
+        try {
+          var ctx2 = getPlayCtx();
+          var src2 = ctx2.createBufferSource();
+          src2.buffer = buf;
+          var g2 = ctx2.createGain(); g2.gain.value = 1.0;
+          src2.connect(g2); g2.connect(ctx2.destination);
+          src2.start();
+        } catch (e2) {}
+      }
     };
     // 简谱高亮：纯视觉、跟随真实起音（失败不影响声音）
     try {
