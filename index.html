@@ -647,7 +647,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.3 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.4 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1603,7 +1603,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.14.3', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.14.4', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -4134,7 +4134,12 @@ window.addEventListener('unhandledrejection', function (e) {
     try {
       var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
       var texts = [];
-      while (walker.nextNode()) texts.push(walker.currentNode);
+      while (walker.nextNode()) {
+        var pn = walker.currentNode.parentNode;
+        // 关键防死循环：跳过已包装在 .ji-char 内的文字，否则自己的变更会再次触发监听 → 无限嵌套
+        if (pn && pn.classList && pn.classList.contains('ji-char')) continue;
+        texts.push(walker.currentNode);
+      }
       var budget = 10; // 最多处理 10 个字符
       for (var i = 0; i < texts.length; i++) {
         var node = texts[i];
