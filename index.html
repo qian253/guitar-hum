@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.5 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.6 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1260,7 +1260,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.5', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
+  var diag = { version: 'v2.11.6', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2253,9 +2253,77 @@ window.addEventListener('unhandledrejection', function (e) {
     if (playCtx.state === 'suspended') playCtx.resume();
     return playCtx;
   }
+  // ============ Karplus-Strong 拨弦引擎（AudioWorklet 版，v2.11.6） ============
+  // 根因复盘：DelayNode 版 K-S 在 Chrome 里被「128 样本最小延迟」量化破坏（两点平均变梳状滤波，
+  // 大部分音高被杀死、个别音高落在峰值上「炸」出来）；biquad 进反馈环在个别实现里失稳爆炸。
+  // AudioWorklet 处理器内做纯数学循环缓冲：y=0.5(b[i]+b[i-1])、阻尼 0.996，
+  // 所有系数 ≤1，任何环境都不可能自激/被量化，采样级音准。不支持 Worklet 的老浏览器退回 DelayNode 版。
+  var ksWorkletReady = null;
+  var ksWorkletOk = false;
+  var ksOutBus = null;
+  function ensureKSWorklet() {
+    if (ksWorkletReady) return ksWorkletReady;
+    var ctx = getPlayCtx();
+    if (!ctx.audioWorklet || typeof AudioWorkletNode === 'undefined') { ksWorkletReady = Promise.resolve(false); return ksWorkletReady; }
+    var code = 'class KSPluck extends AudioWorkletProcessor{' +
+      'constructor(){super();this.buf=null;this.idx=0;this.prev=0;this.t=-1;this.started=false;}' +
+      'static get parameterDescriptors(){return [' +
+      '{name:"freq",defaultValue:440},{name:"vel",defaultValue:0.8},{name:"dur",defaultValue:0.5},{name:"when",defaultValue:0}]}' +
+      'process(inputs,outputs,params){' +
+      'var ch=outputs[0]&&outputs[0][0];if(!ch)return true;' +
+      'var freq=params.freq.length?params.freq[0]:440;' +
+      'var vel=params.vel.length?params.vel[0]:0.8;' +
+      'var dur=params.dur.length?params.dur[0]:0.5;' +
+      'var when=params.when.length?params.when[0]:0;' +
+      'if(!this.started){this.started=true;this.startTime=currentTime;}' +
+      'var elapsed=currentTime-this.startTime;' +
+      'if(elapsed<when){ch.fill(0);return true;}' +
+      'var tt=elapsed-when;' +
+      'var N=Math.max(2,Math.round(sampleRate/freq));' +
+      'if(!this.buf){this.buf=new Float32Array(N);for(var i=0;i<N;i++)this.buf[i]=(Math.random()*2-1)*(1-i/N);this.idx=0;this.prev=0;this.t=0;}' +
+      'for(var i=0;i<ch.length;i++){' +
+      'var cur=this.buf[this.idx];' +
+      'var y=0.5*(cur+this.prev);this.prev=cur;' +
+      'this.buf[this.idx]=0.996*y;' +
+      'this.idx=(this.idx+1)%this.buf.length;' +
+      'this.t+=1/sampleRate;' +
+      'var a=Math.min(1,this.t/0.005);' +
+      'var r=Math.exp(-3*this.t/Math.max(0.05,dur));' +
+      'ch[i]=y*vel*a*r;' +
+      '}' +
+      'if(this.t>dur+0.2){ch.fill(0);}' +
+      'return true;' +
+      '}}registerProcessor("ks-pluck",KSPluck);';
+    try {
+      var url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+      ksWorkletReady = ctx.audioWorklet.addModule(url).then(function () { ksWorkletOk = true; return true; }).catch(function () { ksWorkletOk = false; return false; });
+    } catch (e) { ksWorkletReady = Promise.resolve(false); }
+    return ksWorkletReady;
+  }
+  function ksPluckNode(midi, when, dur, vol) {
+    try {
+      var ctx = getPlayCtx();
+      if (!ksOutBus) {
+        ksOutBus = ctx.createGain(); ksOutBus.gain.value = 1.0;
+        var brightBus = ctx.createBiquadFilter(); brightBus.type = 'highshelf'; brightBus.frequency.value = 7000; brightBus.gain.value = 3;
+        ksOutBus.connect(brightBus); brightBus.connect(ctx.destination);
+      }
+      var n = new AudioWorkletNode(ctx, 'ks-pluck', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
+      n.parameters.get('freq').value = 440 * Math.pow(2, (midi - 69) / 12);
+      n.parameters.get('vel').value = vol;
+      n.parameters.get('dur').value = dur;
+      n.parameters.get('when').value = Math.max(0, when - ctx.currentTime);
+      n.connect(ksOutBus);
+      (function (node, ms) { setTimeout(function () { try { node.disconnect(); } catch (e) {} }, ms); })(n, Math.round((dur + 1.0) * 1000));
+    } catch (e) { /* 落到 DelayNode 降级版 */ return false; }
+    return true;
+  }
   var activeOscs = [];
   // Karplus-Strong 拨弦物理建模：零采样、不依赖网络，音色接近尼龙弦（采样加载失败/被墙时的降级音色）
   function toneOsc(midi, when, dur, vol) {
+    // v2.11.6：优先 AudioWorklet 版（采样级精确、任何环境不可能自激/被量化），
+    // 未就绪或失败 → 下方 DelayNode 降级版（仅老浏览器使用）
+    if (ksWorkletOk && ksPluckNode(midi, when, dur, vol)) return;
     try {
       var ctx = getPlayCtx();
       if (when < ctx.currentTime + 0.001) when = ctx.currentTime + 0.001; // 调度时间已过则立即发声，避免静默
@@ -2767,6 +2835,7 @@ window.addEventListener('unhandledrejection', function (e) {
     if (!recordedNotes || !lastKeyResult) return;
     stopAllTones();
     await ensureAudioStarted();
+    await ensureKSWorklet(); // 初始化拨弦引擎（AudioWorklet，失败自动降级）
     // 注：旋律回放走 K-S 专用通道，不再等待采样器（去掉 2 秒无谓等待）
     // 按哼唱的真实节奏高还原演奏：
     //   起音时间/时值取转录的 start/end；音高用浮点 midi 保留音分偏移；
@@ -2801,7 +2870,7 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     var t0 = notes[0].start || 0;
     var leadMs = 60; // 起播小延迟
-    diag.lastReplay = { total: notes.length, fired: 0, path: 'K-S 拨弦' };
+    diag.lastReplay = { total: notes.length, fired: 0, path: ksWorkletOk ? 'K-S Worklet' : 'K-S 降级' };
     var rsEl = $('replayStatus');
     if (rsEl) { rsEl.style.display = 'block'; rsEl.className = 'replay-status'; rsEl.textContent = '正在演奏 ' + notes.length + ' 个音…'; }
     var evs = [];
