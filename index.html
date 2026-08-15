@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.12 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.13 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -529,6 +529,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <button class="btn" id="singBtn" style="display:none">🔊 唱名</button>
       <button class="btn primary" id="addBtn">🎙 再哼一段，提高准确率</button>
       <button class="btn" id="replayBtn">♪ 听旋律</button>
+      <button class="btn" id="selfTestBtn">🔔 测试旋律</button>
       <button class="btn" id="dlMelodyBtn" style="display:none">⬇ 下载回放音频</button>
       <button class="btn" id="againBtn">↻ 再测一次</button>
     </div>
@@ -1261,7 +1262,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.12', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.11.13', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2719,6 +2720,40 @@ window.addEventListener('unhandledrejection', function (e) {
   $('capoSrcSel').addEventListener('change', renderCapo);
   $('capoDstSel').addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
+  // 固定测试旋律：do-mi-sol-do（与录音无关）——区分「播放链路问题」和「转录数据问题」
+  $('selfTestBtn').addEventListener('click', async function () {
+    stopAllTones();
+    await ensureAudioStarted();
+    try {
+      var stCtx = getPlayCtx();
+      var stSr = stCtx.sampleRate || 44100;
+      var fixed = [
+        { midi: 60, start: 0.0, end: 0.5, dur: 0.5 },
+        { midi: 64, start: 0.65, end: 1.15, dur: 0.5 },
+        { midi: 67, start: 1.3, end: 1.8, dur: 0.5 },
+        { midi: 72, start: 1.95, end: 2.75, dur: 0.8 }
+      ];
+      var stPcm = renderMelodyBuffer(fixed, stSr, null);
+      var stBuf = stCtx.createBuffer(1, stPcm.length, stSr);
+      stBuf.getChannelData(0).set(stPcm);
+      var stBright = stCtx.createBiquadFilter(); stBright.type = 'highshelf'; stBright.frequency.value = 7000; stBright.gain.value = 3;
+      var stG = stCtx.createGain(); stG.gain.value = 1.0;
+      var stSrc = stCtx.createBufferSource(); stSrc.buffer = stBuf;
+      stSrc.connect(stBright); stBright.connect(stG); stG.connect(stCtx.destination);
+      melodySource = stSrc;
+      var stEl = $('replayStatus');
+      if (stEl) { stEl.style.display = 'block'; stEl.className = 'replay-status'; stEl.textContent = '正在播放固定测试旋律 do-mi-sol-do（4 个不同音高，与你的录音无关）…'; }
+      stSrc.onended = function () {
+        melodySource = null;
+        var stEl2 = $('replayStatus');
+        if (stEl2) {
+          stEl2.className = 'replay-status ok';
+          stEl2.textContent = '测试旋律播完：如果听到 4 个不同音高 → 播放链路正常，问题在你哼唱的转录数据；如果只听到 1 个音 → 把这句话原样告诉开发者';
+        }
+      };
+      stSrc.start();
+    } catch (e) { console.error('测试旋律出错:', e); }
+  });
   // 下载回放音频：把预渲染的旋律波形导出 WAV，用系统播放器验证「缓冲内容本身是否正确」
   $('dlMelodyBtn').addEventListener('click', function () {
     if (!lastKeyResult || !recordedNotes) return;
@@ -2908,7 +2943,7 @@ window.addEventListener('unhandledrejection', function (e) {
       var ring = new Float32Array(N);
       for (var b0 = 0; b0 < N; b0++) ring[b0] = (Math.random() * 2 - 1) * (1 - b0 / N);
       var idx = 0, prev = 0;
-      var startIdx = Math.round(((note.start || 0) - t0) * sr);
+      var startIdx = Math.max(0, Math.round(((note.start || 0) - t0) * sr)); // 防未按时间排序的笔记写出界
       var nSamp = Math.max(0, Math.min(Math.floor(dur * sr), len - startIdx));
       var hold = dur * 0.7; // 平台包络：音符 70% 时长内保持满音量
       for (var s0 = 0; s0 < nSamp; s0++) {
@@ -2961,6 +2996,7 @@ window.addEventListener('unhandledrejection', function (e) {
     } catch (e) {}
     var startsTxt = [];
     var noteTxt = [];
+    var allSameMidi = true;
     try {
       var t0c = notes[0].start || 0;
       for (var sti = 0; sti < notes.length; sti++) startsTxt.push((+(notes[sti].start || 0) - t0c).toFixed(1));
@@ -2969,8 +3005,11 @@ window.addEventListener('unhandledrejection', function (e) {
         var ndDur = (ndx.end != null ? ndx.end : (ndx.start || 0) + (ndx.dur || 0.25)) - (ndx.start || 0);
         noteTxt.push(Math.round(ndx.midi) + '(' + ndDur.toFixed(2) + 's)');
       }
+      // 自动诊断：转录出的音高是否全部相同（同音高 → 听感是「一个音」）
+      var refMidi = Math.round(notes[0].midi);
+      for (var ck = 1; ck < notes.length; ck++) { if (Math.round(notes[ck].midi) !== refMidi) { allSameMidi = false; break; } }
     } catch (e) {}
-    if (rsEl) { rsEl.textContent = '正在演奏 ' + notes.length + ' 个音 · ' + noteTxt.join(' ') + ' · 起音 ' + startsTxt.join('/') + 's · 缓冲 ' + (pcm.length / sr).toFixed(1) + 's'; }
+    if (rsEl) { rsEl.textContent = '正在演奏 ' + notes.length + ' 个音 · ' + noteTxt.join(' ') + ' · 起音 ' + startsTxt.join('/') + 's · 缓冲 ' + (pcm.length / sr).toFixed(1) + 's' + (allSameMidi ? ' ⚠ 转录出的音高全部相同（听感会像一个音）' : ''); }
     var buf = ctx.createBuffer(1, pcm.length, sr);
     buf.getChannelData(0).set(pcm);
     var bright = ctx.createBiquadFilter(); bright.type = 'highshelf'; bright.frequency.value = 7000; bright.gain.value = 3;
