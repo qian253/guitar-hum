@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1b1f27">
+<meta name="theme-color" content="#FFFBF5">
 <title>唱一句 · 定调子 | 吉他新手定调器</title>
 <meta name="description" content="哼一句副歌，立刻告诉你是什么调、do 在吉他哪个位置、变调夹夹几品、常用和弦。吉他新手定调器，纯本地运行不上传声音。">
 <!-- 手机/微信分享卡片 -->
@@ -539,11 +539,15 @@
 
 /* --- 水彩晕染色块（低透明度、不规则边缘，CSS 模糊模拟扩散） --- */
 #watercolorLayer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.wc-blob { position: absolute; border-radius: 46% 54% 58% 42% / 48% 44% 56% 52%; filter: blur(36px); opacity: 0.32; }
-.wc-b1 { width: 300px; height: 300px; left: -80px; top: -60px; background: #FFD9C8; animation: wcDrift 26s ease-in-out infinite alternate; }
-.wc-b2 { width: 340px; height: 340px; right: -100px; top: 30%; background: #CDEBDB; animation: wcDrift 32s ease-in-out infinite alternate-reverse; }
-.wc-b3 { width: 280px; height: 280px; left: -60px; bottom: 8%; background: #E4DBFA; animation: wcDrift 38s ease-in-out infinite alternate; }
-.wc-b4 { width: 240px; height: 240px; right: 15%; bottom: -60px; background: #FFF0C9; animation: wcDrift 30s ease-in-out infinite alternate-reverse; }
+.wc-blob { position: absolute; border-radius: 50%; opacity: 0.32; }
+.wc-b1 { background: radial-gradient(circle at 40% 40%, rgba(255,178,156,0.55) 0%, rgba(255,178,156,0) 70%); }
+.wc-b2 { background: radial-gradient(circle at 40% 40%, rgba(168,230,207,0.55) 0%, rgba(168,230,207,0) 70%); }
+.wc-b3 { background: radial-gradient(circle at 40% 40%, rgba(213,198,245,0.55) 0%, rgba(213,198,245,0) 70%); }
+.wc-b4 { background: radial-gradient(circle at 40% 40%, rgba(255,226,154,0.55) 0%, rgba(255,226,154,0) 70%); }
+.wc-b1 { width: 300px; height: 300px; left: -80px; top: -60px; animation: wcDrift 26s ease-in-out infinite alternate; }
+.wc-b2 { width: 340px; height: 340px; right: -100px; top: 30%; animation: wcDrift 32s ease-in-out infinite alternate-reverse; }
+.wc-b3 { width: 280px; height: 280px; left: -60px; bottom: 8%; animation: wcDrift 38s ease-in-out infinite alternate; }
+.wc-b4 { width: 240px; height: 240px; right: 15%; bottom: -60px; animation: wcDrift 30s ease-in-out infinite alternate-reverse; }
 @keyframes wcDrift { from { transform: translate(0,0) rotate(0deg) scale(1); } to { transform: translate(26px,18px) rotate(9deg) scale(1.12); } }
 
 /* --- 手绘描边 SVG（由 JS 生成 wobbly path） --- */
@@ -643,7 +647,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.2 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.3 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1599,7 +1603,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.14.2', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.14.3', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -3165,7 +3169,9 @@ window.addEventListener('unhandledrejection', function (e) {
   });
 
   // 页面加载后后台懒加载 Tone.js（真实采样）+ Essentia.js（定调跨校验），失败静默回退
-  try { initTone(); initEssentia(); } catch (e) {}
+  // 延迟加载重量级库：不抢首屏带宽（Tone ~0.7MB / Essentia WASM ~2MB，均非首屏必需）
+  setTimeout(function () { try { initTone(); } catch (e) {} }, 3000);
+  setTimeout(function () { try { initEssentia(); } catch (e) {} }, 8000);
 
   // 自动探测本地 basic-pitch 后端：本地跑时免手动填地址，探测到就自动启用高精度模式
   (function autoDetectBackend() {
