@@ -33,6 +33,15 @@ MERGE_TIE_DUR = 0.020  # 规则2 补充：两音时值差 ≤ 此值视为接近
 MINOR_THIRD = 3        # 规则3：小三度（半音数）
 SMOOTH_NEIGHBOR = 2    # 规则3 补充：前后两音之间音程 ≤ 此值视为旋律线平滑
 
+# v2.19.0 参数自适应（模块3复查）：固定阈值会误删快速旋律里的真实短音。
+# 阈值随「旋律音符时值中位数」向下收缩（只收紧不放松，规格默认值始终是上限）：
+#   min_dur  = min(0.100, max(0.070, 0.45 × 中位数))
+#   gliss    = min(0.120, max(0.095, 0.55 × 中位数))
+#   spike    = min(0.150, max(0.120, 0.65 × 中位数))
+# 慢速哼唱（中位数大）时阈值维持规格默认；<4 个音时样本太少，不启用自适应。
+ADAPTIVE = True
+ADAPTIVE_MIN_NOTES = 4
+
 DEFAULT_PARAMS = {
     "min_dur": MIN_DUR,
     "conf_frac": CONF_FRAC,
@@ -41,6 +50,8 @@ DEFAULT_PARAMS = {
     "merge_tie_dur": MERGE_TIE_DUR,
     "minor_third": MINOR_THIRD,
     "smooth_neighbor": SMOOTH_NEIGHBOR,
+    "adaptive": ADAPTIVE,
+    "adaptive_min_notes": ADAPTIVE_MIN_NOTES,
 }
 
 
@@ -114,9 +125,14 @@ def _drop_short_lowconf(notes, p, report):
     confs = [_conf(n) for n in notes]
     mean_conf = (sum(confs) / len(confs)) if confs else 0.0
     conf_thresh = mean_conf * p["conf_frac"]
+    # 保护最长音：它是旋律锚点，任何情况下都不删（防止阈值误删真实长音）
+    longest_idx = max(range(len(notes)), key=lambda i: _dur(notes[i])) if notes else None
     out = []
-    for n in notes:
+    for i, n in enumerate(notes):
         d = _dur(n)
+        if i == longest_idx:
+            out.append(n)
+            continue
         if d < p["min_dur"]:
             report["removed"].append({
                 "midi": int(round(n["midi"])), "dur": round(d, 3),
@@ -168,7 +184,7 @@ def _drop_spikes(notes, p, report):
 
 def clean_notes(notes, params=None):
     """清洗音符序列。返回 (cleaned, report)。
-    cleaned 与输入同结构（dict 列表）；report 含原始序列/剔除明细/参数。"""
+    cleaned 与输入同结构（dict 列表）；report 含原始序列/剔除明细/参数（含自适应后的实际阈值）。"""
     p = dict(DEFAULT_PARAMS)
     if params:
         p.update(params)
@@ -176,6 +192,16 @@ def clean_notes(notes, params=None):
     # 邻接规则（滑音合并/毛刺）依赖时间顺序；basic-pitch 返回顺序不保证（实测有过逆序），先按 start 排序
     notes = sorted(notes, key=lambda n: n.get("start", 0.0))
     raw = [dict(n) for n in notes]
+
+    # 参数自适应：阈值随旋律时值中位数收缩（只收紧不放松，防误删快速旋律真实短音）
+    durs_all = [_dur(n) for n in notes if _dur(n) >= 0.05]
+    if p["adaptive"] and len(durs_all) >= p["adaptive_min_notes"]:
+        med = sorted(durs_all)[len(durs_all) // 2]
+        p["min_dur"] = round(min(p["min_dur"], max(0.070, 0.45 * med)), 3)
+        p["gliss_max_dur"] = round(min(p["gliss_max_dur"], max(0.095, 0.55 * med)), 3)
+        p["spike_max_dur"] = round(min(p["spike_max_dur"], max(0.120, 0.65 * med)), 3)
+        p["adaptive_median_dur"] = round(med, 3)
+
     report = {
         "raw": raw,
         "raw_count": len(raw),

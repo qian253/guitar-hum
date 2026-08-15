@@ -1984,9 +1984,14 @@ window.addEventListener('unhandledrejection', function (e) {
     if (!res.ok) throw new Error('后端返回 ' + res.status);
     var data = await res.json();
     if (!data || !Array.isArray(data.notes) || !data.notes.length) throw new Error('后端无音符');
-    return data.notes.map(function (n) {
-      return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)), amp: (typeof n.amplitude === 'number' ? n.amplitude : 0), bends: (Array.isArray(n.pitch_bends) && n.pitch_bends.length ? n.pitch_bends : null) };
-    });
+    // v2.19.0：后端主音引擎结果（rootPC/mode/evidence/top2）随音符一并返回，
+    // 高精度模式优先采用；后端缺失时回退本地 key.js（快速模式不变）。
+    return {
+      notes: data.notes.map(function (n) {
+        return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)), amp: (typeof n.amplitude === 'number' ? n.amplitude : 0), bends: (Array.isArray(n.pitch_bends) && n.pitch_bends.length ? n.pitch_bends : null) };
+      }),
+      key: (data.key && data.key.rootPC != null) ? data.key : null
+    };
   }
 
   function analyze() {
@@ -2009,9 +2014,9 @@ window.addEventListener('unhandledrejection', function (e) {
 
       // 高精度模式：配置了后端则优先 basic-pitch，失败降级本地 YIN
       if (getBackendUrl()) {
-        transcribeBackend(state.recordedPcm, sr).then(function (notes) {
+        transcribeBackend(state.recordedPcm, sr).then(function (res) {
           setAnalyzeProgress(100, 'basic-pitch 转录完成');
-          finalizeNotes(notes, notes, durSec, 'high');
+          finalizeNotes(res.notes, res.notes, durSec, 'high', res.key);
         }).catch(function (err) {
           console.warn('后端不可用，降级快速模式：', err);
           setAnalyzeProgress(0, '后端不可用，降级快速模式…');
@@ -2059,7 +2064,7 @@ window.addEventListener('unhandledrejection', function (e) {
   }
 
   // 统一收尾：notes/melNotes → 多级裁判定调 → 渲染
-  function finalizeNotes(notes, melNotes, durSec, mode) {
+  function finalizeNotes(notes, melNotes, durSec, mode, backendKey) {
     try {
       if (!notes || notes.length < 2) { hideAnalyze(); showError('没分出清晰的音符。<br>尽量<b>一个音一个音</b>地唱，别拖太长。'); return; }
       if (durSec > 0 && durSec < 3 && melNotes.length < 4) {
@@ -2085,6 +2090,26 @@ window.addEventListener('unhandledrejection', function (e) {
       // 多段合并时结束音不再有特殊权重（每段停的音可能不同），只依赖整体重心/音级分布
       var keyRes = window.KeyDetect.detectKey(merged, { recordingDur: durSec, noEndingBoost: state.segments.length > 1 });
       if (!keyRes) { hideAnalyze(); showError('分析失败，请再试一次。'); return; }
+      // v2.19.0：高精度模式（首段）采用后端主音引擎结果（后端已完成
+      // 预处理→basic-pitch→清洗→八度修正→主音引擎）；多段补充时仍需本地合并重判。
+      // 后端结果缺失/降级快速模式时保留本地 key.js 判定。仅换数据源，不动任何 UI 逻辑。
+      if (backendKey && backendKey.rootPC != null && state.segments.length === 1) {
+        keyRes = {
+          rootPC: backendKey.rootPC,
+          mode: backendKey.mode === 'minor' ? 'minor' : 'major',
+          keyName: backendKey.keyName || '',
+          confidence: Math.max(0, Math.min(1, typeof backendKey.confidence === 'number' ? backendKey.confidence : 0)),
+          margin: 0, score: 0, bestShift: 0,
+          doName: backendKey.keyName || '',
+          relMode: backendKey.mode === 'minor' ? 'major' : 'minor',
+          relRoot: backendKey.mode === 'minor' ? (backendKey.rootPC + 3) % 12 : (backendKey.rootPC + 9) % 12,
+          relScore: 0,
+          relKeyName: (backendKey.top2 && backendKey.top2[1] && backendKey.top2[1].keyName) || '',
+          judge: { verdict: backendKey.mode === 'minor' ? 'minor' : 'major', source: 'backend', confidence: backendKey.confidence || 0, evidence: (Array.isArray(backendKey.evidence) ? backendKey.evidence.slice() : []) },
+          origDetected: null,
+          top2: (Array.isArray(backendKey.top2) && backendKey.top2.length ? backendKey.top2.map(function (t) { return { root: t.root, mode: t.mode, keyName: t.keyName, pct: t.pct }; }) : null)
+        };
+      }
       keyRes.essentiaKey = essentiaKeyDetect();
       // Essentia 参与投票（仅单段：essentia 分析的正是这一段音频，与定调输入一致；
       // 多段合并时 essentia 只看到最后一段，不参与投票，仅展示）

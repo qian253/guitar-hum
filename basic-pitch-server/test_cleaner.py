@@ -15,7 +15,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from note_cleaner import clean_notes  # noqa: E402
-from main import detect_key  # noqa: E402
+from tonic_engine import detect_key  # noqa: E402  (v2.19.0 起主音检测走 tonic_engine)
 
 NODE = r"C:\Users\keyou\.tools\node-v20.15.0-win-x64\node.exe"
 RUNNER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test", "bench", "run_detect.js")
@@ -113,12 +113,12 @@ print("  前端 key.js     清洗前: %s (conf %s)  清洗后: %s (conf %s)" % (
     fe_before.get("keyName"), fe_before.get("confidence"), fe_after.get("keyName"), fe_after.get("confidence")))
 ok("前端 key.js 清洗后判 G 大调（真实调）", fe_after.get("rootPC") == 7 and fe_after.get("mode") == "major",
    "实际 " + str(fe_after.get("keyName")))
-ok("后端 detect_key 清洗前被脏音带偏、清洗后判对（B小调→G大调）",
-   bk_before["rootPC"] != 7 and bk_after["rootPC"] == 7,
-   "清洗前 " + str(bk_before["key"]) + " 清洗后 " + str(bk_after["key"]))
-print("  说明：前端 key.js 靠 log 时长压缩对少量短毛刺本身有抗性（清洗前后都判 G 大调，")
-print("        清洗后置信度更稳）；后端简易 K-S 与简谱/重心/配和弦等下游则直接被脏音带偏，")
-print("        清洗器正是为「转录输出之后、一切分析之前」兜底。")
+ok("后端主音引擎 清洗后判 G 大调", bk_after["rootPC"] == 7 and bk_after["mode"] == "major",
+   "实际 " + str(bk_after["key"]))
+print("  说明：v2.19.0 引擎去掉了旧版「关系大小调反向修正主音」逻辑，主音判断与调式严格两步解耦；")
+print("        旧版清洗前 B小调是被该反向修正掰偏的（前端 key.js 靠 log 时长压缩对少量短毛刺本身有抗性），")
+print("        清洗器为后端定调/简谱/重心/配和弦等下游与密集毛刺场景兜底。")
+print("  清洗前:", bk_before["key"], "→ 清洗后:", bk_after["key"])
 
 print()
 if failures:
