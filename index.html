@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.11 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.12 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -529,6 +529,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <button class="btn" id="singBtn" style="display:none">🔊 唱名</button>
       <button class="btn primary" id="addBtn">🎙 再哼一段，提高准确率</button>
       <button class="btn" id="replayBtn">♪ 听旋律</button>
+      <button class="btn" id="dlMelodyBtn" style="display:none">⬇ 下载回放音频</button>
       <button class="btn" id="againBtn">↻ 再测一次</button>
     </div>
 
@@ -1260,7 +1261,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.11', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.11.12', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1913,6 +1914,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
       // 显示回放/唱名按钮（前提：有录音数据）
       if (state.recordedPcm) $('hearSelfBtn').style.display = 'block';
+      $('dlMelodyBtn').style.display = 'block';
       $('singBtn').style.display = 'block';
 
       // 简谱视图（用当前显示调 dmode/droot，含关系调切换）
@@ -2703,6 +2705,7 @@ window.addEventListener('unhandledrejection', function (e) {
     $('addBtn').style.display = '';
     $('replayStatus').style.display = 'none';
     $('hearSelfBtn').style.display = 'none';
+    $('dlMelodyBtn').style.display = 'none';
     $('singBtn').style.display = 'none';
     $('timbreBar').style.display = 'none';
     errBox.innerHTML = '';
@@ -2716,6 +2719,26 @@ window.addEventListener('unhandledrejection', function (e) {
   $('capoSrcSel').addEventListener('change', renderCapo);
   $('capoDstSel').addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
+  // 下载回放音频：把预渲染的旋律波形导出 WAV，用系统播放器验证「缓冲内容本身是否正确」
+  $('dlMelodyBtn').addEventListener('click', function () {
+    if (!lastKeyResult || !recordedNotes) return;
+    try {
+      var dlCtx = getPlayCtx();
+      var dlSr = dlCtx.sampleRate || 44100;
+      var dlPcm = renderMelodyBuffer(recordedNotes, dlSr, state);
+      var blob = pcmToWavBlob(dlPcm, dlSr);
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '我的旋律回放.wav';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 5000);
+      var dlt = $('replayStatus');
+      if (dlt) { dlt.style.display = 'block'; dlt.className = 'replay-status ok'; dlt.textContent = '已下载 WAV（' + (dlPcm.length / dlSr).toFixed(1) + 's）· 请用系统播放器播放，听是不是所有音都在'; }
+    } catch (e) { console.error('下载回放音频出错:', e); }
+  });
   $('singBtn').addEventListener('click', speakSolfege);
   $('hearSelfBtn').addEventListener('click', playSelfRecording);
 
