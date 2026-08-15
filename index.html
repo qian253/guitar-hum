@@ -2967,20 +2967,26 @@ window.addEventListener('unhandledrejection', function (e) {
     if (quality === 'dim') return base + 'dim';
     return base;
   }
-  // 调内三和弦（I..vii° / i..VII）
+  // 调内三和弦（v2.16：小调 V 用大三和弦——和声小调导音，解决感强；附功能组 T/S/D）
   function buildDiatonic(rootPC, mode) {
     var semis = mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
     var quals = mode === 'major' ? ['major', 'minor', 'minor', 'major', 'major', 'minor', 'dim']
-      : ['minor', 'dim', 'major', 'minor', 'minor', 'major', 'major'];
-    var roman = mode === 'major' ? ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'] : ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'];
+      : ['minor', 'dim', 'major', 'minor', 'major', 'major', 'major'];
+    var roman = mode === 'major' ? ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'] : ['i', 'ii°', 'III', 'iv', 'V', 'VI', 'VII'];
+    var funcs = mode === 'major' ? ['T', 'S', 'T', 'S', 'D', 'T', 'D'] : ['T', 'S', 'T', 'S', 'D', 'T', 'D'];
     return semis.map(function (s, i) {
       var root = (rootPC + s) % 12;
       var q = quals[i];
       var tones = q === 'major' ? [0, 4, 7] : q === 'minor' ? [0, 3, 7] : [0, 3, 6];
-      return { root: root, quality: q, name: chordName(root, q), roman: roman[i], deg: i, tones: tones };
+      return { root: root, quality: q, name: chordName(root, q), roman: roman[i], deg: i, tones: tones, func: funcs[i] };
     });
   }
-  // 旋律驱动和弦：按时间分窗，每个窗用强拍旋律音匹配调内三和弦
+  // 旋律驱动和弦（三层模型，v2.16）：
+  //   L1 旋律-和弦匹配：每窗提取关键音（时长最长 2 音 + 窗首音），
+  //      按「关键音和弦音命中 ×0.5 + 窗内和弦音时长占比 ×0.4 − 外音占比 ×0.3 + 根音稳定 ×0.1」打分
+  //   L2 和声进行：功能转移加分（D→T 0.25 / S→D 0.15 / 同功能连用 −0.05），
+  //      硬规则：首尾落主功能、不连续 3 个同根/同功能
+  //   L3 大小调风格：大调倾向 I/IV/V/vi；小调倾向 i/iv/V/VI（小调 V 为大三和弦，含导音）
   function harmonizeMelody(notes, rootPC, mode) {
     if (!notes || notes.length < 2) return [];
     var diatonic = buildDiatonic(rootPC, mode);
@@ -2993,41 +2999,115 @@ window.addEventListener('unhandledrejection', function (e) {
     });
     if (win.length) windows.push(win);
 
-    var prevRoots = [];
-    return windows.map(function (w) {
-      // 窗内音级直方图（时长加权，强拍=长音自然权重高）
-      var hist = new Array(12).fill(0);
-      w.forEach(function (n) { hist[((Math.round(n.midi) % 12) + 12) % 12] += (n.dur || 0.25); });
+    var prevRoots = [], prevFuncs = [], result = [];
+    for (var wi = 0; wi < windows.length; wi++) {
+      var w = windows[wi];
+      // L1：关键音 = 时长最长 2 音 + 窗首音
+      var keyNotes = [];
+      var sorted = w.slice().sort(function (a, b) { return (b.dur || 0.25) - (a.dur || 0.25); });
+      for (var k = 0; k < Math.min(2, sorted.length); k++) keyNotes.push(Math.round(sorted[k].midi));
+      if (w.length) keyNotes.push(Math.round(w[0].midi));
+      // 窗内时长直方图
+      var hist = new Array(12).fill(0), hsum = 0;
+      w.forEach(function (n) { var p = ((Math.round(n.midi) % 12) + 12) % 12; hist[p] += (n.dur || 0.25); hsum += (n.dur || 0.25); });
+      // 打分
       var scored = diatonic.map(function (c) {
         var s = 0;
-        c.tones.forEach(function (t) { s += hist[(c.root + t) % 12]; });
+        var hit = 0;
+        keyNotes.forEach(function (m) {
+          var rel = ((((m % 12) + 12) % 12) - c.root + 12) % 12;
+          if (c.tones.indexOf(rel) >= 0) hit++;
+        });
+        s += hit * 0.5;
+        var inSum = 0;
+        c.tones.forEach(function (t) { inSum += hist[(c.root + t) % 12] || 0; });
+        var inRatio = hsum > 0 ? inSum / hsum : 0;
+        s += inRatio * 0.4 - (1 - inRatio) * 0.3;
+        // 根音与调性主音的音程稳定（主/属/三音）
+        var degToTonic = (c.root - rootPC + 12) % 12;
+        if ([0, 7, 4, 3].indexOf(degToTonic) >= 0) s += 0.1;
+        // 导音解决信号：窗内出现 导音→主音 邻接 → D 组和弦加分（小调 V 含导音，解决感关键）
+        var hasLeading = false;
+        for (var ln = 1; ln < w.length; ln++) {
+          var pp = (((Math.round(w[ln - 1].midi) % 12) + 12) % 12);
+          var cc = (((Math.round(w[ln].midi) % 12) + 12) % 12);
+          if (pp === (rootPC + 11) % 12 && cc === rootPC) { hasLeading = true; break; }
+        }
+        if (hasLeading && c.func === 'D') s += 0.4;
+        // L2：功能转移
+        var prevF = prevFuncs.length ? prevFuncs[prevFuncs.length - 1] : null;
+        if (prevF === 'D' && c.func === 'T') s += 0.25;
+        else if (prevF === 'S' && c.func === 'D') s += 0.15;
+        else if (prevF === c.func) s -= 0.05;
         return { chord: c, score: s };
       }).sort(function (a, b) { return b.score - a.score; });
-      // 避免连续 3 段用同一和弦
       var pick = scored[0];
-      if (prevRoots.length >= 2 && prevRoots[prevRoots.length - 1] === pick.chord.root && prevRoots[prevRoots.length - 2] === pick.chord.root) {
+      // 硬规则：不连续 3 个同根
+      var rep1 = prevRoots[prevRoots.length - 1], rep2 = prevRoots[prevRoots.length - 2];
+      if (rep1 != null && rep2 != null && rep1 === pick.chord.root && rep2 === pick.chord.root) {
         pick = scored[1] || scored[0];
       }
+      // 硬规则：不连续 3 个同功能
+      var fp1 = prevFuncs[prevFuncs.length - 1], fp2 = prevFuncs[prevFuncs.length - 2];
+      if (fp1 != null && fp2 != null && fp1 === fp2 && pick.chord.func === fp1) {
+        for (var si = 1; si < scored.length; si++) { if (scored[si].chord.func !== fp1) { pick = scored[si]; break; } }
+      }
+      // 硬规则：首窗与末窗倾向主功能（仅当 T 组最高分与初选接近时换，避免破坏强属功能选择）
+      var isFirst = wi === 0, isLast = wi === windows.length - 1;
+      if ((isFirst || isLast) && pick.chord.func !== 'T') {
+        for (var tj = 1; tj < scored.length; tj++) {
+          if (scored[tj].chord.func === 'T' && scored[tj].score >= pick.score - 0.5) { pick = scored[tj]; break; }
+        }
+      }
       prevRoots.push(pick.chord.root);
-      return pick.chord;
-    });
+      prevFuncs.push(pick.chord.func);
+      pick.chord._align = { keyNotes: keyNotes, score: +pick.score.toFixed(2) };
+      result.push(pick.chord);
+    }
+    return result;
   }
-  // 渲染旋律驱动和弦走向
+  // 三层模型完整输出（用户要求格式）
+  function analyzeHarmony(notes, rootPC, mode) {
+    var chords = harmonizeMelody(notes, rootPC, mode);
+    var alignment = {};
+    chords.forEach(function (c, i) {
+      var kn = (c._align && c._align.keyNotes) || [];
+      alignment['片段' + (i + 1)] = {
+        '旋律音': kn.map(function (m) { return NOTE_NAMES[((m % 12) + 12) % 12]; }),
+        '匹配和弦': c.name,
+        '匹配得分': c._align ? c._align.score : 0
+      };
+      delete c._align;
+    });
+    var functional = chords.map(function (c) { return c.roman; }).join(' → ') +
+      (mode === 'major' ? '（大调：倾向 I-IV-V-vi 明亮）' : '（小调：倾向 i-iv-V-VI，V 含导音增强解决）');
+    return {
+      chord_progression: chords.map(function (c) { return c.name; }),
+      melody_alignment: alignment,
+      functional_analysis: functional
+    };
+  }
+  // 渲染旋律驱动和弦走向（三层模型：旋律匹配 + 和声进行 + 大小调风格）
   function renderMelodyChords(notes, droot, dmode) {
     var el = $('melodyChords');
-    var chords = harmonizeMelody(notes, droot, dmode);
-    if (!chords.length) { el.style.display = 'none'; return; }
+    var analysis = analyzeHarmony(notes, droot, dmode);
+    if (!analysis.chord_progression.length) { el.style.display = 'none'; return; }
     el.style.display = 'block';
     var rec = recommendFingering(dmode, droot);
     var shapeSet = SHAPE_CHORDS[rec.shape];
+    var diatonic = buildDiatonic(droot, dmode);
     var flow = '';
-    chords.forEach(function (c, i) {
+    analysis.chord_progression.forEach(function (cname, i) {
       if (i > 0) flow += '<span class="mc-arrow">→</span>';
-      var shapeName = shapeSet[c.deg];
-      flow += '<div class="mc-chord"><span class="mc-name">' + c.name + '</span><span class="mc-roman">' + c.roman + ' · ' + shapeName + '</span></div>';
+      var ci = null;
+      for (var d = 0; d < diatonic.length; d++) { if (diatonic[d].name === cname) { ci = diatonic[d]; break; } }
+      var shapeName = ci ? (shapeSet[ci.deg] || '') : '';
+      var score = analysis.melody_alignment['片段' + (i + 1)] ? analysis.melody_alignment['片段' + (i + 1)]['匹配得分'] : '';
+      flow += '<div class="mc-chord" title="匹配得分 ' + score + '"><span class="mc-name">' + cname + '</span><span class="mc-roman">' + (ci ? ci.roman : '') + ' · ' + shapeName + '</span></div>';
     });
     var capoNote = rec.capo > 0 ? '（' + rec.shape + ' 调指法夹 ' + rec.capo + ' 品）' : '（' + rec.shape + ' 调开放和弦）';
-    el.innerHTML = '<div class="mc-head">根据你的旋律配的和弦</div><div class="mc-flow">' + flow + '</div>' +
+    el.innerHTML = '<div class="mc-head">根据你的旋律配的和弦（三层模型）</div><div class="mc-flow">' + flow + '</div>' +
+      '<div class="mc-note">' + analysis.functional_analysis + '</div>' +
       '<div class="mc-note">手型照下面' + capoNote + '按，弹出来就是 ' + NOTE_NAMES[droot] + (dmode === 'minor' ? '小调' : '大调') + '的和弦。</div>';
   }
   function chordDiagramSVG(shape) {
