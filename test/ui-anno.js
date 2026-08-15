@@ -21,6 +21,7 @@
       '<div style="font-size:12px;color:#8A766C;font-weight:700;margin-bottom:6px;">🎯 主音标注模式（自建实测数据）</div>' +
       '<div style="margin-bottom:6px;font-size:12.5px;"><input type="checkbox" id="annoOn" style="vertical-align:-2px;"> <label for="annoOn">开启：哼之前选好真实调</label></div>' +
       '<select id="annoKey" style="width:100%;padding:7px;border-radius:8px;border:2px solid #F0E2D2;background:#FFF;font-size:13px;margin-bottom:6px;"></select>' +
+      '<button id="annoPlay" style="width:100%;min-height:36px;padding:6px;font-size:12.5px;border:2px solid #F0E2D2;border-radius:10px;background:#FFF;color:#5A4A42;font-weight:700;cursor:pointer;margin-bottom:6px;">▶ 听示范音阶（先听再跟唱，校准音高）</button>' +
       '<div style="font-size:12px;color:#8A766C;margin-bottom:6px;">已标注：<b id="annoCount">0</b> 首</div>' +
       '<button id="annoExport" style="width:100%;min-height:36px;padding:6px;font-size:12.5px;border:2px solid #F0E2D2;border-radius:10px;background:#FFF;color:#5A4A42;font-weight:700;cursor:pointer;">⬇ 导出标注数据 JSON</button>' +
       '<div id="annoStatus" style="font-size:11.5px;color:#4E9B6E;margin-top:4px;min-height:14px;"></div>';
@@ -36,6 +37,16 @@
     }
     sel.innerHTML = opts;
     try { sel.value = localStorage.getItem('hkAnnoKey') || '0:major'; } catch (e) {}
+
+    // 听示范：弹一遍该调音阶（do re mi fa sol la ti do），新手先校准音高再哼
+    $('annoPlay').addEventListener('click', function () {
+      if (typeof playTone !== 'function') { $('annoStatus').textContent = '音频引擎未就绪'; return; }
+      var root = parseInt(sel.value.split(':')[0], 10) || 0;
+      var semi = [0, 2, 4, 5, 7, 9, 11, 12, 11, 9, 7, 5, 4, 2, 0];
+      var base = 60 + root; if (base > 66) base -= 12;
+      semi.forEach(function (s, i) { setTimeout(function () { playTone(base + s, 0.4); }, i * 380); });
+      $('annoStatus').textContent = '♪ 正在播放 ' + selectedKeyText() + ' 音阶，跟着唱准再哼';
+    });
 
     $('annoOn').addEventListener('change', function () {
       try { localStorage.setItem('hkAnnoOn', this.checked ? '1' : '0'); } catch (e) {}
@@ -64,7 +75,7 @@
   function refreshHint() {
     var h = $('recHint');
     if (!h) return;
-    if (annoOn()) h.textContent = '🎯 标注模式：这句你唱「' + selectedKeyText() + '」——按住哼唱，松开自动分析';
+    if (annoOn()) h.textContent = '🎯 标注模式：先点「▶ 听示范」听「' + selectedKeyText() + '」音阶，跟着唱准后按住哼唱';
     else if (h.dataset.annoHint) { h.textContent = '按住哼唱，松开自动分析'; delete h.dataset.annoHint; }
     if (annoOn()) h.dataset.annoHint = '1';
   }
@@ -105,6 +116,9 @@
             detected: { keyName: keyEl.textContent.trim(), badge: badgeEl ? badgeEl.textContent.trim() : '', confidence: confEl ? confEl.textContent.trim() : '' },
             evidence: evEl ? evEl.textContent.trim().replace(/\s+/g, ' ') : '',
             jianpu: jpEl ? jpEl.textContent.trim().replace(/\s+/g, '') : '',
+            // v2.17.1：附带原始音符序列与显示模式，供离线精确复现（此前只有派生字符串，无法精确分析）
+            notes: (typeof state !== 'undefined' && state.accNotes ? state.accNotes.slice(-80).map(function (n) { return { m: +(+n.midi).toFixed(2), d: +(n.dur || 0.25).toFixed(2), s: +(n.start || 0).toFixed(2) }; }) : []),
+            displayPro: typeof displayPro !== 'undefined' ? !!displayPro : false,
             ts: Date.now()
           };
           var list = annoGet('hkAnnotations', []);

@@ -24,10 +24,14 @@
 
   var GUITAR_BIAS = 0.02;     // 吉他友好调微调（仅在分数接近时起作用）
   var SCALE_BONUS = 0.20;     // 音阶成员加权：旋律落在该调音阶内的比例（强判别）
-  var CENTROID_WEIGHT = 0.04; // 重心音：弱证据（对称旋律会落音阶中段，不宜过重）
+  // v2.17.1（13 首真实哼唱标注分析，analyze_next.js）：
+  //   重心音/Chew 螺旋在短哼唱上只会加噪（单独命中率 9%/10%，关掉后真实数据 4/13→5/13，
+  //   合成基准 168 条主音仍 100% 零回归），故权重归零保留代码留作证据链展示。
+  var CENTROID_WEIGHT = 0;    // 重心音：对称旋律会落音阶中段，不可信（已停用）
   var STABILITY_WEIGHT = 0.10; // 音级稳定性 K-S（v2.15）：稳定性点积比「出现最久音级」更能抓主音
-  var CHEW_WEIGHT = 0.12;      // Chew 螺旋数组（v2.16）：CE 距离反比加成
+  var CHEW_WEIGHT = 0;        // Chew 螺旋数组（v2.16）：全曲级特征，短哼唱加噪（已停用）
   var ENDING_MAX_MULT = 1.5;  // 结束音最大加权倍率（仅完整终止时触发）
+  var ENDING_BONUS = 0.15;   // 结尾长音=主音（v2.17）：真实标注实测结束音单独命中 3/13，高于其余单模块；0.15 为合成基准安全上限（0.25 会破坏「非主音结尾」旋律）
   var GUILD = { // 吉他友好（开放和弦优先）的大调与小调主音（pc）
     major: [0, 7, 2, 9, 4, 5],   // C, G, D, A, E, F
     minor: [0, 7, 2, 5]         // Am, Em, Bm, Dm
@@ -340,6 +344,7 @@
 
     // 结束音加权倍率：仅当「非跨次累计 + 结束音>0.5s + 尾静音≥0.3s + 全曲>5s」才×1.5，否则×1.0
     var endingMult = (!opts.noEndingBoost && lastDur > 0.5 && trailingSilence >= 0.3 && totalDur > 5) ? ENDING_MAX_MULT : 1.0;
+    var endingPC = pc(Math.round(lastM));
 
     // 重心音：加权平均音高（权重 = 时长 × 振幅/节拍强度）。
     // basic-pitch 音符带 amplitude（强拍更响），用「相对响度」放大强拍音符的重心权重；
@@ -448,8 +453,9 @@
       var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
       var stabBonus = STABILITY_WEIGHT * ((stabTable[root].best - stabMin) / stabSpan); // 音级稳定性（v2.15，替代旧「最长音级」加成）
       var chewBonus = chew ? CHEW_WEIGHT * (1 - chewDists[root] / chewMaxD) : 0; // 螺旋数组（v2.16）
+      var eBonus = (endingPC === root && lastDur >= 0.5) ? ENDING_BONUS : 0; // 结尾长音=主音（v2.17，真实数据最强单信号）
       var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
-      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + chewBonus + guitarBonus;
+      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + chewBonus + eBonus + guitarBonus;
       tonicScores[root] = tScore;
       tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }
