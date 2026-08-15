@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.1 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.2 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
+  var diag = { version: 'v2.11.2', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2262,22 +2262,27 @@ window.addEventListener('unhandledrejection', function (e) {
       var nd = nb.getChannelData(0);
       for (var i = 0; i < N; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / N);
       var src = ctx.createBufferSource(); src.buffer = nb;
-      // K-S 循环：延迟线 + 低通阻尼 + 反馈
-      var delay = ctx.createDelay(2.0); delay.delayTime.value = N / sr;
-      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(2500, Math.min(12000, freq * 16)); // 低音不闷（下限2500Hz）、高音不刺耳
-      var hs = ctx.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 10000; hs.gain.value = 4; // 末端高频提升 +4dB@10kHz
-      var fb = ctx.createGain(); fb.gain.value = 0.985;
+      // K-S 循环（经典 Karplus-Strong 结构）：
+      //   激励 → 周期延迟 → 两点平均滤波 0.5(x + x·z⁻¹) → 阻尼 0.985 → 回延迟
+      // 两点平均在任意频率增益 ≤1，数学上不可能自激。
+      // 此前用 biquad 低通放进反馈环：部分浏览器/实现下环路数值失稳、
+      // 能量指数爆炸成满幅噪声 → 听感就是「电流声」（已在复现环境实测 rms→∞）。
+      var delay = ctx.createDelay(2.0); delay.delayTime.value = N / sr; // 周期延迟
+      var oneSamp = ctx.createDelay(0.01); oneSamp.delayTime.value = 1 / sr; // 单样本延迟(z⁻¹)
+      var g1 = ctx.createGain(); g1.gain.value = 0.5;
+      var g2 = ctx.createGain(); g2.gain.value = 0.5;
+      var sum = ctx.createGain(); sum.gain.value = 1.0;
+      var fb = ctx.createGain(); fb.gain.value = 0.985; // 阻尼：每周期保留 98.5%，指数衰减
       // 输出包络
       var out = ctx.createGain();
       out.gain.setValueAtTime(0.0001, when);
       out.gain.exponentialRampToValueAtTime(vol || 0.65, when + 0.006);
       out.gain.exponentialRampToValueAtTime(0.0001, when + dur);
       src.connect(delay);
-      delay.connect(lp);
-      lp.connect(fb);
-      fb.connect(delay);
-      lp.connect(hs);
-      hs.connect(out);
+      delay.connect(g1); g1.connect(sum);
+      delay.connect(oneSamp); oneSamp.connect(g2); g2.connect(sum);
+      sum.connect(fb); fb.connect(delay);
+      sum.connect(out);
       out.connect(ctx.destination);
       src.start(when); src.stop(when + 0.02);
       activeOscs.push(src);

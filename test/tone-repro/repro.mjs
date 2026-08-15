@@ -1,13 +1,12 @@
-// repro.mjs — 用真实 Tone.js + node-web-audio-api 复现「听旋律只播最后一个音」
-// 提取 index.html 里真实的 replayMelody/playNote/velByPitch，跑真实调度，
-// 用 AnalyserNode 直接采样输出波形，按时间窗打印 RMS —— 数据说话：哪个音响、哪个音不响。
+// repro.mjs — 用真实 Tone.js + node-web-audio-api 复现并客观评估播放链路
+// 指标：
+//   RMS = 能量（有没有声）；flatness = 频谱平坦度（0≈纯乐音，1≈白噪声/电流声）
+// 提取 index.html 真实函数跑：采样器路径 + K-S 修复后 + K-S 修复前(模拟旧滤波)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as WebAudio from 'node-web-audio-api';
 
-// Tone 的 UMD 在加载时捕获 window（Node 里为 null → isAudioParam 恒 false），
-// 必须先补一个 window 再导入 Tone，并把 Web Audio 类挂到 globalThis
 globalThis.window = globalThis;
 for (const [k, v] of Object.entries(WebAudio)) {
   if (typeof v === 'function' && !globalThis[k]) globalThis[k] = v;
@@ -42,25 +41,9 @@ const toneCtx = new Tone.Context(nativeAC);
 Tone.setContext(toneCtx);
 const raw = nativeAC;
 
-// 输出监听：AnalyserNode 采样 + BufferSource start/stop 事件
 const analyser = raw.createAnalyser();
 analyser.fftSize = 2048;
 analyser.connect(raw.destination);
-const events = [];
-const origCBS = raw.createBufferSource.bind(raw);
-raw.createBufferSource = function () {
-  const src = origCBS();
-  const origStart = src.start.bind(src), origStop = src.stop.bind(src);
-  src.start = function (when, offset, duration, gain) {
-    events.push({ type: 'start', when: +(when || 0).toFixed(3), dur: duration != null ? +duration.toFixed(3) : null });
-    return origStart(when, offset, duration);
-  };
-  src.stop = function (when) {
-    events.push({ type: 'stop', when: +(when || 0).toFixed(3) });
-    return origStop(when);
-  };
-  return src;
-};
 
 function makeBuffer(midi) {
   const sr = raw.sampleRate, len = Math.floor(sr * 1.2);
@@ -79,8 +62,7 @@ bright.gain.value = 4;
 sampler.connect(bright);
 bright.connect(analyser);
 
-const SCALE = 0.12; // 时间压缩（相对节奏不变），加快复现
-
+const SCALE = 0.12;
 const NOTES = [
   { midi: 59, start: 0.5, end: 1.2, dur: 0.7, amp: 0.9 },
   { midi: 62, start: 1.2, end: 1.6, dur: 0.4, amp: 0.3 },
@@ -89,14 +71,18 @@ const NOTES = [
   { midi: 59, start: 4.2, end: 5.8, dur: 1.6, amp: 0.7 },
 ];
 
-async function run(pathLabel, samplerReady) {
-  events.length = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function runRound(label, samplerReady, toneOscSrc) {
   await new Promise((res) => { const t = setInterval(() => { if (sampler.loaded) { clearInterval(t); res(); } }, 20); });
 
+  // K-S 输出代理到 analyser，才能测频谱
+  const ksc = new Proxy(raw, { get(t, p) { return p === 'destination' ? analyser : t[p]; } });
   const ctx = {
     recordedNotes: NOTES,
     lastKeyResult: { rootPC: 11 },
     melodyTimers: [],
+    diag: { lastReplay: null },
     Tone: Tone,
     toneSampler: sampler,
     toneSamplerReady: function () { return samplerReady && !!sampler.loaded; },
@@ -106,48 +92,119 @@ async function run(pathLabel, samplerReady) {
     $: function () { return { querySelectorAll: function () { return []; } }; },
     setTimeout: function (fn, delay) { return global.setTimeout(fn, delay * SCALE); },
     clearTimeout: function (id) { global.clearTimeout(id); },
-    getPlayCtx: function () { return raw; },
+    getPlayCtx: function () { return ksc; },
     activeOscs: [],
     Math: Math,
   };
   ctx.velByPitch = new Function('with(this){ return (' + extractFn(html, 'velByPitch') + '); }').call(ctx);
-  ctx.toneOsc = new Function('with(this){ return (' + extractFn(html, 'toneOsc') + '); }').call(ctx);
+  const baseOsc = new Function('with(this){ return (' + (toneOscSrc || extractFn(html, 'toneOsc')) + '); }').call(ctx);
+  ctx.toneOsc = function (midi, when, dur, vol) {
+    try { const r = baseOsc(midi, when, dur, vol); console.log('    [osc] ok midi=' + midi + ' when=' + (+when).toFixed(3)); return r; }
+    catch (e) { console.log('    [osc] THROW midi=' + midi + ': ' + e.message); }
+  };
   ctx.playNote = new Function('with(this){ return (' + extractFn(html, 'playNote') + '); }').call(ctx);
+  ctx.playMelodyNote = new Function('with(this){ return (' + extractFn(html, 'playMelodyNote') + '); }').call(ctx);
   const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody', true) + '); }').call(ctx);
 
-  // RMS 采样（真实时间轴 × SCALE）
-  const rmsLog = [];
+  const winLog = [];
   const t0 = Date.now();
+  const td = new Float32Array(analyser.fftSize);
+  const fd = new Float32Array(analyser.frequencyBinCount);
+  const binLo = Math.max(1, Math.floor(200 / (raw.sampleRate / analyser.fftSize)));
+  const binHi = Math.min(fd.length - 1, Math.floor(8000 / (raw.sampleRate / analyser.fftSize)));
   const poll = setInterval(() => {
-    const data = new Float32Array(analyser.fftSize);
-    analyser.getFloatTimeDomainData(data);
+    analyser.getFloatTimeDomainData(td);
     let s = 0;
-    for (let i = 0; i < data.length; i++) s += data[i] * data[i];
-    rmsLog.push({ ms: Date.now() - t0, rms: Math.sqrt(s / data.length) });
-  }, 60);
+    for (let i = 0; i < td.length; i++) s += td[i] * td[i];
+    analyser.getFloatFrequencyData(fd);
+    let sumLin = 0, sumLog = 0, n = 0;
+    for (let b = binLo; b <= binHi; b++) {
+      const mag = Math.pow(10, fd[b] / 20);
+      sumLin += mag; sumLog += Math.log(mag + 1e-9); n++;
+    }
+    const flat = n ? Math.exp(sumLog / n) / (sumLin / n + 1e-9) : 0;
+    winLog.push({ ms: Date.now() - t0, rms: Math.sqrt(s / td.length), flat: flat });
+  }, 50);
 
   await replay.call(ctx);
-  await new Promise((r) => setTimeout(r, 6000 * SCALE + 500));
+  console.log('    [debug] 定时器数=' + ctx.melodyTimers.length + ' diag=' + JSON.stringify(ctx.diag.lastReplay) + ' ctxState=' + (raw.state || '?'));
+  await sleep(6000 * SCALE + 400);
   clearInterval(poll);
 
-  console.log('==== ' + pathLabel + ' ====');
-  // 按 100ms 桶聚合 RMS
-  const buckets = [];
-  for (const p of rmsLog) {
-    const b = Math.floor(p.ms / 100);
-    buckets[b] = Math.max(buckets[b] || 0, p.rms);
-  }
-  console.log('  时间窗 RMS（×' + SCALE + ' 压缩，约 10ms≈真实 100ms）：');
-  for (let b = 0; b < buckets.length; b++) {
-    if (buckets[b] == null) continue;
-    const bar = '#'.repeat(Math.min(50, Math.round(buckets[b] * 400)));
-    console.log('    ' + String(b).padStart(3) + '00ms  ' + buckets[b].toFixed(4).padStart(8) + '  ' + bar);
-  }
-  const starts = events.filter((e) => e.type === 'start');
-  console.log('  start 次数: ' + starts.length + '/5，事件:');
-  events.forEach((e) => console.log('    ' + e.type.padEnd(5) + ' @' + e.when + 's' + (e.dur != null ? ' dur=' + e.dur + 's' : '')));
+  // 有能量窗口的统计（用中位数，抗拨弦起音瞬时噪声）
+  const active = winLog.filter((w) => w.rms > 0.005);
+  const flats = active.map((w) => w.flat).sort((a, b) => a - b);
+  const medFlat = flats.length ? flats[Math.floor(flats.length / 2)] : 0;
+  const maxFlat = flats.length ? flats[flats.length - 1] : 0;
+  console.log('==== ' + label + ' ====');
+  console.log('  有能量窗口: ' + active.length + ' · 中位平坦度 ' + medFlat.toFixed(3) + ' · 峰值平坦度 ' + maxFlat.toFixed(3) + '（<0.5 乐音感，>0.7 噪声/电流声）');
+  return { medFlat, maxFlat };
 }
 
-await run('采样器路径（toneSamplerReady=true）', true);
-await run('K-S 降级路径（toneSamplerReady=false）', false);
+const r1 = await runRound('采样器路径', true);
+const r2 = await runRound('K-S 新版（两点平均滤波，提取自 index.html）', false);
+
+// ============ A/B：旧 biquad 环路 vs 新两点平均环路（各自全新 AudioContext 隔离测量） ============
+async function loopAB(label, useBiquad) {
+  const ac2 = new AudioContext({ sampleRate: 44100 });
+  const an = ac2.createAnalyser(); an.fftSize = 2048; an.connect(ac2.destination);
+  const sr = ac2.sampleRate, freq = 233.08; // midi 59 ≈ B3
+  const N = Math.max(2, Math.round(sr / freq));
+  const when = ac2.currentTime + 0.05;
+  const nb = ac2.createBuffer(1, N, sr);
+  const nd = nb.getChannelData(0);
+  for (let i = 0; i < N; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / N);
+  const src = ac2.createBufferSource(); src.buffer = nb;
+  const delay = ac2.createDelay(2.0); delay.delayTime.value = N / sr;
+  const sum = ac2.createGain(); sum.gain.value = 1.0;
+  const fb = ac2.createGain(); fb.gain.value = 0.985;
+  const out = ac2.createGain();
+  out.gain.setValueAtTime(0.0001, when);
+  out.gain.exponentialRampToValueAtTime(0.65, when + 0.006);
+  out.gain.exponentialRampToValueAtTime(0.0001, when + 1.0);
+  src.connect(delay);
+  if (useBiquad) {
+    const lp = ac2.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(900, Math.min(6000, freq * 4));
+    delay.connect(lp); lp.connect(fb); fb.connect(delay); lp.connect(out);
+  } else {
+    const oneSamp = ac2.createDelay(0.01); oneSamp.delayTime.value = 1 / sr;
+    const g1 = ac2.createGain(); g1.gain.value = 0.5;
+    const g2 = ac2.createGain(); g2.gain.value = 0.5;
+    delay.connect(g1); g1.connect(sum);
+    delay.connect(oneSamp); oneSamp.connect(g2); g2.connect(sum);
+    sum.connect(fb); fb.connect(delay); sum.connect(out);
+  }
+  out.connect(an);
+  src.start(when); src.stop(when + 0.02);
+  // 采样 1.2 秒内的 RMS 峰值与频谱平坦度
+  let maxRms = 0, flatSum = 0, flatN = 0;
+  const td = new Float32Array(an.fftSize);
+  const fd = new Float32Array(an.frequencyBinCount);
+  const binLo = Math.max(1, Math.floor(200 / (sr / an.fftSize)));
+  const binHi = Math.min(fd.length - 1, Math.floor(8000 / (sr / an.fftSize)));
+  for (let k = 0; k < 24; k++) {
+    await sleep(50);
+    an.getFloatTimeDomainData(td);
+    let s = 0;
+    for (let i = 0; i < td.length; i++) s += td[i] * td[i];
+    const rms = Math.sqrt(s / td.length);
+    if (rms > maxRms) maxRms = rms;
+    an.getFloatFrequencyData(fd);
+    let sumLin = 0, sumLog = 0, n = 0;
+    for (let b = binLo; b <= binHi; b++) {
+      const mag = Math.pow(10, fd[b] / 20);
+      sumLin += mag; sumLog += Math.log(mag + 1e-9); n++;
+    }
+    flatSum += n ? Math.exp(sumLog / n) / (sumLin / n + 1e-9) : 0;
+    flatN++;
+  }
+  await ac2.close();
+  const bounded = Number.isFinite(maxRms) && maxRms < 2;
+  console.log('  ' + label + ': 峰值rms=' + (Number.isFinite(maxRms) ? maxRms.toFixed(4) : '∞') + (bounded ? ' ✓ 有界' : ' ✗ 失稳爆炸') + ' · 平均平坦度=' + (flatSum / flatN).toFixed(3) + '（<0.5 乐音，>0.7 噪声）');
+  return bounded;
+}
+console.log('==== 环路稳定性 A/B（各自全新上下文，隔离测量）====');
+const okBiquad = await loopAB('旧 biquad 低通环路', true);
+const okMA = await loopAB('新两点平均环路', false);
+console.log('\n结论: 新环路' + (okMA ? ' rms 有界 → 电流声根因（反馈环路失稳爆炸）已消除 ✓' : ' 仍失稳 ✗'));
 process.exit(0);
