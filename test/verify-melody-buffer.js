@@ -71,11 +71,24 @@ function winPeak(buf, t0, t1) {
   const peaks = windows.map(w => winPeak(buf, w.t0, w.t1));
   let allEnergy = true;
   for (let i = 0; i < NOTES.length; i++) {
-    if (rms[i] < 0.01) allEnergy = false;
-    ok('音' + (i + 1) + '（起音 ' + (NOTES[i].start - t0).toFixed(2) + 's）时窗有能量', rms[i] > 0.01, 'rms=' + rms[i].toFixed(4));
+    if (rms[i] < 0.03) allEnergy = false;
+    ok('音' + (i + 1) + '（起音 ' + (NOTES[i].start - t0).toFixed(2) + 's）时窗有能量', rms[i] > 0.03, 'rms=' + rms[i].toFixed(4));
   }
   ok('全部 5 个音都有能量（「只剩最后一个音」回归检测）', allEnergy, rms.map(v => v.toFixed(3)).join(', '));
   ok('全局峰值有界（≤1，不可能炸）', winPeak(buf, 0, buf.length / SR) <= 1.0, '峰值=' + winPeak(buf, 0, buf.length / SR).toFixed(3));
+  // 中后段能量：每个音在自身时值的中后段仍有可闻能量（平台包络，「只有起音滋声」的回归检测）
+  let sustainOk = true;
+  for (let i = 0; i < NOTES.length; i++) {
+    const s = NOTES[i].start - t0;
+    const d = Math.max(0.09, NOTES[i].end - NOTES[i].start);
+    const mid = winRms(buf, s + Math.min(0.25, d * 0.5), s + Math.min(0.35, d * 0.7));
+    if (mid < rms[i] * 0.4) sustainOk = false;
+  }
+  ok('每个音中后段仍有能量（平台包络，非只有起音尖峰）', sustainOk,
+    NOTES.map((n, i) => {
+      const s = n.start - t0, d = Math.max(0.09, n.end - n.start);
+      return winRms(buf, s + Math.min(0.25, d * 0.5), s + Math.min(0.35, d * 0.7)).toFixed(3);
+    }).join(', '));
   // 间隙静音：音1结束(1.2s-0.5s=0.7s)到音2起音(0.7s)之间有 0.3s 停顿（1.6s-0.5s=1.1s 到 1.4s）
   const gapRms = winRms(buf, NOTES[2].end - t0, NOTES[3].start - t0);
   ok('音与音之间的停顿是静的', gapRms < 0.005, '停顿rms=' + gapRms.toFixed(5));

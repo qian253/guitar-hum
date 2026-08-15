@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.9 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.10 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1260,7 +1260,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.9', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.11.10', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2887,7 +2887,7 @@ window.addEventListener('unhandledrejection', function (e) {
       var idx = 0, prev = 0;
       var startIdx = Math.round(((note.start || 0) - t0) * sr);
       var nSamp = Math.max(0, Math.min(Math.floor(dur * sr), len - startIdx));
-      var decayK = 3 / Math.max(0.05, dur);
+      var hold = dur * 0.7; // 平台包络：音符 70% 时长内保持满音量
       for (var s0 = 0; s0 < nSamp; s0++) {
         var cur = ring[idx];
         var y = 0.5 * (cur + prev); prev = cur;
@@ -2895,8 +2895,10 @@ window.addEventListener('unhandledrejection', function (e) {
         idx = (idx + 1) % N;
         var t = s0 / sr;
         var att = Math.min(1, t / 0.005);
-        var rel = Math.exp(-decayK * t);
-        out[startIdx + s0] += y * vel * att * rel;
+        // 平台包络：70% 保持满音量，之后 30% 时长内指数衰减到 ~5%——每个音全程可闻
+        // （此前 exp(-3t/dur) 从起音即衰减，短音中后段只剩 -20dB 的「滋」）
+        var rel = t < hold ? 1 : Math.exp(-3 * (t - hold) / Math.max(0.1, dur - hold));
+        out[startIdx + s0] += y * vel * 2.2 * att * rel;
       }
     }
     // 软削波（多音重叠时防爆音）
