@@ -22,6 +22,8 @@ from basic_pitch.inference import predict
 from basic_pitch import ICASSP_2022_MODEL_PATH
 from fastapi.middleware.cors import CORSMiddleware
 
+from note_cleaner import clean_notes
+
 app = FastAPI(title="basic-pitch transcription")
 
 # 允许前端（本地/任意域名）跨域调用
@@ -155,8 +157,12 @@ def transcribe(file: UploadFile = File(...)):
         if not notes:
             raise HTTPException(422, "没转录出音符，音频可能太短或没声音")
 
+        # v2.18.0 音符清洗器：过滤滑音过分割/极短音/跳跃毛刺，再做调性分析。
+        # 报告随响应返回（仅调试用，不阻塞流程）；前端不用改，拿到的 notes 已是清洗后的。
+        notes, clean_report = clean_notes(notes)
+
         key = detect_key(notes)
-        return {"notes": notes, "key": key}
+        return {"notes": notes, "key": key, "clean_report": clean_report}
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
