@@ -26,6 +26,7 @@
   var SCALE_BONUS = 0.20;     // 音阶成员加权：旋律落在该调音阶内的比例（强判别）
   var CENTROID_WEIGHT = 0.04; // 重心音：弱证据（对称旋律会落音阶中段，不宜过重）
   var STABILITY_WEIGHT = 0.10; // 音级稳定性 K-S（v2.15）：稳定性点积比「出现最久音级」更能抓主音
+  var CHEW_WEIGHT = 0.12;      // Chew 螺旋数组（v2.16）：CE 距离反比加成
   var ENDING_MAX_MULT = 1.5;  // 结束音最大加权倍率（仅完整终止时触发）
   var GUILD = { // 吉他友好（开放和弦优先）的大调与小调主音（pc）
     major: [0, 7, 2, 9, 4, 5],   // C, G, D, A, E, F
@@ -46,6 +47,93 @@
   var SPELL = { 0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F', 6: 'F#', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B' };
 
   function pc(midi) { return ((midi % 12) + 12) % 12; }
+
+  // ============ Elaine Chew 螺旋数组（Spiral Array，简化版，v2.16） ============
+  // 参考：Chew, "Towards a Mathematical Model of Tonality"；partitura 实现公式：
+  //   音级沿五度圈排布，位置 P(k) = (r·sin(t), r·cos(t), A·t)，t = k·π/2，A = √(2/15)·π/2
+  //   k 为五度圈索引（C=0, G=1, D=2, A=3, E=4, B=5, F=-1, Bb=-2, Eb=-3, Ab=-4, Db=-5, Gb=-6）
+  // 中心效应点 CE = 各音符位置（按时长×振幅加权）的平均；距 CE 最近的音级即主音候选。
+  var SPIRAL_A = Math.sqrt(2 / 15) * Math.PI / 2;
+  function pcFifths(pc) { return (((7 * pc + 6) % 12) + 12) % 12 - 6; } // 音级 → 五度圈索引 [-6..5]
+  function pcFromFifths(k) { return (((7 * k) % 12) + 12) % 12; }
+  function chewPos(k) {
+    var t = k * Math.PI / 2;
+    return { x: Math.sin(t), y: Math.cos(t), z: SPIRAL_A * t };
+  }
+  function dist3(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }
+  // 螺旋数组主音分析：返回 {ce, nearestPC, distances, keys:[{root,mode,d}], tonic, confidence}
+  function chewAnalyze(notes) {
+    if (!notes || notes.length < 1) return null;
+    // 拼写消歧（Chew "Mapping MIDI to the Spiral Array"）：每个音级有 k / k±12 三个等价位置，
+    // 每轮选择离当前 CE 最近的拼写，迭代 3 次收敛——避免等音拼写把 CE 拉偏到错误音级。
+    var reps = {}; // pc → 拼写后的五度圈索引
+    var cx = 0, cy = 0, cz = 0, wsum = 0;
+    function noteW(n) {
+      var w = n.dur || 0.25;
+      var amp = n.amp || n.amplitude;
+      if (amp && amp > 0) w *= 0.5 + amp;
+      return w;
+    }
+    for (var i0 = 0; i0 < notes.length; i0++) wsum += noteW(notes[i0]);
+    if (wsum <= 0) return null;
+    for (var rr = 0; rr < 3; rr++) {
+      var cex = wsum > 0 ? cx / wsum : 0, cey = cy / wsum, cez = cz / wsum;
+      cx = 0; cy = 0; cz = 0;
+      for (var i2 = 0; i2 < notes.length; i2++) {
+        var pc2 = pc(Math.round(notes[i2].midi));
+        var k0 = reps[pc2] != null ? reps[pc2] : pcFifths(pc2);
+        var bestK = k0, bestD = Infinity;
+        for (var kv = k0 - 12; kv <= k0 + 12; kv += 12) {
+          var pv = chewPos(kv);
+          var dv = (pv.x - cex) * (pv.x - cex) + (pv.y - cey) * (pv.y - cey) + (pv.z - cez) * (pv.z - cez);
+          if (dv < bestD) { bestD = dv; bestK = kv; }
+        }
+        reps[pc2] = bestK;
+        var w2 = noteW(notes[i2]);
+        var pp2 = chewPos(bestK);
+        cx += pp2.x * w2; cy += pp2.y * w2; cz += pp2.z * w2;
+      }
+    }
+    var ce = { x: cx / wsum, y: cy / wsum, z: cz / wsum };
+    // 最近音级 = 主音候选（比较各音级在拼写后的位置）
+    var distances = [];
+    var nearestK = 0, nearestD = Infinity;
+    for (var pcx = 0; pcx < 12; pcx++) {
+      var kk = reps[pcx] != null ? reps[pcx] : pcFifths(pcx);
+      var d = dist3(ce, chewPos(kk));
+      distances.push({ k: kk, pc: pcx, d: d });
+      if (d < nearestD) { nearestD = d; nearestK = kk; }
+    }
+    distances.sort(function (a, b) { return a.d - b.d; });
+    // 最近大小调中心：CE_key(k) = mean(P(k), P(k+1), P(k+4)) 大调 / (k, k+1, k+3) 小调
+    var keys = [];
+    for (var kr = -6; kr <= 5; kr++) {
+      var maj = { x: 0, y: 0, z: 0 }, min = { x: 0, y: 0, z: 0 };
+      [[kr, kr + 1, kr + 4], [kr, kr + 1, kr + 3]].forEach(function (tri, mi) {
+        var tgt = mi === 0 ? maj : min;
+        for (var ti = 0; ti < 3; ti++) {
+          var pp = chewPos(tri[ti]);
+          tgt.x += pp.x / 3; tgt.y += pp.y / 3; tgt.z += pp.z / 3;
+        }
+      });
+      keys.push({ root: pcFromFifths(kr), mode: 'major', d: dist3(ce, maj) });
+      keys.push({ root: pcFromFifths(kr), mode: 'minor', d: dist3(ce, min) });
+    }
+    keys.sort(function (a, b) { return a.d - b.d; });
+    var secondD = distances.length > 1 ? distances[1].d : nearestD;
+    var confidence = Math.max(0, Math.min(1, 1 - nearestD / (secondD || 1))); // 距离比 → 置信度
+    return {
+      ce: ce,
+      tonic: { rootPC: pcFromFifths(nearestK), mode: keys[0].mode },
+      confidence: +confidence.toFixed(3),
+      nearestPC: pcFromFifths(nearestK),
+      distances: distances.slice(0, 3).map(function (d) { return { pc: d.pc, d: +d.d.toFixed(3) }; }),
+      keys: keys.slice(0, 3).map(function (d) { return { root: d.root, mode: d.mode, d: +d.d.toFixed(3) }; })
+    };
+  }
 
   // 两个音级之间的循环半音距离（0..6）
   function circDist(a, b) {
@@ -338,6 +426,18 @@
       if (stabTable[sr2].best > stabTable[stabBestRoot].best) stabBestRoot = sr2;
     }
 
+    // ============ Chew 螺旋数组（v2.16）：中心效应点距各音级距离 → 主音候选 ============
+    var chew = chewAnalyze(notes);
+    var chewDists = {};
+    var chewMaxD = 0;
+    if (chew) {
+      for (var ck = 0; ck < 12; ck++) {
+        chewDists[ck] = dist3(chew.ce, chewPos(pcFifths(ck)));
+        if (chewDists[ck] > chewMaxD) chewMaxD = chewDists[ck];
+      }
+      if (chewMaxD <= 0) chewMaxD = 1;
+    }
+
     // ============ 第一步：锁定主音（与调式解耦） ============
     // 对每个根音取「大调/小调中较高分」作为主音得分（K-S + 音阶成员 + 重心 + 音级分布 + 吉他偏好）
     var tonicScores = new Array(12).fill(0);
@@ -347,8 +447,9 @@
       var minScore = corr(hist, shiftProfile(MINOR_PROF, root)) + SCALE_BONUS * scaleMembership(hist, root, 'minor');
       var cBonus = centroidPresent ? CENTROID_WEIGHT * (1 - circDist(centroidPC, root) / 6) : 0;
       var stabBonus = STABILITY_WEIGHT * ((stabTable[root].best - stabMin) / stabSpan); // 音级稳定性（v2.15，替代旧「最长音级」加成）
+      var chewBonus = chew ? CHEW_WEIGHT * (1 - chewDists[root] / chewMaxD) : 0; // 螺旋数组（v2.16）
       var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
-      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + guitarBonus;
+      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + chewBonus + guitarBonus;
       tonicScores[root] = tScore;
       tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }
@@ -398,6 +499,10 @@
     }
     evidence.push('音级稳定性（模块主音判断 ' + SPELL[stabBestRoot] + (stabTable[stabBestRoot].bestMode === 'major' ? '大' : '小') + '）：' +
       stabilityByDegree.map(function (v, idx) { return SPELL[(bestRoot + idx) % 12] + ' ' + v; }).join(' / '));
+    if (chew) {
+      evidence.push('Chew螺旋：中心效应点最近音级 ' + SPELL[chew.tonic.rootPC] + '（置信度 ' + chew.confidence + '）' +
+        ' · 最近调中心 ' + SPELL[chew.keys[0].root] + (chew.keys[0].mode === 'major' ? '大' : '小'));
+    }
 
     return {
       mode: mode,
@@ -423,6 +528,7 @@
       candidateScores: tonicDetails.slice().sort(function (a, b) { return b.tonic - a.tonic; }).slice(0, 4).map(function (t) { return { root: t.root, mode: (t.major >= t.minor ? 'major' : 'minor'), score: +t.tonic.toFixed(3) }; }),
       modeEvidence: { majorThird: md.majorThird, minorThird: md.minorThird, majorTriad: md.majorTriad, minorTriad: md.minorTriad, leading: md.leading },
       stability: { scores: stabilityByDegree, tonic: { rootPC: stabBestRoot, mode: stabTable[stabBestRoot].bestMode }, weight: STABILITY_WEIGHT },
+      chew: chew,
       top2: top2,
       ampWeighted: hasAmp,
       noteCount: notes.length,
@@ -434,6 +540,7 @@
     detectKey: detectKey,
     SPELL: SPELL,
     pc: pc,
-    distanceFromTonic: distanceFromTonic
+    distanceFromTonic: distanceFromTonic,
+    chewAnalyze: chewAnalyze
   };
 })(typeof module !== 'undefined' && module.exports ? module.exports : (typeof window !== 'undefined' ? window : this));
