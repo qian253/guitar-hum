@@ -136,17 +136,20 @@ def transcribe(file: UploadFile = File(...)):
             if isinstance(ev, (tuple, list)):
                 start_t, end_t, pitch = ev[0], ev[1], ev[2]
                 amplitude = float(ev[3]) if len(ev) > 3 else 0.0
+                bends = [round(float(b), 2) for b in ev[4]] if len(ev) > 4 and ev[4] else []
             else:
                 start_t = getattr(ev, "start_time_s", getattr(ev, "start", 0.0))
                 end_t = getattr(ev, "end_time_s", getattr(ev, "end", 0.0))
                 pitch = getattr(ev, "pitch_midi", getattr(ev, "pitch", 60))
                 amplitude = getattr(ev, "amplitude", 0.0)
+                bends = [round(float(b), 2) for b in (getattr(ev, "pitch_bends", None) or [])]
             notes.append({
                 "midi": int(pitch),
                 "start": round(float(start_t), 3),
                 "end": round(float(end_t), 3),
                 "dur": round(max(0.0, float(end_t) - float(start_t)), 3),
                 "amplitude": round(float(amplitude), 4),
+                "pitch_bends": bends,
             })
 
         if not notes:

@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.12.0 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.13.0 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1262,7 +1262,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.12.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.13.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1527,7 +1527,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var data = await res.json();
     if (!data || !Array.isArray(data.notes) || !data.notes.length) throw new Error('后端无音符');
     return data.notes.map(function (n) {
-      return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)), amp: (typeof n.amplitude === 'number' ? n.amplitude : 0) };
+      return { midi: n.midi, start: n.start, end: n.end, dur: Math.max(0.08, n.dur || (n.end - n.start)), amp: (typeof n.amplitude === 'number' ? n.amplitude : 0), bends: (Array.isArray(n.pitch_bends) && n.pitch_bends.length ? n.pitch_bends : null) };
     });
   }
 
@@ -2247,6 +2247,7 @@ window.addEventListener('unhandledrejection', function (e) {
   function setTimbre(timbre) {
     if (!TIMBRES[timbre]) return;
     currentTimbre = timbre;
+    samplePcmCache = {}; // 音色切换：采样缓存重建
     if (toneLibLoaded) buildToneSampler(timbre);
     document.querySelectorAll('.timbre-btn').forEach(function (b) {
       b.classList.toggle('on', b.dataset.timbre === timbre);
@@ -2983,6 +2984,82 @@ window.addEventListener('unhandledrejection', function (e) {
     return out;
   }
 
+  // ============ 采样级预渲染（v2.13.0）：用真实乐器采样离线合成，支持弯音曲线 ============
+  var samplePcmCache = {}; // timbre -> {midi: {pcm: Float32Array, sr: number}}
+  function buildSamplePcmCache() {
+    var t = currentTimbre;
+    if (samplePcmCache[t]) return samplePcmCache[t];
+    if (!toneSampler || !toneSampler.loaded) return null;
+    try {
+      var cache = {};
+      for (var m = 48; m <= 84; m++) {
+        var tb = toneSampler._buffers && toneSampler._buffers.get(m);
+        var ab = tb && tb.get && tb.get();
+        if (ab && ab.getChannelData) {
+          cache[m] = { pcm: Float32Array.from(ab.getChannelData(0)), sr: ab.sampleRate };
+        }
+      }
+      if (Object.keys(cache).length < 5) return null;
+      samplePcmCache[t] = cache;
+      return cache;
+    } catch (e) { return null; }
+  }
+  // 弯音曲线插值：bends 为 12 点音分偏移，frac ∈ [0,1] 为音符内相对位置
+  function bendAt(bends, frac) {
+    if (!bends || bends.length < 2) return 0;
+    var x = Math.max(0, Math.min(1, frac)) * (bends.length - 1);
+    var i = Math.floor(x), f = x - i;
+    var a = bends[i], b = bends[Math.min(bends.length - 1, i + 1)];
+    return a * (1 - f) + b * f;
+  }
+  // 采样音色版旋律渲染：逐采样跟随弯音曲线重采样乐器采样，平台包络 × 力度（节奏/重音/滑音一比一）
+  function renderSampledMelodyBuffer(notes, sr, st, cache) {
+    notes = notes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
+    var t0 = notes[0].start || 0;
+    var totalEnd = 0;
+    for (var i0 = 0; i0 < notes.length; i0++) {
+      var e0 = (notes[i0].end != null ? notes[i0].end : (notes[i0].start || 0) + (notes[i0].dur || 0.25)) + 0.3;
+      if (e0 > totalEnd) totalEnd = e0;
+    }
+    var len = Math.ceil((totalEnd - t0 + 0.3) * sr);
+    var out = new Float32Array(len);
+    var vels = computeNoteVels(notes, st).vels;
+    for (var ni = 0; ni < notes.length; ni++) {
+      var note = notes[ni];
+      var baseMidi = Math.max(48, Math.min(84, Math.round(note.midi)));
+      var smp = cache[baseMidi];
+      if (!smp) continue; // 无对应采样：跳过（该音静音，罕见）
+      var src = smp.pcm, sSrc = smp.sr;
+      var centsOff = (note.midi - baseMidi) * 100; // 采样音与目标音的固定音分差
+      var bends = note.bends || null;
+      var dur = Math.max(0.09, (note.end != null ? note.end : (note.start || 0) + (note.dur || 0.25)) - (note.start || 0));
+      var vel = vels[ni];
+      var baseFreq = 440 * Math.pow(2, (baseMidi - 69) / 12);
+      var startIdx = Math.max(0, Math.round(((note.start || 0) - t0) * sr));
+      var nSamp = Math.max(0, Math.min(Math.floor(dur * sr), len - startIdx));
+      var hold = dur * 0.7;
+      var phase = 0;
+      for (var s0 = 0; s0 < nSamp; s0++) {
+        var t = s0 / sr;
+        var frac = t / dur;
+        var bend = bends ? bendAt(bends, frac) : 0;
+        var step = (baseFreq / sr) * Math.pow(2, (centsOff + bend) / 1200);
+        phase += step;
+        var i1 = Math.floor(phase), fr = phase - i1;
+        if (i1 + 1 >= src.length) break;
+        var v = src[i1] * (1 - fr) + src[i1 + 1] * fr;
+        var att = Math.min(1, t / 0.005);
+        var rel = t < hold ? 1 : Math.exp(-3 * (t - hold) / Math.max(0.1, dur - hold));
+        out[startIdx + s0] += v * vel * 1.1 * att * rel;
+      }
+    }
+    for (var c0 = 0; c0 < len; c0++) {
+      if (out[c0] > 1) out[c0] = 1;
+      else if (out[c0] < -1) out[c0] = -1;
+    }
+    return out;
+  }
+
   var melodySource = null; // 预渲染旋律播放源（停止时一并停止）
   async function replayMelody() {
     if (!recordedNotes || !lastKeyResult) return;
@@ -3024,23 +3101,44 @@ window.addEventListener('unhandledrejection', function (e) {
       if (rsEl2) { rsEl2.className = 'replay-status ok'; rsEl2.textContent = '回放完成 · ' + notes.length + ' 个音（节奏与重音按你哼的还原）'; }
     };
 
-    // ===== 路径1：真实采样器逐音触发（音色随「音色」栏切换：尼龙/钢弦/钢琴） =====
+    // ===== 路径1：采样级预渲染（音色随「音色」栏切换 + 弯音/滑音还原，单缓冲一次播放） =====
     if (toneSamplerReady()) {
-      diag.lastReplay = { total: notes.length, fired: 0, path: '采样器·' + (TIMBRES[currentTimbre] ? TIMBRES[currentTimbre].label : currentTimbre) };
-      try {
-        evs.forEach(function (ev) {
-          var tm = setTimeout(function () {
-            playNote(ev.midi, 0.02, ev.dur, ev.vel); // 采样器优先；异常自动落 K-S
-            if (diag.lastReplay) diag.lastReplay.fired++;
-            var els = $('jianpuLine').querySelectorAll('.jp');
-            for (var h = 0; h < els.length; h++) els[h].classList.remove('hl');
-            if (els[ev.idx]) els[ev.idx].classList.add('hl');
-          }, ev.delay);
-          melodyTimers.push(tm);
-        });
-      } catch (e) {}
-      var endTm = setTimeout(endCleanup, lastEndMs + 300);
-      melodyTimers.push(endTm);
+      var smpCache = buildSamplePcmCache();
+      var renderedSampled = false;
+      if (smpCache) {
+        try {
+          var spcm = renderSampledMelodyBuffer(notes, sr, state, smpCache);
+          var sbuf = ctx.createBuffer(1, spcm.length, sr);
+          sbuf.getChannelData(0).set(spcm);
+          var ssrc = ctx.createBufferSource(); ssrc.buffer = sbuf;
+          var sg = ctx.createGain(); sg.gain.value = 1.0;
+          ssrc.connect(sg); sg.connect(ctx.destination);
+          melodySource = ssrc;
+          ssrc.onended = function () { melodySource = null; endCleanup(); };
+          for (var hsi = 0; hsi < notes.length; hsi++) scheduleHighlight(hsi, Math.round(((notes[hsi].start || 0) - t0) * 1000));
+          ssrc.start();
+          renderedSampled = true;
+          diag.lastReplay = { total: notes.length, fired: notes.length, path: '采样预渲染·' + (TIMBRES[currentTimbre] ? TIMBRES[currentTimbre].label : currentTimbre) };
+        } catch (e) { renderedSampled = false; }
+      }
+      if (!renderedSampled) {
+        // 缓存不可用/渲染失败 → 采样器逐音触发（音色可切换，无弯音）
+        diag.lastReplay = { total: notes.length, fired: 0, path: '采样器逐音·' + (TIMBRES[currentTimbre] ? TIMBRES[currentTimbre].label : currentTimbre) };
+        try {
+          evs.forEach(function (ev) {
+            var tm = setTimeout(function () {
+              playNote(ev.midi, 0.02, ev.dur, ev.vel); // 采样器优先；异常自动落 K-S
+              if (diag.lastReplay) diag.lastReplay.fired++;
+              var els = $('jianpuLine').querySelectorAll('.jp');
+              for (var h = 0; h < els.length; h++) els[h].classList.remove('hl');
+              if (els[ev.idx]) els[ev.idx].classList.add('hl');
+            }, ev.delay);
+            melodyTimers.push(tm);
+          });
+        } catch (e) {}
+        var endTm = setTimeout(endCleanup, lastEndMs + 300);
+        melodyTimers.push(endTm);
+      }
       return;
     }
 
