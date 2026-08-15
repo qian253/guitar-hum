@@ -1,7 +1,7 @@
 # 唱一句 · 定调子 —— 项目档案
 
 > 本文件是项目的「记忆锚点」。新窗口/新会话先读这个，就能无缝接手，不必翻历史对话。
-> 最后更新：2026-08-15（v2.11.7）
+> 最后更新：2026-08-15（v2.11.8）
 
 ---
 
@@ -24,7 +24,7 @@
 
 ---
 
-## 二、技术架构（当前 v2.11.7）
+## 二、技术架构（当前 v2.11.8）
 
 ```
 录音(15s，ScriptProcessor 2048；可「再哼一段」多段补充≤5段，合并重判)
@@ -57,6 +57,7 @@
 
 - **首选**：Tone.js `Sampler`，FluidR3 采样**多源自动回退**（v2.10.1）：gleitz.github.io → jsdelivr gh → gcore → fastly，按序尝试、成功主机被记住复用，国内手机网络也能加载到真实采样。
 - **release 0.6s**（v2.10.1，原 1.4s）：旋律回放每个音不再拖 1.4 秒尾巴糊成一团，简谱/听旋律能清楚分辨每个音。
+- **v2.11.8 「听旋律」改为离线预渲染缓冲（终极方案）**：不再有任何实时触发——整条旋律在 JS 里离线合成成一个波形缓冲（`renderMelodyBuffer`：K-S 逐音渲染、真实起音/时值/力度、软削波），一次 `source.start()` 播完。没有定时器竞态、没有节点生命周期、没有调度——只剩 Web Audio 最基础的「播一个缓冲」。**新增 `verify-melody-buffer.js`：样本级断言每个音的时窗都有能量、间隙静音、峰值有界、重音还原、极短音不丢**——「只剩最后一个音」在交付前被机器拦截。verify-replay.js 已删除（被取代）。
 - **降级**：Karplus-Strong 拨弦物理建模（零采样、不依赖网络）。**v2.11.6 起主用 AudioWorklet 版**（`ks-pluck` 处理器，Blob URL 内联加载）：循环缓冲内做 `y=0.5(b[i]+b[i-1])` 两点平均 + 阻尼 0.996 + 包络，纯数学、所有系数 ≤1——**任何环境都不可能自激、不受 DelayNode 量化影响、采样级音准**。DelayNode 版仅作老浏览器降级。环外 +3dB@7kHz 提亮，默认音量 0.65。
 - **v2.11.7 常驻节点 + 消息触发（修生命周期竞态）**：v2.11.6 每音新建 AudioWorkletNode 仍出现「只剩最后一个音」→ 改为**一个常驻节点 + `port.postMessage` 触发音符**，声部数组在处理器内管理（自动回收），无每音创建/参数/断连。新增 `test/verify-ks-processor.js`：提取真实处理器代码在 Node 里仿真音频线程——5 音全部产生能量（rms 0.02~0.03、峰值 0.3~0.71 有界）+ 复音混音验证。
 - **v2.11.6 根因复盘（重要教训）**：Chrome 的 DelayNode 有 128 样本（一个渲染量子）的最小延迟——「单样本延迟」两点平均在 Chrome 里变成梳状滤波器（多数音高被杀死、个别音高落在峰值上「炸」出来）；node-web-audio-api 无此量化所以复现环境测不出来。**以后做物理建模：环路滤波一律进 AudioWorklet，别用 DelayNode/Biquad 节点搭反馈环**（biquad 在个别实现里还会失稳爆炸）。
@@ -98,7 +99,8 @@ hum-key/
     ├── verify-ending.js   结束音不主导（4场景）
     ├── verify-chords.js   旋律驱动和弦（harmonizeMelody）
     ├── verify-merge.js    多段补充哼唱合并（同调提升/不同调降置信）
-    ├── verify-replay.js   旋律节奏还原调度（不丢音/真实节奏/短程调度）
+    ├── verify-melody-buffer.js 听旋律预渲染缓冲（逐音能量/间隙/有界/重音）
+    ├── verify-ks-processor.js  AudioWorklet 处理器仿真（每音能量/有界）
     ├── verify-essentia-vote.js  Essentia 投票（一致/关系调/冲突）
     └── bench/             基准 harness（24调×7模式合成集 + mir_eval 评分）
 ```
