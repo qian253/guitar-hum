@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.13 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.14 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1262,7 +1262,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.13', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.11.14', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -3003,7 +3003,8 @@ window.addEventListener('unhandledrejection', function (e) {
       for (var nti = 0; nti < notes.length; nti++) {
         var ndx = notes[nti];
         var ndDur = (ndx.end != null ? ndx.end : (ndx.start || 0) + (ndx.dur || 0.25)) - (ndx.start || 0);
-        noteTxt.push(Math.round(ndx.midi) + '(' + ndDur.toFixed(2) + 's)');
+        var ndAmp = ndx.amp != null ? ndx.amp : ndx.amplitude;
+        noteTxt.push(Math.round(ndx.midi) + '(' + ndDur.toFixed(2) + 's' + (ndAmp != null ? '·a' + (+ndAmp).toFixed(2) : '') + ')');
       }
       // 自动诊断：转录出的音高是否全部相同（同音高 → 听感是「一个音」）
       var refMidi = Math.round(notes[0].midi);
