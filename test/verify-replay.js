@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/* verify-replay.js — 验证「听旋律」节奏/音色/重音还原（从 index.html 提取真实 replayMelody 模拟运行）
- * 模拟：快音/长音/停顿/响度差异的真实旋律时间戳，检查：
+/* verify-replay.js — 验证「听旋律」节奏/重音还原（从 index.html 提取真实 replayMelody 模拟运行）
+ * 检查：
  *   1. 每个音都被调度且按顺序发声（不丢音）
  *   2. 起音时刻 = 真实 start 归一化（快慢/停顿保留）
- *   3. 音色路径计数正确（采样器就绪→采样，否则→K-S）
+ *   3. 走 K-S 专用通道（playMelodyNote，不经采样器——采样器连续多音在部分浏览器只剩最后音）
  *   4. 重音还原：basic-pitch 振幅 → 力度；无振幅时从录音 PCM 按窗口 RMS 算力度
  *   5. 音长不压过下一音起音；浮点 midi 保留（音分偏移不丢）
  */
@@ -45,7 +45,7 @@ const NOTES = [
 ];
 
 async function runCase(name, opts) {
-  const calls = [];       // {midi, offset, dur, vel, t}
+  const calls = [];       // {midi, dur, vel, t}（playMelodyNote 捕获）
   const timers = [];      // {fn, delay}
   const ctx = {
     recordedNotes: opts.notes || NOTES,
@@ -56,15 +56,14 @@ async function runCase(name, opts) {
     now: 0,
     stopAllTones: function () {},
     ensureAudioStarted: async function () {},
-    waitSampler: async function () { return opts.samplerReady || false; },
-    toneSamplerReady: function () { return !!(opts.samplerReady || false); },
+    waitSampler: async function () { return false; },
     $: function () { return { querySelectorAll: function () { return []; } }; },
     velByPitch: function (midi, base) { return Math.max(0.62, Math.min(0.95, (base || 0.9) - (midi - 60) * 0.006)); },
     setTimeout: function (fn, delay) { timers.push({ fn: fn, delay: delay }); return timers.length; },
     clearTimeout: function () {},
   };
-  ctx.playNote = function (midi, offset, dur, vel) {
-    calls.push({ midi: midi, offset: offset, dur: dur, vel: vel, t: this.now });
+  ctx.playMelodyNote = function (midi, dur, vel) {
+    calls.push({ midi: midi, dur: dur, vel: vel, t: this.now });
   }.bind(ctx);
 
   const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody', true) + '); }').call(ctx);
@@ -74,8 +73,9 @@ async function runCase(name, opts) {
   for (const tm of sorted) { ctx.now = tm.delay; tm.fn(); }
 
   console.log('  === ' + name + ' ===');
-  ok('每个音都实际发声（不丢音）', calls.length === (opts.notes || NOTES).length, '发声 ' + calls.length + '/' + (opts.notes || NOTES).length);
-  ok('自诊断计数完整', ctx.diag.lastReplay && ctx.diag.lastReplay.fired === calls.length && ctx.diag.lastReplay.total === calls.length,
+  const total = (opts.notes || NOTES).length;
+  ok('每个音都实际发声（不丢音）', calls.length === total, '发声 ' + calls.length + '/' + total);
+  ok('自诊断计数完整', ctx.diag.lastReplay && ctx.diag.lastReplay.fired === total && ctx.diag.lastReplay.total === total,
     JSON.stringify(ctx.diag.lastReplay));
   let rhythmOk = true;
   const src = opts.notes || NOTES;
@@ -84,7 +84,7 @@ async function runCase(name, opts) {
     if (Math.abs(calls[i].t - expect) > 1) rhythmOk = false;
   }
   ok('起音时刻与真实节奏一致（快慢/停顿保留）', rhythmOk, calls.map(c => c.t + 'ms').join(', '));
-  ok('每次发声短程调度（offset≈0.02s）', calls.every(c => Math.abs(c.offset - 0.02) < 0.001), calls.map(c => c.offset).join(', '));
+  ok('走 K-S 专用通道（playMelodyNote，不经采样器）', calls.length === total, '');
   let noOverlap = true;
   for (let i = 0; i < calls.length - 1; i++) {
     if (calls[i].t + calls[i].dur * 1000 > calls[i + 1].t + 1) noOverlap = false;
@@ -94,29 +94,19 @@ async function runCase(name, opts) {
 }
 
 (async function () {
-  // 场景1：basic-pitch 振幅 → 重音；采样器未就绪 → 全走 K-S
+  // 场景1：basic-pitch 振幅 → 重音
   {
-    const { ctx, calls } = await runCase('场景1：振幅重音 + K-S 路径', { samplerReady: false });
-    ok('路径计数全 K-S', ctx.diag.lastReplay.pathCounts.ks === 5 && ctx.diag.lastReplay.pathCounts.sampler === 0,
-      JSON.stringify(ctx.diag.lastReplay.pathCounts));
+    const { calls } = await runCase('场景1：振幅重音', {});
     const loud = calls[0], soft = calls[3];
     ok('响的地方弹得重（amp 0.9 > 0.2）', loud.vel > soft.vel, 'vel ' + loud.vel.toFixed(2) + ' vs ' + soft.vel.toFixed(2));
     ok('浮点 midi 保留（音分偏移不丢）', Math.abs(calls[0].midi - 59.2) < 1e-9 && Math.abs(calls[4].midi - 59.4) < 1e-9,
       'midi ' + calls[0].midi + ' / ' + calls[4].midi);
   }
 
-  // 场景2：采样器就绪 → 全走采样
+  // 场景2：无振幅（快速模式）→ 从录音 PCM 按窗口 RMS 还原重音
   {
-    const { ctx } = await runCase('场景2：采样器路径', { samplerReady: true });
-    ok('路径计数全采样', ctx.diag.lastReplay.pathCounts.sampler === 5 && ctx.diag.lastReplay.pathCounts.ks === 0,
-      JSON.stringify(ctx.diag.lastReplay.pathCounts));
-  }
-
-  // 场景3：无振幅（快速模式）→ 从录音 PCM 按窗口 RMS 还原重音
-  {
-    const sr = 1000; // 用小采样率便于构造
+    const sr = 1000;
     const pcm = new Float32Array(6000); // 6 秒录音
-    // 按每个音的 [start,end] 窗口填不同幅度：第2音窗口最大幅度 → 应最重
     const segs = [
       { s: 0.50, e: 1.20, amp: 0.2 },
       { s: 1.20, e: 1.60, amp: 0.9 },
@@ -128,8 +118,7 @@ async function runCase(name, opts) {
       for (let i = Math.floor(sg.s * sr); i < Math.floor(sg.e * sr); i++) pcm[i] = sg.amp;
     }
     const noAmpNotes = NOTES.map(function (n) { return { midi: n.midi, start: n.start, end: n.end, dur: n.dur }; });
-    const { ctx, calls } = await runCase('场景3：PCM-RMS 重音（快速模式无振幅）', {
-      samplerReady: false,
+    const { calls } = await runCase('场景2：PCM-RMS 重音（快速模式无振幅）', {
       notes: noAmpNotes,
       state: { recordedSr: sr, recordedPcm: pcm },
     });
@@ -138,6 +127,6 @@ async function runCase(name, opts) {
       calls.map(c => c.vel.toFixed(2)).join(', '));
   }
 
-  console.log('\n' + (failures === 0 ? '旋律节奏/音色/重音还原验证全部通过 ✓' : failures + ' 项失败 ✗'));
+  console.log('\n' + (failures === 0 ? '旋律节奏/重音还原验证全部通过 ✓' : failures + ' 项失败 ✗'));
   process.exit(failures === 0 ? 0 : 1);
 })();

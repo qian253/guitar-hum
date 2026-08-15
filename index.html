@@ -397,7 +397,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.3 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.4 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1255,7 +1255,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.3', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
+  var diag = { version: 'v2.11.4', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -1266,7 +1266,7 @@ window.addEventListener('unhandledrejection', function (e) {
       ['后端', getBackendUrl() ? '高精度 ' + getBackendUrl().replace(/^https?:\/\//, '') : '本地快速模式'],
       ['采样', toneLoadFailed ? '降级拨弦（网络不通）' : (toneSamplerReady() ? '真实采样 ✓' : '采样加载中…')],
       ['采样率', (function () { var s = []; try { s.push(getPlayCtx().sampleRate + 'Hz'); } catch (e) {} try { if (window.Tone && Tone.getContext) s.push('Tone ' + Tone.getContext().rawContext.sampleRate + 'Hz'); } catch (e2) {} return s.join(' / ') || '—'; })()],
-      ['最近回放', diag.lastReplay ? ('触发 ' + diag.lastReplay.fired + '/' + diag.lastReplay.total + ' · 采样' + diag.lastReplay.pathCounts.sampler + '/K-S' + diag.lastReplay.pathCounts.ks) : '—'],
+      ['最近回放', diag.lastReplay ? ('触发 ' + diag.lastReplay.fired + '/' + diag.lastReplay.total + ' · ' + diag.lastReplay.path) : '—'],
       ['浏览器', diag.ua],
       ['AudioContext', ctxState],
       ['麦克风', diag.mic],
@@ -2272,7 +2272,9 @@ window.addEventListener('unhandledrejection', function (e) {
       var g1 = ctx.createGain(); g1.gain.value = 0.5;
       var g2 = ctx.createGain(); g2.gain.value = 0.5;
       var sum = ctx.createGain(); sum.gain.value = 1.0;
-      var fb = ctx.createGain(); fb.gain.value = 0.985; // 阻尼：每周期保留 98.5%，指数衰减
+      var fb = ctx.createGain(); fb.gain.value = 0.99; // 阻尼：每周期保留 99%，指数衰减（余音稍长更悦耳）
+      // 环外提亮：放在反馈环之后，只影响输出音色、不影响环路稳定性
+      var bright = ctx.createBiquadFilter(); bright.type = 'highshelf'; bright.frequency.value = 7000; bright.gain.value = 3;
       // 输出包络
       var out = ctx.createGain();
       out.gain.setValueAtTime(0.0001, when);
@@ -2282,7 +2284,8 @@ window.addEventListener('unhandledrejection', function (e) {
       delay.connect(g1); g1.connect(sum);
       delay.connect(oneSamp); oneSamp.connect(g2); g2.connect(sum);
       sum.connect(fb); fb.connect(delay);
-      sum.connect(out);
+      sum.connect(bright);
+      bright.connect(out);
       out.connect(ctx.destination);
       src.start(when); src.stop(when + 0.02);
       activeOscs.push(src);
@@ -2323,6 +2326,12 @@ window.addEventListener('unhandledrejection', function (e) {
   function clearMelodyTimers() {
     for (var mti = 0; mti < melodyTimers.length; mti++) clearTimeout(melodyTimers[mti]);
     melodyTimers = [];
+  }
+  // 旋律回放专用发声：只用 K-S 拨弦引擎（不经过采样器）。
+  // 采样器在部分浏览器里「连续多音触发」会只剩最后一个音（单音点按却正常，环境相关，
+  // 远程无法复现修复）；K-S 只用核心 Web Audio API，全环境可靠、已实测全部音可发声。
+  function playMelodyNote(midi, dur, vel) {
+    toneOsc(midi, getPlayCtx().currentTime + 0.02, dur, vel);
   }
   function stopAllTones() {
     clearMelodyTimers();
@@ -2786,7 +2795,7 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     var t0 = notes[0].start || 0;
     var leadMs = 60; // 起播小延迟
-    diag.lastReplay = { total: notes.length, fired: 0, pathCounts: { sampler: 0, ks: 0 } };
+    diag.lastReplay = { total: notes.length, fired: 0, path: 'K-S 拨弦' };
     var evs = [];
     var lastEndMs = 0;
     for (var ei = 0; ei < notes.length; ei++) {
@@ -2808,11 +2817,7 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     evs.forEach(function (ev) {
       var tm = setTimeout(function () {
-        // 音色：采样器就绪用真实采样（正常音色），否则用修复后的 K-S 拨弦；
-        // 每个音独立决策并计数，诊断面板可见路径分布
-        var useSampler = toneSamplerReady();
-        if (diag.lastReplay) diag.lastReplay.pathCounts[useSampler ? 'sampler' : 'ks']++;
-        playNote(ev.midi, 0.02, ev.dur, ev.vel);
+        playMelodyNote(ev.midi, ev.dur, ev.vel);
         if (diag.lastReplay) diag.lastReplay.fired++;
         // 简谱字幕高亮：与发声同刻
         var els = $('jianpuLine').querySelectorAll('.jp');

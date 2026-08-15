@@ -104,6 +104,7 @@ async function runRound(label, samplerReady, toneOscSrc) {
     catch (e) { console.log('    [osc] THROW midi=' + midi + ': ' + e.message); }
   };
   ctx.playNote = new Function('with(this){ return (' + extractFn(html, 'playNote') + '); }').call(ctx);
+  ctx.playMelodyNote = new Function('with(this){ return (' + extractFn(html, 'playMelodyNote') + '); }').call(ctx);
   const replay = new Function('with(this){ return (' + extractFn(html, 'replayMelody', true) + '); }').call(ctx);
 
   const winLog = [];
@@ -141,8 +142,7 @@ async function runRound(label, samplerReady, toneOscSrc) {
   return { medFlat, maxFlat };
 }
 
-const r1 = await runRound('采样器路径', true);
-const r2 = await runRound('K-S 新版（两点平均滤波，提取自 index.html）', false);
+const r1 = await runRound('旋律回放 K-S（提取自 index.html）', false);
 
 // ============ A/B：旧 biquad 环路 vs 新两点平均环路（各自全新 AudioContext 隔离测量） ============
 async function loopAB(label, useBiquad) {
