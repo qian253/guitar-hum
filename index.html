@@ -400,7 +400,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="diag">
   <div class="badge" onclick="var p=document.getElementById('diagPanel');p.classList.toggle('show')">
-    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.6 · 诊断</span>
+    <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.11.7 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
     <div id="diagRows"></div>
@@ -1260,7 +1260,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.11.6', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
+  var diag = { version: 'v2.11.7', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 40), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2261,45 +2261,48 @@ window.addEventListener('unhandledrejection', function (e) {
   var ksWorkletReady = null;
   var ksWorkletOk = false;
   var ksOutBus = null;
+  var ksSharedNode = null;
+  // 拨弦处理器代码（独立常量，测试可提取仿真）
+  var KS_PROCESSOR_CODE = 'class KSPluck extends AudioWorkletProcessor{' +
+    'constructor(){super();this.voices=[];var self=this;' +
+    'this.port.onmessage=function(e){self.voices.push({freq:e.data.freq,vel:e.data.vel,dur:e.data.dur,startAt:e.data.startAt,buf:null,idx:0,prev:0,t:0});};}' +
+    'process(inputs,outputs){' +
+    'var ch=outputs[0]&&outputs[0][0];if(!ch)return true;' +
+    'ch.fill(0);' +
+    'var alive=[];' +
+    'for(var v=0;v<this.voices.length;v++){' +
+    'var vo=this.voices[v];' +
+    'if(currentTime<vo.startAt){alive.push(vo);continue;}' +
+    'if(currentTime>vo.startAt+vo.dur+0.15)continue;' +
+    'var N=Math.max(2,Math.round(sampleRate/vo.freq));' +
+    'if(!vo.buf){vo.buf=new Float32Array(N);for(var i=0;i<N;i++)vo.buf[i]=(Math.random()*2-1)*(1-i/N);vo.idx=0;vo.prev=0;vo.t=0;}' +
+    'for(var i=0;i<ch.length;i++){' +
+    'var cur=vo.buf[vo.idx];' +
+    'var y=0.5*(cur+vo.prev);vo.prev=cur;' +
+    'vo.buf[vo.idx]=0.996*y;' +
+    'vo.idx=(vo.idx+1)%vo.buf.length;' +
+    'vo.t+=1/sampleRate;' +
+    'var a=Math.min(1,vo.t/0.005);' +
+    'var r=Math.exp(-3*vo.t/Math.max(0.05,vo.dur));' +
+    'ch[i]+=y*vo.vel*a*r;' +
+    '}' +
+    'alive.push(vo);' +
+    '}' +
+    'this.voices=alive;' +
+    'return true;' +
+    '}}registerProcessor("ks-pluck",KSPluck);';
   function ensureKSWorklet() {
     if (ksWorkletReady) return ksWorkletReady;
     var ctx = getPlayCtx();
     if (!ctx.audioWorklet || typeof AudioWorkletNode === 'undefined') { ksWorkletReady = Promise.resolve(false); return ksWorkletReady; }
-    var code = 'class KSPluck extends AudioWorkletProcessor{' +
-      'constructor(){super();this.buf=null;this.idx=0;this.prev=0;this.t=-1;this.started=false;}' +
-      'static get parameterDescriptors(){return [' +
-      '{name:"freq",defaultValue:440},{name:"vel",defaultValue:0.8},{name:"dur",defaultValue:0.5},{name:"when",defaultValue:0}]}' +
-      'process(inputs,outputs,params){' +
-      'var ch=outputs[0]&&outputs[0][0];if(!ch)return true;' +
-      'var freq=params.freq.length?params.freq[0]:440;' +
-      'var vel=params.vel.length?params.vel[0]:0.8;' +
-      'var dur=params.dur.length?params.dur[0]:0.5;' +
-      'var when=params.when.length?params.when[0]:0;' +
-      'if(!this.started){this.started=true;this.startTime=currentTime;}' +
-      'var elapsed=currentTime-this.startTime;' +
-      'if(elapsed<when){ch.fill(0);return true;}' +
-      'var tt=elapsed-when;' +
-      'var N=Math.max(2,Math.round(sampleRate/freq));' +
-      'if(!this.buf){this.buf=new Float32Array(N);for(var i=0;i<N;i++)this.buf[i]=(Math.random()*2-1)*(1-i/N);this.idx=0;this.prev=0;this.t=0;}' +
-      'for(var i=0;i<ch.length;i++){' +
-      'var cur=this.buf[this.idx];' +
-      'var y=0.5*(cur+this.prev);this.prev=cur;' +
-      'this.buf[this.idx]=0.996*y;' +
-      'this.idx=(this.idx+1)%this.buf.length;' +
-      'this.t+=1/sampleRate;' +
-      'var a=Math.min(1,this.t/0.005);' +
-      'var r=Math.exp(-3*this.t/Math.max(0.05,dur));' +
-      'ch[i]=y*vel*a*r;' +
-      '}' +
-      'if(this.t>dur+0.2){ch.fill(0);}' +
-      'return true;' +
-      '}}registerProcessor("ks-pluck",KSPluck);';
     try {
-      var url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+      var url = URL.createObjectURL(new Blob([KS_PROCESSOR_CODE], { type: 'application/javascript' }));
       ksWorkletReady = ctx.audioWorklet.addModule(url).then(function () { ksWorkletOk = true; return true; }).catch(function () { ksWorkletOk = false; return false; });
     } catch (e) { ksWorkletReady = Promise.resolve(false); }
     return ksWorkletReady;
   }
+  // 一个常驻 Worklet 节点 + 消息触发音符：不做每音创建/参数设置/断连，
+  // 消除节点生命周期竞态（此前「只剩最后一个音」的怀疑对象）
   function ksPluckNode(midi, when, dur, vol) {
     try {
       var ctx = getPlayCtx();
@@ -2308,13 +2311,16 @@ window.addEventListener('unhandledrejection', function (e) {
         var brightBus = ctx.createBiquadFilter(); brightBus.type = 'highshelf'; brightBus.frequency.value = 7000; brightBus.gain.value = 3;
         ksOutBus.connect(brightBus); brightBus.connect(ctx.destination);
       }
-      var n = new AudioWorkletNode(ctx, 'ks-pluck', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
-      n.parameters.get('freq').value = 440 * Math.pow(2, (midi - 69) / 12);
-      n.parameters.get('vel').value = vol;
-      n.parameters.get('dur').value = dur;
-      n.parameters.get('when').value = Math.max(0, when - ctx.currentTime);
-      n.connect(ksOutBus);
-      (function (node, ms) { setTimeout(function () { try { node.disconnect(); } catch (e) {} }, ms); })(n, Math.round((dur + 1.0) * 1000));
+      if (!ksSharedNode) {
+        ksSharedNode = new AudioWorkletNode(ctx, 'ks-pluck', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
+        ksSharedNode.connect(ksOutBus);
+      }
+      ksSharedNode.port.postMessage({
+        freq: 440 * Math.pow(2, (midi - 69) / 12),
+        vel: vol,
+        dur: dur,
+        startAt: ctx.currentTime + Math.max(0.001, when - ctx.currentTime)
+      });
     } catch (e) { /* 落到 DelayNode 降级版 */ return false; }
     return true;
   }
