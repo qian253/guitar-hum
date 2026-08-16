@@ -10,3 +10,4 @@ test/tone-repro/node_modules/
 test/tone-repro/repro_out.txt
 test/bench/crepe-venv/
 basic-pitch-server/server.log
+server.log
