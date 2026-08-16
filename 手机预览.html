@@ -27,17 +27,19 @@
   <h1>🔍 唱一句·定调子 · 手机实时预览</h1>
   <div class="sub">左手机 = <b>实时页面</b>(Claude 每改完一次,点「刷新页面」即看到最新效果) · 下方是历史截图</div>
 
-  <div class="phone"><iframe id="appFrame" src="http://localhost:8017/index.html"></iframe></div>
+  <div class="phone"><iframe id="appFrame"></iframe></div>
 
   <div class="toolbar">
-    <button class="btn" onclick="document.getElementById('appFrame').src='http://localhost:8017/index.html?t='+Date.now()">🔄 刷新页面</button>
-    <button class="btn" onclick="window.open('http://localhost:8017/index.html')">↗ 新标签打开</button>
+    <button class="btn" onclick="document.getElementById('appFrame').src=location.origin+'/index.html?t='+Date.now()">🔄 刷新页面</button>
+    <label class="btn" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="autoRefresh" checked style="width:15px;height:15px"> 自动刷新(2秒)</label>
+    <button class="btn" onclick="window.open(location.origin+'/index.html')">↗ 新标签打开</button>
     <button class="btn" onclick="location.reload()">↻ 刷新本预览页</button>
   </div>
 
   <div class="tip">
-    💡 手机真机体验:手机连同一个 Wi-Fi,浏览器访问 <b>http://本机IP:8017</b>(在 CMD 里 ipconfig 可查 IP)。<br>
-    麦克风、变调夹猫爪动画、分享卡片等交互都能直接玩。
+    💡 <b>Claude 每改完代码,这个页面会自动加载最新效果(不用按任何键)</b>。测录音去新标签或真机:<br>
+    手机连同一个 Wi-Fi,浏览器访问 <b>http://本机IP:8017</b>(CMD 里 ipconfig 查 IP)。<br>
+    VSCode 里看:右键本文件 → Reveal in File Explorer → 双击用浏览器打开;或 Ctrl+Shift+P → Simple Browser → http://localhost:8017/手机预览.html
   </div>
 
   <div class="shots" id="shots">
@@ -45,6 +47,29 @@
   </div>
 
   <script>
+    // 自适应端口：从哪个服务器打开本页，iframe 就从哪里加载 index.html（Live Server 5500 / 本地 8017 都行）
+    (function () {
+      var frame = document.getElementById('appFrame');
+      if (location.protocol === 'file:') {
+        frame.srcdoc = '<div style="padding:60px 20px;text-align:center;font-family:sans-serif;color:#8A766C">请通过服务器打开本页：<br>VSCode 里点底部「Go Live」，再访问 http://127.0.0.1:5500/手机预览.html</div>';
+        return;
+      }
+      frame.src = location.origin + '/index.html';
+    })();
+    // 自动刷新：每 2 秒重载 iframe（Claude 保存代码后自动看到最新效果；页面失焦时降到 5 秒省电）
+    var timer = null;
+    function armAuto() {
+      if (timer) clearInterval(timer);
+      var on = document.getElementById('autoRefresh').checked;
+      if (!on) return;
+      timer = setInterval(function () {
+        var hidden = document.hidden;
+        if (hidden) return;
+        document.getElementById('appFrame').src = location.origin + '/index.html?t=' + Date.now();
+      }, 2000);
+    }
+    document.getElementById('autoRefresh').addEventListener('change', armAuto);
+    armAuto();
     // 每 30 秒自动尝试刷新截图区文件列表(手动截图文件放在 preview/ 目录)
     fetch('preview/').then(function (r) { return r.text(); }).then(function (html) {
       var imgs = html.match(/href="([^"]+\.(?:png|jpg))"/gi) || [];

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
+<html lang="zh-CN"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#FFFBF5">
@@ -683,8 +682,8 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
   </style>
-</head>
-<body>
+<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js" async=""></script><script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.js" async=""></script><script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.web.js" async=""></script></head>
+<body><div id="watercolorLayer"><div class="wc-blob wc-b1"></div><div class="wc-blob wc-b2"></div><div class="wc-blob wc-b3"></div><div class="wc-blob wc-b4"></div></div><div id="paperTex"></div>
 <script>
 // 全局错误捕获：任何阶段出错都显示到屏幕
 window.addEventListener('error', function (e) {
@@ -695,9 +694,9 @@ window.addEventListener('unhandledrejection', function (e) {
 });
 </script>
 
-<canvas id="bgCanvas"></canvas>
+<canvas id="bgCanvas" width="750" height="485"></canvas>
 <div id="bgGradient"></div>
-<div id="doodleLayer"></div>
+<div id="doodleLayer"><span class="doodle" style="left: 11%; top: 23%; animation-delay: 0s; animation-duration: 7s;">🎵</span><span class="doodle d2" style="left: 48%; top: 76%; animation-delay: 0.7s; animation-duration: 8s;">🌸</span><span class="doodle" style="left: 85%; top: 37%; animation-delay: 1.4s; animation-duration: 9s;">⭐</span><span class="doodle d2" style="left: 22%; top: 90%; animation-delay: 2.1s; animation-duration: 10s;">🐾</span><span class="doodle" style="left: 59%; top: 51%; animation-delay: 2.8s; animation-duration: 11s;">🌼</span><span class="doodle d2" style="left: 96%; top: 12%; animation-delay: 3.5s; animation-duration: 7s;">🎶</span><span class="doodle" style="left: 33%; top: 65%; animation-delay: 4.2s; animation-duration: 8s;">✿</span><span class="doodle d2" style="left: 70%; top: 26%; animation-delay: 4.9s; animation-duration: 9s;">♫</span><span class="doodle" style="left: 7%; top: 79%; animation-delay: 5.6s; animation-duration: 10s;">🎵</span><span class="doodle d2" style="left: 44%; top: 40%; animation-delay: 6.3s; animation-duration: 11s;">🌸</span><span class="doodle" style="left: 81%; top: 1%; animation-delay: 7s; animation-duration: 7s;">⭐</span><span class="doodle d2" style="left: 18%; top: 54%; animation-delay: 7.7s; animation-duration: 8s;">🐾</span><span class="doodle" style="left: 55%; top: 15%; animation-delay: 8.4s; animation-duration: 9s;">🌼</span><span class="doodle d2" style="left: 92%; top: 68%; animation-delay: 9.1s; animation-duration: 10s;">🎶</span></div>
 
 <div class="topbar" id="topbar">
   <span class="tb-title" id="tbTitle">🎵 哼调</span>
@@ -709,22 +708,22 @@ window.addEventListener('unhandledrejection', function (e) {
     <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.4 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
-    <div id="diagRows"></div>
+    <div id="diagRows"><div class="row"><span class="k">版本</span><b>v2.14.4</b></div><div class="row"><span class="k">后端</span><b>本地快速模式</b></div><div class="row"><span class="k">采样</span><b>真实采样 ✓</b></div><div class="row"><span class="k">采样率</span><b>48000Hz / Tone 48000Hz</b></div><div class="row"><span class="k">最近回放</span><b>—</b></div><div class="row"><span class="k">浏览器</span><b>Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36 </b></div><div class="row"><span class="k">AudioContext</span><b>未创建</b></div><div class="row"><span class="k">麦克风</span><b>未请求</b></div><div class="row"><span class="k">音频回调数</span><b>0</b></div><div class="row"><span class="k">信号峰值</span><b>≈0</b></div></div>
     <div class="diag-config">
       <div class="k">高精度后端 URL（可选，留空=本地快速模式）</div>
       <input id="backendUrlInput" placeholder="https://xxx.onrender.com" style="width:100%;margin:4px 0;padding:8px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:12px;">
       <button id="backendUrlSave" class="btn" style="width:100%;min-height:36px;padding:6px;">保存后端地址</button>
       <div class="k" id="backendUrlStatus" style="margin-top:6px;color:var(--good);"></div>
     </div>
-  </div>
+  <div id="annoBox" style="margin-top: 10px; border-top: 2px dashed rgb(228, 205, 180); padding-top: 8px;"><div><div style="font-size:12px;color:#8A766C;font-weight:700;margin-bottom:6px;">🎯 主音标注模式（自建实测数据）</div><div style="margin-bottom:6px;font-size:12.5px;"><input type="checkbox" id="annoOn" style="vertical-align:-2px;"> <label for="annoOn">开启：哼之前选好真实调</label></div><select id="annoKey" style="width:100%;padding:7px;border-radius:8px;border:2px solid #F0E2D2;background:#FFF;font-size:13px;margin-bottom:6px;"><option value="0:major">C 大调</option><option value="0:minor">C 小调</option><option value="1:major">Db 大调</option><option value="1:minor">Db 小调</option><option value="2:major">D 大调</option><option value="2:minor">D 小调</option><option value="3:major">Eb 大调</option><option value="3:minor">Eb 小调</option><option value="4:major">E 大调</option><option value="4:minor">E 小调</option><option value="5:major">F 大调</option><option value="5:minor">F 小调</option><option value="6:major">F# 大调</option><option value="6:minor">F# 小调</option><option value="7:major">G 大调</option><option value="7:minor">G 小调</option><option value="8:major">Ab 大调</option><option value="8:minor">Ab 小调</option><option value="9:major">A 大调</option><option value="9:minor">A 小调</option><option value="10:major">Bb 大调</option><option value="10:minor">Bb 小调</option><option value="11:major">B 大调</option><option value="11:minor">B 小调</option></select><button id="annoPlay" style="width:100%;min-height:36px;padding:6px;font-size:12.5px;border:2px solid #F0E2D2;border-radius:10px;background:#FFF;color:#5A4A42;font-weight:700;cursor:pointer;margin-bottom:6px;">▶ 听示范音阶（先听再跟唱，校准音高）</button><div style="font-size:12px;color:#8A766C;margin-bottom:6px;">已标注：<b id="annoCount">0</b> 首</div><button id="annoExport" style="width:100%;min-height:36px;padding:6px;font-size:12.5px;border:2px solid #F0E2D2;border-radius:10px;background:#FFF;color:#5A4A42;font-weight:700;cursor:pointer;">⬇ 导出标注数据 JSON</button><div id="annoStatus" style="font-size:11.5px;color:#4E9B6E;margin-top:4px;min-height:14px;"></div></div></div></div>
 </div>
 
 <!-- 顶部状态栏（模拟原生 App） -->
 <div class="statusbar">
-  <span class="sb-time" id="sbTime">9:41</span>
+  <span class="sb-time" id="sbTime">13:01</span>
   <span class="sb-icons">
-    <svg viewBox="0 0 17 12" width="17" height="12"><rect x="0" y="7" width="3" height="5" rx="0.8"/><rect x="4.5" y="5" width="3" height="7" rx="0.8"/><rect x="9" y="2.5" width="3" height="9.5" rx="0.8"/><rect x="13.5" y="0" width="3" height="12" rx="0.8"/></svg>
-    <svg viewBox="0 0 25 12" width="25" height="12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5"/><rect x="22.5" y="3.5" width="2" height="5" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><rect x="0" y="7" width="3" height="5" rx="0.8"></rect><rect x="4.5" y="5" width="3" height="7" rx="0.8"></rect><rect x="9" y="2.5" width="3" height="9.5" rx="0.8"></rect><rect x="13.5" y="0" width="3" height="12" rx="0.8"></rect></svg>
+    <svg viewBox="0 0 25 12" width="25" height="12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1"></rect><rect x="2.5" y="2.5" width="15" height="7" rx="1.5"></rect><rect x="22.5" y="3.5" width="2" height="5" rx="1"></rect></svg>
   </span>
 </div>
 
@@ -761,11 +760,11 @@ window.addEventListener('unhandledrejection', function (e) {
     </div>
     <div class="status" id="status"></div>
     <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
-    <div id="dailyCard">
+    <div id="dailyCard" class="">
       <div class="dc-ic">📅</div>
       <div class="dc-body">
-        <div class="dc-title" id="dailyTitle">今日一调</div>
-        <div class="dc-sub" id="dailySub">跟着示范哼一句小星星</div>
+        <div class="dc-title" id="dailyTitle">今日一调 · C 大调</div>
+        <div class="dc-sub" id="dailySub">小星星 · 先听示范，再跟着哼一遍</div>
       </div>
       <button class="dc-btn" id="dailyBtn">▶ 听示范</button>
     </div>
@@ -783,7 +782,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="card result-hero">
       <div class="card-title">识别结果 <span class="tag" id="metaTag"></span></div>
       <div class="key-line">
-        <span class="key-big" id="keyBig">—</span>
+        <span class="key-big" id="keyBig" data-chared="1"><span class="ji-char" style="animation-delay: 0s;">—</span></span>
         <span class="mode-badge" id="modeBadge"></span>
         <button class="pro-toggle" id="proToggleBtn" style="display:none">专业模式</button>
       </div>
@@ -877,11 +876,11 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="view-head"><div class="view-title">🎮 音准闯关</div><div class="view-sub">唱准每一个音，解锁小动物伙伴</div></div>
     <div class="card">
       <div class="card-title">🐾 调调猫的收集墙 <span class="tag" id="wallTag">0/8</span></div>
-      <div class="wall" id="wall"></div>
+      <div class="wall" id="wall"><div class="wall-item" title="小狗（闯关解锁）">🐶</div><div class="wall-item" title="小兔（闯关解锁）">🐰</div><div class="wall-item" title="小熊（闯关解锁）">🐻</div><div class="wall-item" title="小企鹅（闯关解锁）">🐧</div><div class="wall-item" title="小狐狸（闯关解锁）">🦊</div><div class="wall-item" title="小熊猫（闯关解锁）">🐼</div><div class="wall-item" title="猫头鹰（闯关解锁）">🦉</div><div class="wall-item" title="小鲸鱼（闯关解锁）">🐳</div></div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">🗺️ 闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
-      <div class="road" id="road"></div>
+      <div class="road" id="road"><div class="road-line"></div><div class="level-node current">1</div><div class="level-node">2</div><div class="level-node">3</div><div class="level-node">4</div><div class="level-node">5</div><div class="level-node">6</div><div class="level-node">7</div><div class="level-node">8</div></div>
     </div>
   </section>
 
@@ -890,21 +889,21 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="view-head"><div class="view-title">🐱 我的</div><div class="view-sub">与调调猫一起走过的路</div></div>
     <div class="card">
       <div class="card-title">🏆 动物伙伴收集墙</div>
-      <div class="wall" id="wallMine"></div>
+      <div class="wall" id="wallMine"><div class="wall-item" title="小狗（闯关解锁）">🐶</div><div class="wall-item" title="小兔（闯关解锁）">🐰</div><div class="wall-item" title="小熊（闯关解锁）">🐻</div><div class="wall-item" title="小企鹅（闯关解锁）">🐧</div><div class="wall-item" title="小狐狸（闯关解锁）">🦊</div><div class="wall-item" title="小熊猫（闯关解锁）">🐼</div><div class="wall-item" title="猫头鹰（闯关解锁）">🦉</div><div class="wall-item" title="小鲸鱼（闯关解锁）">🐳</div></div>
     </div>
     <!-- v2.20.0 调性收集册：每测出一个新调，点亮一个音符徽章 -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">🎵 调性收集册 <span class="tag" id="keyBadgeTag">0/12</span></div>
-      <div class="badge-wall" id="keyBadgeWall"></div>
+      <div class="badge-wall" id="keyBadgeWall"><div class="kw-badge locked"><span class="kw-note">C</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">C#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">D</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">D#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">E</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">F</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">F#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">G</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">G#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">A</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">A#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">B</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div></div>
       <div class="view-sub" style="margin-top:8px;font-size:11.5px">大调点亮橙色、小调点亮紫色——把 12 个调都找出来吧</div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">📒 历史记录</div>
-      <div id="historyList"></div>
+      <div id="historyList"><div class="empty-state"><div class="es-ic">📒</div><div class="es-t">还没有记录</div></div></div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">⚙️ 设置</div>
-      <div class="settings-row"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
+      <div class="settings-row" style="cursor: pointer;"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
       <div class="settings-row"><span class="sr-l">🎸 回放音色</span>
         <select id="setTimbreSel">
           <option value="nylon">尼龙弦</option>
@@ -921,19 +920,19 @@ window.addEventListener('unhandledrejection', function (e) {
 <!-- 底部导航 -->
 <nav class="bottomnav" id="bottomnav">
   <button class="nav-item on" data-view="record">
-    <svg viewBox="0 0 26 26"><g class="nav-fill"><rect x="10.5" y="3" width="5" height="11" rx="2.5"/><path d="M6 12.5 a7 7 0 0 0 14 0"/><path d="M13 19.5 v3"/><path d="M9.5 22.5 h7"/></g></svg>
+    <svg viewBox="0 0 26 26"><g class="nav-fill"><rect x="10.5" y="3" width="5" height="11" rx="2.5"></rect><path d="M6 12.5 a7 7 0 0 0 14 0"></path><path d="M13 19.5 v3"></path><path d="M9.5 22.5 h7"></path></g></svg>
     测调
   </button>
   <button class="nav-item" data-view="result">
-    <svg viewBox="0 0 26 26"><g class="nav-fill"><path d="M5 4 h10 a3.5 3.5 0 0 1 0 7 H5 z"/><path d="M15 7.5 L21 4 v15 l-6 -3.5"/><path d="M7.5 8 v8"/><path d="M11.5 8 v8"/></g></svg>
+    <svg viewBox="0 0 26 26"><g class="nav-fill"><path d="M5 4 h10 a3.5 3.5 0 0 1 0 7 H5 z"></path><path d="M15 7.5 L21 4 v15 l-6 -3.5"></path><path d="M7.5 8 v8"></path><path d="M11.5 8 v8"></path></g></svg>
     结果
   </button>
   <button class="nav-item" data-view="practice">
-    <svg viewBox="0 0 26 26"><g class="nav-fill"><path d="M12 21 a7 7 0 1 1 6-11.5"/><path d="M18 3.5 a2.5 2.5 0 1 0 .1 0 z"/><circle cx="12" cy="17" r="1.2" fill="currentColor" stroke="none"/></g></svg>
+    <svg viewBox="0 0 26 26"><g class="nav-fill"><path d="M12 21 a7 7 0 1 1 6-11.5"></path><path d="M18 3.5 a2.5 2.5 0 1 0 .1 0 z"></path><circle cx="12" cy="17" r="1.2" fill="currentColor" stroke="none"></circle></g></svg>
     练习
   </button>
   <button class="nav-item" data-view="mine">
-    <svg viewBox="0 0 26 26"><g class="nav-fill"><path d="M13 3.5 a5.5 5.5 0 0 1 0 11 a5.5 5.5 0 0 1 0 -11 z"/><path d="M3.5 22.5 a9.5 9.5 0 0 1 19 0"/></g></svg>
+    <svg viewBox="0 0 26 26"><g class="nav-fill"><path d="M13 3.5 a5.5 5.5 0 0 1 0 11 a5.5 5.5 0 0 1 0 -11 z"></path><path d="M3.5 22.5 a9.5 9.5 0 0 1 19 0"></path></g></svg>
     我的
   </button>
 </nav>
@@ -945,14 +944,14 @@ window.addEventListener('unhandledrejection', function (e) {
 </div>
 
 <!-- v2.20.0 首次使用故事引导（一次性，融入故事不弹说明） -->
-<div id="storyGuide">
+<div id="storyGuide" class="show">
   <div class="story-card" id="storyCard">
     <span class="story-skip" id="storySkip">跳过</span>
-    <div class="story-cat" id="storyCatSvg"></div>
-    <div class="story-title" id="storyTitle"></div>
-    <div class="story-text" id="storyText"></div>
+    <div class="story-cat" id="storyCatSvg"><svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg"><path d="M66 86 q10 -6 6 -20 q-2 8 -8 10 q-1 8 -8 10" fill="#8A75D8"></path><ellipse cx="44" cy="66" rx="22" ry="17" fill="#FFC9A8"></ellipse><path d="M26 66 q-3 4 -6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"></path><path d="M62 66 q3 4 6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"></path><ellipse cx="44" cy="36" rx="24" ry="21" fill="#FFC9A8"></ellipse><path d="M24 24 q-4 -16 6 -14 q14 -4 12 12 z" fill="#FFC9A8"></path><path d="M26 22 q0 -8 4 -9 q8 -3 8 7 z" fill="#F7A8A0"></path><path d="M64 24 q4 -16 -6 -14 q-14 -4 -12 12 z" fill="#FFC9A8"></path><path d="M62 22 q0 -8 -4 -9 q-8 -3 -8 7 z" fill="#F7A8A0"></path><path d="M20 34 a24 24 0 0 1 48 0" stroke="#8A75D8" stroke-width="5" fill="none" stroke-linecap="round"></path><rect x="17" y="30" width="8" height="12" rx="4" fill="#8A75D8"></rect><rect x="63" y="30" width="8" height="12" rx="4" fill="#8A75D8"></rect><circle cx="34" cy="40" r="3.2" fill="#5A4A42"></circle><circle cx="54" cy="40" r="3.2" fill="#5A4A42"></circle><path d="M41 47 q3 3 6 0" stroke="#5A4A42" stroke-width="2.2" fill="none" stroke-linecap="round"></path><circle cx="29" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"></circle><circle cx="59" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"></circle><path d="M26 44 h-8 M26 48 h-7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"></path><path d="M62 44 h8 M62 48 h7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"></path><text x="78" y="16" font-size="14" fill="#FF8A7A">♪</text><text x="6" y="58" font-size="12" fill="#A8E6CF">♫</text></svg></div>
+    <div class="story-title" id="storyTitle">你好呀，我是一只想学吉他的小猫</div>
+    <div class="story-text" id="storyText">可是我有一个烦恼：喜欢的歌，谱子上总写着 B 小调、G 大调……我完全听不懂。</div>
     <div class="story-arrow" id="storyArrow">👇 点一点，继续听</div>
-    <div class="story-dots" id="storyDots"></div>
+    <div class="story-dots" id="storyDots"><i class="on"></i><i></i><i></i></div>
   </div>
 </div>
 
@@ -5012,5 +5011,6 @@ window.addEventListener('unhandledrejection', function (e) {
 })();
 
 </script>
-</body>
-</html>
+
+
+</body></html>
