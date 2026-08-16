@@ -4035,6 +4035,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var tb = $('tbTitle');
     if (tb) tb.textContent = NAV_TITLES[name] || NAV_TITLES.record;
     hideCat();
+    if (name === 'record' && window.__hkOnRecordView) window.__hkOnRecordView();
   }
   var navItems = document.querySelectorAll('.nav-item');
   for (var ni = 0; ni < navItems.length; ni++) {
@@ -4477,14 +4478,26 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     function next() {
       idx++;
-      if (idx >= STORY.length) { hkSet('hkOnboarded', true); guide.classList.remove('show'); return; }
+      if (idx >= STORY.length) { hkSet('hkOnboarded', true); guide.classList.remove('show'); showIdleCat(); return; }
       render();
     }
     render();
     guide.classList.add('show');
     $('storyCard').addEventListener('click', next);
-    $('storySkip').addEventListener('click', function () { hkSet('hkOnboarded', true); guide.classList.remove('show'); });
+    $('storySkip').addEventListener('click', function () { hkSet('hkOnboarded', true); guide.classList.remove('show'); showIdleCat(); });
   }
+
+  /* ============ v2.20.3 常驻猫:测调页一直有猫蹲着(随机招呼,点它可躲起来) ============ */
+  var IDLE_MSGS = ['喵～今天想唱点什么？', '我在呢！按住按钮就能唱给我听喵', '今天也要一起唱歌哦～', '我的耳朵一直竖着呢喵'];
+  function showIdleCat() {
+    if (!cat.showCat) return;
+    var d = new Date();
+    var msg = IDLE_MSGS[(d.getDate() + d.getMonth()) % IDLE_MSGS.length];
+    cat.showCat(msg, 'normal', 0); // 0 = 不自动消失
+  }
+  window.__hkOnRecordView = function () {
+    if (hkGet('hkOnboarded', false)) showIdleCat();
+  };
 
   /* ============ 2. 今日一调（小星星，公版旋律） ============ */
   function todayKeyPc() {
@@ -4885,6 +4898,7 @@ window.addEventListener('unhandledrejection', function (e) {
   renderDaily();
   renderKeyBadges();
   renderStreak();
+  if (hkGet('hkOnboarded', false)) showIdleCat();
   startStory();
   visitGreet();
 })();
