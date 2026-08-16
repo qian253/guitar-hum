@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔍 唱一句·定调子 —— 手机实时预览</title>
+<style>
+  :root { --bg: #2B2320; --frame: #4A3B33; --paper: #FFF9F0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); font-family: 'Microsoft YaHei', sans-serif; color: #E8DDD0; display: flex; flex-direction: column; align-items: center; padding: 18px 12px 30px; }
+  h1 { font-size: 17px; font-weight: 800; margin: 0 0 4px; }
+  .sub { font-size: 12.5px; color: #B3A298; margin-bottom: 16px; text-align: center; }
+  .sub b { color: #F0B79A; }
+  .phone { width: 390px; height: 844px; background: #000; border-radius: 44px; padding: 10px; box-shadow: 0 0 0 6px var(--frame), 0 0 0 8px #221B18, 0 24px 60px rgba(0,0,0,.5); position: relative; }
+  .phone::before { content: ''; position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 120px; height: 22px; background: #000; border-radius: 12px; z-index: 5; }
+  .phone iframe { width: 100%; height: 100%; border: none; border-radius: 34px; background: var(--paper); }
+  .toolbar { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+  .btn { border: 2px solid #6B5B52; background: #3D322C; color: #E8DDD0; font-weight: 700; font-size: 13.5px; padding: 9px 18px; border-radius: 999px; cursor: pointer; }
+  .btn:hover { border-color: #F0B79A; color: #F0B79A; }
+  .tip { margin-top: 12px; font-size: 12px; color: #8A766C; max-width: 420px; text-align: center; line-height: 1.7; }
+  .shots { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .shots a { display: block; width: 132px; text-align: center; font-size: 11.5px; color: #B3A298; text-decoration: none; }
+  .shots img { width: 132px; border-radius: 12px; border: 2px solid #6B5B52; display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h1>🔍 唱一句·定调子 · 手机实时预览</h1>
+  <div class="sub">左手机 = <b>实时页面</b>(Claude 每改完一次,点「刷新页面」即看到最新效果) · 下方是历史截图</div>
+
+  <div class="phone"><iframe id="appFrame" src="http://localhost:8017/index.html"></iframe></div>
+
+  <div class="toolbar">
+    <button class="btn" onclick="document.getElementById('appFrame').src='http://localhost:8017/index.html?t='+Date.now()">🔄 刷新页面</button>
+    <button class="btn" onclick="window.open('http://localhost:8017/index.html')">↗ 新标签打开</button>
+    <button class="btn" onclick="location.reload()">↻ 刷新本预览页</button>
+  </div>
+
+  <div class="tip">
+    💡 手机真机体验:手机连同一个 Wi-Fi,浏览器访问 <b>http://本机IP:8017</b>(在 CMD 里 ipconfig 可查 IP)。<br>
+    麦克风、变调夹猫爪动画、分享卡片等交互都能直接玩。
+  </div>
+
+  <div class="shots" id="shots">
+    <a href="preview/shot_record.jpg"><img src="preview/shot_record.jpg">录制屏(最新截图)</a>
+  </div>
+
+  <script>
+    // 每 30 秒自动尝试刷新截图区文件列表(手动截图文件放在 preview/ 目录)
+    fetch('preview/').then(function (r) { return r.text(); }).then(function (html) {
+      var imgs = html.match(/href="([^"]+\.(?:png|jpg))"/gi) || [];
+      var box = document.getElementById('shots');
+      var urls = imgs.map(function (m) { return m.replace(/href="|"/gi, ''); }).filter(function (u) { return u.indexOf('shot_') === 0; });
+      if (!urls.length) return;
+      box.innerHTML = '';
+      urls.forEach(function (u) {
+        var a = document.createElement('a');
+        a.href = 'preview/' + u;
+        a.innerHTML = '<img src="preview/' + u + '">' + decodeURIComponent(u);
+        box.appendChild(a);
+      });
+    }).catch(function () {});
+  </script>
+</body>
+</html>

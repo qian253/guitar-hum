@@ -623,6 +623,65 @@
   .ji-char, .burst-flower .center, #catBuddy.show #catSvg svg .cat-fill { opacity: 1; }
 }
 
+  /* ===== v2.20.0 体验层：故事引导 / 今日一调 / 礼物仪式 / 猫爪变调夹 / 调性收集册 / 分享卡片 ===== */
+  #storyGuide { position: fixed; inset: 0; z-index: 200; background: rgba(94,74,66,0.45); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; }
+  #storyGuide.show { display: flex; }
+  .story-card { width: 88%; max-width: 340px; background: #FFF9F0; border: 3px solid #5A4A42; border-radius: 26px 18px 24px 20px; padding: 26px 22px 18px; text-align: center; position: relative; box-shadow: 0 14px 40px rgba(60,45,35,0.35); animation: storyPop 0.45s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes storyPop { from { transform: scale(0.7) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  .story-cat { width: 130px; height: 130px; margin: 0 auto 4px; }
+  .story-cat svg { width: 100%; height: 100%; }
+  .story-title { font-family: 'ZCOOL KuaiLe', 'Comic Sans MS', cursive; font-size: 22px; color: #5A4A42; margin-bottom: 10px; }
+  .story-text { font-size: 15px; line-height: 1.8; color: #6B5B52; margin-bottom: 14px; }
+  .story-arrow { font-size: 22px; color: #E86B5A; animation: bobDown 1s ease-in-out infinite; }
+  @keyframes bobDown { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+  .story-dots { margin-top: 12px; }
+  .story-dots i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #E4CDB4; margin: 0 4px; transition: all .3s; }
+  .story-dots i.on { background: #E86B5A; transform: scale(1.35); }
+  .story-skip { position: absolute; top: 10px; right: 14px; font-size: 12.5px; color: #B3A298; cursor: pointer; }
+
+  #dailyCard { margin: 14px 16px 0; border: 2.5px dashed #E4CDB4; border-radius: 18px; background: #FFFDF7; padding: 13px 16px; display: flex; align-items: center; gap: 12px; }
+  #dailyCard .dc-ic { font-size: 30px; }
+  #dailyCard .dc-body { flex: 1; }
+  #dailyCard .dc-title { font-size: 13.5px; font-weight: 800; color: #5A4A42; }
+  #dailyCard .dc-sub { font-size: 12px; color: #8A766C; margin-top: 2px; }
+  #dailyCard .dc-btn { border: 2px solid #F0B79A; background: #FFF; color: #E86B5A; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+  #dailyCard .dc-btn:active { transform: scale(0.94); }
+  #dailyCard.done { border-color: #A8E6CF; background: #F6FEF9; }
+  #dailyCard.done .dc-btn { border-color: #A8E6CF; color: #4E9B6E; }
+
+  #moodLine { font-size: 14px; color: #8A766C; line-height: 1.7; margin-top: 8px; text-align: center; opacity: 0; animation: moodIn 1s ease-out 0.9s forwards; }
+  @keyframes moodIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .result-hero.reveal { animation: heroRise 0.6s cubic-bezier(.2,1.2,.4,1); }
+  @keyframes heroRise { from { transform: translateY(26px) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+  #capoPawBox { margin-top: 10px; border-radius: 16px; overflow: hidden; }
+  #capoPawBox svg { display: block; width: 100%; }
+  .paw-move { animation: pawSlide 0.9s cubic-bezier(.3,1.4,.4,1) 0.2s both; }
+  @keyframes pawSlide { from { transform: translateX(-46px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .capo-clamp { animation: clampDrop 0.5s cubic-bezier(.3,1.6,.5,1) 1s both; transform-origin: center; }
+  @keyframes clampDrop { from { transform: translateY(-30px) rotate(-14deg); opacity: 0; } to { transform: translateY(0) rotate(0); opacity: 1; } }
+  .clamp-tag { animation: tagPop 0.4s ease-out 1.5s both; }
+  @keyframes tagPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .badge-wall { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 10px; }
+  .kw-badge { border: 2px solid #E4CDB4; border-radius: 14px; padding: 8px 2px; text-align: center; background: #FFFDF7; }
+  .kw-badge .kw-note { font-size: 15px; font-weight: 800; color: #B3A298; }
+  .kw-badge .kw-modes { display: flex; justify-content: center; gap: 4px; margin-top: 4px; }
+  .kw-badge .kw-modes i { width: 8px; height: 8px; border-radius: 50%; background: #EEE3D3; }
+  .kw-badge .kw-modes i.maj { background: #F0A868; }
+  .kw-badge .kw-modes i.min { background: #8A75D8; }
+  .kw-badge.got { border-color: #F0B79A; background: #FFF6EC; }
+  .kw-badge.got .kw-note { color: #E86B5A; }
+  .kw-badge.locked .kw-lock { font-size: 10px; color: #D8CBB8; display: block; margin-top: 2px; }
+  .kw-toast { position: fixed; top: 12%; left: 50%; transform: translateX(-50%); z-index: 150; background: #FFF9F0; border: 2.5px solid #E86B5A; border-radius: 999px; padding: 9px 20px; font-size: 14px; font-weight: 800; color: #E86B5A; box-shadow: 0 8px 24px rgba(230,107,90,.25); animation: toastIn 0.4s cubic-bezier(.2,1.4,.4,1), toastOut 0.4s ease-in 2.2s forwards; pointer-events: none; }
+  @keyframes toastIn { from { transform: translateX(-50%) translateY(-16px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+  @keyframes toastOut { to { transform: translateX(-50%) translateY(-12px); opacity: 0; } }
+
+  .rec-live .mic-ring { animation-duration: 0.9s; }
+  #catBuddy.listen #catSvg svg { animation: earWiggle 0.6s ease-in-out infinite; transform-origin: 50% 20%; }
+  @keyframes earWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-2deg) scale(1.03); } 75% { transform: rotate(2deg) scale(1.03); } }
+
+  #shareCardBtn svg { vertical-align: -3px; }
   </style>
 </head>
 <body>
@@ -701,6 +760,15 @@ window.addEventListener('unhandledrejection', function (e) {
       </div>
     </div>
     <div class="status" id="status"></div>
+    <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
+    <div id="dailyCard">
+      <div class="dc-ic">📅</div>
+      <div class="dc-body">
+        <div class="dc-title" id="dailyTitle">今日一调</div>
+        <div class="dc-sub" id="dailySub">跟着示范哼一句小星星</div>
+      </div>
+      <button class="dc-btn" id="dailyBtn">▶ 听示范</button>
+    </div>
   </section>
 
   <!-- ========== 分析屏 ========== -->
@@ -720,8 +788,10 @@ window.addEventListener('unhandledrejection', function (e) {
         <button class="pro-toggle" id="proToggleBtn" style="display:none">专业模式</button>
       </div>
       <div class="capo-highlight" id="capoHighlight"></div>
+      <div id="capoPawBox"></div>
       <div class="conf" id="confRow"><span>信心</span><div class="meter"><i id="confBar"></i></div><span id="confPct"></span></div>
       <div class="conf-text" id="confText"></div>
+      <div class="mood-line" id="moodLine"></div>
       <div class="alt-hint" id="altHint" style="display:none"></div>
       <div class="tone-map" id="toneMap"></div>
       <div class="rel-hint" id="relHint" style="display:none"></div>
@@ -778,6 +848,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <button class="btn" id="replayBtn">♪ 听旋律</button>
       <button class="btn" id="selfTestBtn">🔔 测试旋律</button>
       <button class="btn" id="dlMelodyBtn" style="display:none">⬇ 下载回放音频</button>
+      <button class="btn" id="shareCardBtn" style="display:none">🎁 分享我的调</button>
       <button class="btn" id="againBtn">↻ 再测一次</button>
     </div>
 
@@ -820,6 +891,12 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="card">
       <div class="card-title">🏆 动物伙伴收集墙</div>
       <div class="wall" id="wallMine"></div>
+    </div>
+    <!-- v2.20.0 调性收集册：每测出一个新调，点亮一个音符徽章 -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">🎵 调性收集册 <span class="tag" id="keyBadgeTag">0/12</span></div>
+      <div class="badge-wall" id="keyBadgeWall"></div>
+      <div class="view-sub" style="margin-top:8px;font-size:11.5px">大调点亮橙色、小调点亮紫色——把 12 个调都找出来吧</div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">📒 历史记录</div>
@@ -865,6 +942,18 @@ window.addEventListener('unhandledrejection', function (e) {
 <div id="catBuddy">
   <div id="catBubble"></div>
   <div id="catSvg"></div>
+</div>
+
+<!-- v2.20.0 首次使用故事引导（一次性，融入故事不弹说明） -->
+<div id="storyGuide">
+  <div class="story-card" id="storyCard">
+    <span class="story-skip" id="storySkip">跳过</span>
+    <div class="story-cat" id="storyCatSvg"></div>
+    <div class="story-title" id="storyTitle"></div>
+    <div class="story-text" id="storyText"></div>
+    <div class="story-arrow" id="storyArrow">👇 点一点，继续听</div>
+    <div class="story-dots" id="storyDots"></div>
+  </div>
 </div>
 
 <div id="errBox"></div>
@@ -4232,6 +4321,343 @@ window.addEventListener('unhandledrejection', function (e) {
   renderMine();
 })();
 
+</script>
+<script>
+/* ================================================================
+ * v2.20.0 体验层：故事引导 / 今日一调 / 礼物仪式 / 猫爪变调夹 /
+ * 调性收集册 / 陪伴问候 / 分享卡片
+ * 纯体验代码：不碰任何后端算法与定调逻辑；所有状态存 localStorage。
+ * ================================================================ */
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function hkGet(key, def) { try { var v = JSON.parse(localStorage.getItem(key)); return v != null ? v : def; } catch (e) { return def; } }
+  function hkSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+  /* ============ 1. 首次使用·故事引导（把说明变成猫在讲自己的故事） ============ */
+  var STORY = [
+    { title: '你好呀，我是一只想学吉他的小猫', text: '可是我有一个烦恼：喜欢的歌，谱子上总写着 B 小调、G 大调……我完全听不懂。', expr: 'normal' },
+    { title: '直到我发现了一个秘密', text: '只要把副歌轻轻哼出来，我竖起耳朵一听——就知道它是什么调、手指该放哪儿。', expr: 'happy' },
+    { title: '所以……', text: '按住下面圆圆的按钮，唱一句给我听吧！不用唱得多好，舒服地哼就好。', expr: 'cheer', arrow: '👇 按住唱歌，松开出结果' }
+  ];
+  function startStory() {
+    var guide = $('storyGuide');
+    if (!guide || hkGet('hkOnboarded', false)) return;
+    var idx = 0;
+    function render() {
+      var s = STORY[idx];
+      $('storyCatSvg').innerHTML = catSvg(s.expr);
+      $('storyTitle').textContent = s.title;
+      $('storyText').textContent = s.text;
+      $('storyArrow').textContent = s.arrow || '👇 点一点，继续听';
+      var dots = $('storyDots'); dots.innerHTML = '';
+      STORY.forEach(function (_, i) {
+        var d = document.createElement('i');
+        if (i === idx) d.className = 'on';
+        dots.appendChild(d);
+      });
+    }
+    function next() {
+      idx++;
+      if (idx >= STORY.length) { hkSet('hkOnboarded', true); guide.classList.remove('show'); return; }
+      render();
+    }
+    render();
+    guide.classList.add('show');
+    $('storyCard').addEventListener('click', next);
+    $('storySkip').addEventListener('click', function () { hkSet('hkOnboarded', true); guide.classList.remove('show'); });
+  }
+
+  /* ============ 2. 今日一调（每天一个小任务：小星星，公版旋律零版权） ============ */
+  function todayKeyPc() {
+    var d = new Date();
+    var start = new Date(d.getFullYear(), 0, 0);
+    var day = Math.floor((d - start) / 86400000);
+    return day % 12;
+  }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+  var TWINKLE = [0, 0, 7, 7, 9, 9, 7, 5, 5, 4, 4, 2, 2, 0];
+  function renderDaily() {
+    var card = $('dailyCard');
+    if (!card) return;
+    var root = todayKeyPc();
+    $('dailyTitle').textContent = '今日一调 · ' + NOTE_NAMES[root] + ' 大调';
+    $('dailySub').textContent = hkGet('hkDailyDone', '') === todayStr() ? '今天的挑战完成啦，明天再来听新的一调' : '小星星 · 先听示范，再跟着哼一遍';
+    card.className = hkGet('hkDailyDone', '') === todayStr() ? 'done' : '';
+    $('dailyBtn').textContent = hkGet('hkDailyDone', '') === todayStr() ? '✓ 已挑战' : '▶ 听示范';
+  }
+  function playDaily() {
+    if (typeof playTone !== 'function') return;
+    var root = todayKeyPc();
+    var base = 57 + root; if (base > 66) base -= 12;
+    TWINKLE.forEach(function (s, i) {
+      var d = (s === 7 && TWINKLE[i + 1] !== undefined && TWINKLE[i + 1] === 7) ? 0.4 : (i === 6 ? 0.8 : 0.42);
+      setTimeout(function () { playTone(base + s, d); }, i * 430);
+    });
+    showCat('小星星喵～跟着哼一遍，看看是不是 ' + NOTE_NAMES[root] + ' 大调', 'happy', 6000);
+  }
+
+  /* ============ 3. 调调猫记得你（陪伴问候 + 连续天数） ============ */
+  function visitGreet() {
+    var last = hkGet('hkLastVisit', '');
+    var today = todayStr();
+    var msg = '';
+    if (!last) { hkSet('hkLastVisit', today); hkSet('hkStreak', 1); return; }
+    var d1 = new Date(last.replace(/-/g, '/'));
+    var d2 = new Date(today.replace(/-/g, '/'));
+    var gap = Math.round((d2 - d1) / 86400000);
+    if (gap === 1) {
+      var streak = hkGet('hkStreak', 1) + 1;
+      hkSet('hkStreak', streak);
+      msg = '喵～你昨天也来过（连续 ' + streak + ' 天啦）！今天想唱点什么？';
+    } else if (gap > 7) {
+      hkSet('hkStreak', 1);
+      msg = '好久不见，想唱歌了吗？我一直在听喵～';
+    } else if (gap > 1) {
+      hkSet('hkStreak', 1);
+      msg = '喵～又见面啦，唱一句给我听？';
+    } else {
+      return; // 今天已经来过，不重复打扰
+    }
+    hkSet('hkLastVisit', today);
+    showCat(msg, 'normal', 8000);
+  }
+
+  /* ============ 4. 录音互动：按下 = 猫竖耳听 + 呼吸光环 ============ */
+  // 注意：不能包 pressStart/pressEnd（事件监听器已捕获原引用），
+  // 改包 startRecording/stopRecording（运行时按名解析，所有入口都走这里）。
+  function listenOn() {
+    showCat('我在听喵～', 'normal', 0);
+    var buddy = $('catBuddy');
+    if (buddy) buddy.classList.add('listen');
+    document.body.classList.add('rec-live');
+  }
+  function listenOff() {
+    var buddy = $('catBuddy');
+    if (buddy) buddy.classList.remove('listen');
+    document.body.classList.remove('rec-live');
+  }
+  var _startRec = typeof startRecording === 'function' ? startRecording : null;
+  var _stopRec = typeof stopRecording === 'function' ? stopRecording : null;
+  if (_startRec) startRecording = function () { _startRec(); listenOn(); };
+  if (_stopRec) stopRecording = function () { _stopRec(); listenOff(); };
+
+  /* ============ 5. 结果页：礼物仪式 / 情绪描述 / 猫爪变调夹 / 徽章收集 / 分享入口 ============ */
+  var MOODS = {
+    major: ['像阳光晒在毛毯上，明亮又温暖。', '像晴天晾衣服的风，干净又轻快。', '像夏天第一口汽水，冒着开心的泡泡。'],
+    minor: ['有一点心事，但说出来就轻松了。', '像傍晚下过雨的路，凉凉的、很温柔。', '像一封没寄出的信，慢慢念给自己听。']
+  };
+  function moodLine(key) {
+    var el = $('moodLine');
+    if (!el) return;
+    var list = MOODS[key.mode] || MOODS.major;
+    var d = new Date();
+    el.textContent = list[(key.rootPC + d.getDate()) % list.length];
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+  }
+  function heroReveal() {
+    var hero = document.querySelector('.result-hero');
+    if (!hero) return;
+    hero.classList.remove('reveal');
+    void hero.offsetWidth;
+    hero.classList.add('reveal');
+  }
+  /* 猫爪变调夹：手绘琴颈 + 小猫爪滑过来“咔哒”夹上 */
+  function capoPawSVG(capo) {
+    if (capo <= 0) {
+      return '<svg viewBox="0 0 340 96" xmlns="http://www.w3.org/2000/svg">' +
+        '<rect x="8" y="26" width="324" height="40" rx="16" fill="#EAD9BE" stroke="#5A4A42" stroke-width="2.5"/>' +
+        '<g stroke="#5A4A42" stroke-width="1.2" opacity="0.5">' +
+        [58, 104, 150, 196, 242, 288].map(function (x) { return '<line x1="' + x + '" y1="26" x2="' + x + '" y2="66"/>'; }).join('') +
+        '</g>' +
+        '<g class="paw-move"><text x="150" y="70" font-size="13" fill="#5A4A42" text-anchor="middle">这个调不用夹变调夹～</text>' +
+        '<text x="26" y="46" font-size="26">🐾</text></g>' +
+        '</svg>';
+    }
+    var fretX = 42 + Math.min(capo, 7) * 36;
+    return '<svg viewBox="0 0 340 96" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="8" y="26" width="324" height="40" rx="16" fill="#EAD9BE" stroke="#5A4A42" stroke-width="2.5"/>' +
+      '<g stroke="#5A4A42" stroke-width="1.2" opacity="0.5">' +
+      [58, 94, 130, 166, 202, 238, 274, 310].map(function (x) { return '<line x1="' + x + '" y1="26" x2="' + x + '" y2="66"/>'; }).join('') +
+      '</g>' +
+      '<g transform="translate(' + fretX + ',0)">' +
+      '<g class="capo-clamp"><rect x="-10" y="18" width="20" height="56" rx="7" fill="#FFB08A" stroke="#5A4A42" stroke-width="2.5"/>' +
+      '<rect x="-6" y="24" width="12" height="8" rx="3" fill="#FFF"/></g>' +
+      '<g class="paw-move"><text x="18" y="84" font-size="24">🐾</text></g>' +
+      '</g>' +
+      '<g class="clamp-tag"><text x="170" y="86" font-size="13" fill="#5A4A42" text-anchor="middle" font-weight="bold">咔哒！夹在第 ' + capo + ' 品</text></g>' +
+      '</svg>';
+  }
+  function collectBadge(key) {
+    var badges = hkGet('hkKeyBadges', {});
+    var entry = badges[key.rootPC] || {};
+    var isNew = !entry[key.mode];
+    entry[key.mode] = 1;
+    badges[key.rootPC] = entry;
+    hkSet('hkKeyBadges', badges);
+    if (isNew) {
+      var toast = document.createElement('div');
+      toast.className = 'kw-toast';
+      toast.textContent = '✨ 新徽章！' + (NOTE_NAMES[key.rootPC] || '') + (key.mode === 'major' ? '大调' : '小调');
+      document.body.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, 2800);
+    }
+  }
+  function renderKeyBadges() {
+    var wall = $('keyBadgeWall');
+    if (!wall) return;
+    var badges = hkGet('hkKeyBadges', {});
+    var got = Object.keys(badges).length;
+    var tag = $('keyBadgeTag');
+    if (tag) tag.textContent = got + '/12';
+    wall.innerHTML = '';
+    for (var r = 0; r < 12; r++) {
+      var b = badges[r];
+      var div = document.createElement('div');
+      div.className = 'kw-badge' + (b ? ' got' : ' locked');
+      div.innerHTML = '<span class="kw-note">' + NOTE_NAMES[r] + '</span>' +
+        '<span class="kw-modes"><i class="' + (b && b.major ? 'maj' : '') + '"></i><i class="' + (b && b.minor ? 'min' : '') + '"></i></span>' +
+        (b ? '' : '<span class="kw-lock">未发现</span>');
+      wall.appendChild(div);
+    }
+  }
+  /* 分享卡片：手绘风 canvas → PNG 下载 */
+  function drawShareCard(data) {
+    var W = 640, H = 800;
+    var cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext('2d');
+    // 纸张底
+    ctx.fillStyle = '#FFF9F0';
+    ctx.fillRect(0, 0, W, H);
+    // 点阵纸纹
+    var seed = 7;
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    ctx.fillStyle = '#EFE3D0';
+    for (var i = 0; i < 420; i++) {
+      var x = 20 + rnd() * (W - 40), y = 20 + rnd() * (H - 40);
+      ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    // 手绘边框（抖动粗线）
+    ctx.strokeStyle = '#5A4A42'; ctx.lineWidth = 7; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    var pts = 26, cx = W / 2, cy = H / 2, rx = W / 2 - 22, ry = H / 2 - 22;
+    for (var p = 0; p <= pts; p++) {
+      var a = p / pts * Math.PI * 2;
+      var px = cx + Math.cos(a) * (rx + (rnd() - 0.5) * 7);
+      var py = cy + Math.sin(a) * (ry + (rnd() - 0.5) * 7);
+      if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.stroke();
+    // 标题与调名
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#8A766C';
+    ctx.font = '700 34px "Microsoft YaHei", sans-serif';
+    ctx.fillText('我哼出了', W / 2, 150);
+    ctx.fillStyle = '#E86B5A';
+    var keyText = data.keyName || '';
+    ctx.font = '900 96px "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif';
+    ctx.fillText(keyText.length > 6 ? keyText.slice(0, 6) : keyText, W / 2, 262);
+    // 猫
+    var img = new Image();
+    img.onload = function () { ctx.drawImage(img, W / 2 - 100, 296, 200, 200); finish(ctx, cv, data); };
+    img.onerror = function () { finish(ctx, cv, data); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(catSvg('cheer'));
+  }
+  function finish(ctx, cv, data) {
+    var W = cv.width;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#8A766C';
+    ctx.font = '700 30px "Microsoft YaHei", sans-serif';
+    ctx.fillText('你能吗？', W / 2, 542);
+    ctx.fillStyle = '#5A4A42';
+    ctx.font = '700 28px "Microsoft YaHei", sans-serif';
+    ctx.fillText(data.capoLine || '', W / 2, 600);
+    // 手绘音符装饰
+    ctx.fillStyle = '#F0A868';
+    ctx.font = '44px sans-serif';
+    ctx.fillText('♪', 74, 620);
+    ctx.fillStyle = '#8A75D8';
+    ctx.fillText('♫', W - 74, 600);
+    ctx.fillStyle = '#B3A298';
+    ctx.font = '400 22px "Microsoft YaHei", sans-serif';
+    var d = new Date();
+    ctx.fillText('唱一句·定调子 · ' + (d.getMonth() + 1) + '月' + d.getDate() + '日', W / 2, 668);
+    ctx.fillText('qian253.github.io/guitar-hum', W / 2, 704);
+    try {
+      cv.toBlob(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '我的调-' + (data.keyName || '') + '.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      }, 'image/png');
+    } catch (e) { console.warn('分享卡生成失败', e); }
+  }
+
+  /* ============ 挂接 renderResult / renderMine / prEnd ============ */
+  var _renderResult = typeof renderResult === 'function' ? renderResult : null;
+  if (_renderResult) {
+    renderResult = function (key, notes) {
+      _renderResult(key, notes);
+      moodLine(key);
+      heroReveal();
+      var capoRec = recommendFingering(key.mode, key.rootPC);
+      var paw = $('capoPawBox');
+      if (paw) paw.innerHTML = capoPawSVG(capoRec.capo);
+      collectBadge(key);
+      renderKeyBadges();
+      hkSet('hkDailyDone', todayStr());
+      renderDaily();
+      var shareBtn = $('shareCardBtn');
+      if (shareBtn) {
+        shareBtn.style.display = '';
+        window.__shareData = {
+          keyName: (key.mode === 'major' ? NOTE_NAMES[key.rootPC] + '大调' : NOTE_NAMES[key.rootPC] + '小调'),
+          capoLine: capoRec.capo > 0 ? '变调夹夹 ' + capoRec.capo + ' 品 · ' + capoRec.shape + ' 调指法' : '不用变调夹 · ' + capoRec.shape + ' 调开放和弦'
+        };
+      }
+      // 调调猫出场语由结果屏观察者统一触发（150ms 后），这里不重复弹猫
+    };
+  }
+  var _renderMine = typeof renderMine === 'function' ? renderMine : null;
+  if (_renderMine) {
+    renderMine = function () {
+      _renderMine();
+      renderKeyBadges();
+    };
+  }
+  /* 音准练习“差一点点”→ 猫歪头 */
+  CAT_EXPR.tilt = {
+    eyes: '<circle cx="33" cy="40" r="3.2" fill="#5A4A42"/><circle cx="55" cy="40" r="3.2" fill="#5A4A42"/>',
+    mouth: '<path d="M43 48 q3 -2.5 5 0" stroke="#5A4A42" stroke-width="2.2" fill="none" stroke-linecap="round"/>',
+    arms: '<path d="M26 66 q-3 4 -6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M62 66 q3 4 6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"/>'
+  };
+  var _showCat = showCat;
+  showCat = function (msg, expr, stayMs) {
+    if (/没关系|差一点点/.test(msg || '')) expr = 'tilt';
+    _showCat(msg, expr, stayMs);
+  };
+
+  /* ============ 启动 ============ */
+  var shareBtnEl = $('shareCardBtn');
+  if (shareBtnEl) shareBtnEl.addEventListener('click', function () {
+    if (window.__shareData) drawShareCard(window.__shareData);
+  });
+  var dailyBtn = $('dailyBtn');
+  if (dailyBtn) dailyBtn.addEventListener('click', playDaily);
+  renderDaily();
+  renderKeyBadges();
+  startStory();
+  visitGreet();
+})();
 </script>
 <script>
 /* ================================================================
