@@ -19,14 +19,14 @@
     --paper: #FAF3E7;          /* 燕麦米白·背景(手绘本纸张) */
     --paper2: #F6EBD8;         /* 纸张阴影面 */
     --paper3: #F1E2C9;         /* 纸张深面 */
-    --coral: #D89C8C;          /* 干枯玫瑰粉·主色(按钮/强调底色) */
-    --coral-deep: #A9665A;     /* 深玫瑰棕·关键信息强调(调性名/变调夹) */
-    --peach: #E9BEAC;          /* 杏仁粉·主色渐变/描边 */
-    --orange: #E8B98A;         /* 陶土橙·暖色点缀 */
-    --mint: #9DB89A;           /* 鼠尾草绿·成功/完成态(过关、已挑战) */
-    --yellow: #F2DCA0;         /* 奶油黄·提醒/待办 */
-    --lilac: #BFAEDB;          /* 淡香芋紫·小调/夜晚情绪 */
-    --blue: #A8BECC;           /* 雾霾蓝·中性信息/说明 */
+    --coral: #F0917F;          /* 玫瑰粉·主色(按钮/强调底色) */
+    --coral-deep: #C05B45;     /* 深玫瑰红·关键信息强调(调性名/变调夹) */
+    --peach: #F6BFA6;          /* 杏仁粉·主色渐变/描边 */
+    --orange: #F0BC8A;         /* 陶土橙·暖色点缀 */
+    --mint: #A8CFA2;           /* 鼠尾草绿·成功/完成态(过关、已挑战) */
+    --yellow: #F8DF96;         /* 奶油黄·提醒/待办 */
+    --lilac: #C9B3E9;          /* 淡香芋紫·小调/夜晚情绪 */
+    --blue: #A8C8DC;           /* 雾霾蓝·中性信息/说明 */
     --ink: #4E4338;            /* 深暖灰褐·正文(不用纯黑) */
     --ink2: #7D6C5F;           /* 次级文字 */
     --muted: #B3A494;          /* 弱化文字 */
@@ -41,7 +41,7 @@
     --accent: var(--coral);
     --g1: var(--coral);        /* 兼容旧变量（呼吸光/粒子仍用） */
     --g2: #8E7CC3;
-    --good: #7BAF88;
+    --good: #5FAE7E;
     --warn: #E0A84B;
     --serious: #C96A5A;
   }
@@ -181,22 +181,28 @@
     50% { transform: scale(1.06) rotate(4deg); opacity: 0.42; }
   }
   .mic {
-    width: 158px; height: 158px; border-radius: 50%;
-    background: radial-gradient(circle at 32% 26%, #FBE9DF 0%, var(--peach) 42%, var(--coral) 100%);
-    color: #fff; border: 3px solid #FFF;
+    width: 176px; height: 200px; border-radius: 50%;
+    background: transparent; border: none;
     cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    box-shadow: inset 0 -12px 22px rgba(169,102,90,0.28), inset 0 8px 12px rgba(255,255,255,0.5),
-                0 0 0 2px var(--peach), 0 20px 44px rgba(169,102,90,0.30);
-    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
     font-family: var(--font); touch-action: none; position: relative; z-index: 2;
   }
-  .mic:active { transform: scale(0.93); box-shadow: inset 0 -6px 12px rgba(169,102,90,0.30), inset 0 6px 10px rgba(255,255,255,0.45), 0 0 0 2px var(--peach), 0 10px 22px rgba(169,102,90,0.26); }
-  .mic.recording { transform: scale(0.95); box-shadow: inset 0 -10px 18px rgba(169,102,90,0.32), inset 0 6px 10px rgba(255,255,255,0.4), 0 0 0 3px var(--coral-deep), 0 14px 30px rgba(169,102,90,0.30); }
-  .mic .mic-cat { width: 84px; height: 84px; margin-bottom: 2px; }
-  .mic .mic-cat svg { width: 100%; height: 100%; }
-  .mic .t { font-size: 16px; font-weight: 800; margin-top: 3px; letter-spacing: 0.5px; font-family: var(--font-hand); }
-  .mic .t2 { font-size: 11.5px; opacity: 0.92; margin-top: 1px; }
+  .mic:active { transform: scale(0.93); }
+  .mic.recording { transform: scale(0.97); }
+  .mic .mic-dande { width: 132px; height: 158px; animation: dandeSway 4.5s ease-in-out infinite; transform-origin: 50% 86%; }
+  .mic .mic-dande svg { width: 100%; height: 100%; }
+  @keyframes dandeSway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+  .dande-seed { transform-origin: 60px 64px; }
+  .mic.recording .dande-seed { animation: seedFly 3.4s ease-in infinite; }
+  @keyframes seedFly {
+    0% { transform: translate(0, 0); opacity: 0.95; }
+    40% { transform: translate(var(--dx), var(--dy)) rotate(12deg); opacity: 0.8; }
+    100% { transform: translate(calc(var(--dx) * 1.8), calc(var(--dy) * 1.8 - 26px)) rotate(34deg); opacity: 0; }
+  }
+  .mic .t { font-size: 16px; font-weight: 800; margin-top: 4px; letter-spacing: 0.5px; font-family: var(--font-hand); color: var(--ink); }
+  .mic .t2 { font-size: 11.5px; color: var(--ink2); margin-top: 1px; }
+  @media (prefers-reduced-motion: reduce) { .mic .mic-dande, .mic.recording .dande-seed { animation: none; } }
   .mic .t2 { font-size: 11px; opacity: 0.9; margin-top: 3px; }
   .mic.recording { background: radial-gradient(circle at 32% 28%, #FFD1C5 0%, #FF8A7A 45%, #E85B4A 100%); }
   .mic.recording .ring1 { animation: pulse 1.3s ease-out infinite; }
@@ -402,7 +408,7 @@
   .act-mini { flex-wrap: wrap; justify-content: center; }
   .btn.mini { flex: 0 0 auto; min-height: 38px; font-size: 12.5px; font-weight: 700; padding: 8px 13px; border-radius: 999px; }
   .btn { flex: 1; min-height: 52px; font-family: var(--font); font-size: 14.5px; font-weight: 800; color: var(--ink); background: #FFFFFF; border: 2px solid var(--line); padding: 12px; border-radius: 18px 14px 20px 14px / 14px 20px 14px 18px; cursor: pointer; transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease; touch-action: manipulation; box-shadow: var(--shadow-sm); }
-  .btn.primary { background: linear-gradient(140deg, var(--peach), var(--coral)); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(255,138,122,0.4); }
+  .btn.primary { background: linear-gradient(140deg, #F6A28F, var(--coral) 55%, #E8755F); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(240,145,127,0.45); }
   .btn:active { transform: scale(0.93); }
   .btn:hover { box-shadow: 0 0 18px rgba(255,138,122,0.35); }
   #againBtn { border-color: #FFB9AB; color: var(--coral-deep); font-weight: 800; background: #FFF1EC; }
@@ -679,7 +685,9 @@
   .kw-badge .kw-modes i.maj { background: #F0A868; }
   .kw-badge .kw-modes i.min { background: #8A75D8; }
   .kw-badge.got { border-color: #F0B79A; background: #FFF6EC; }
-  .kw-badge.got .kw-note { color: #E86B5A; }
+  .kw-badge.got .kw-note { color: var(--coral-deep); }
+  .kw-badge.got.active { border-color: var(--coral-deep); background: #FBE3DC; }
+  .kw-badge.got { cursor: pointer; }
   .kw-badge.locked .kw-lock { font-size: 10px; color: #D8CBB8; display: block; margin-top: 2px; }
   .kw-toast { position: fixed; top: 12%; left: 50%; transform: translateX(-50%); z-index: 150; background: #FFF9F0; border: 2.5px solid #E86B5A; border-radius: 999px; padding: 9px 20px; font-size: 14px; font-weight: 800; color: #E86B5A; box-shadow: 0 8px 24px rgba(230,107,90,.25); animation: toastIn 0.4s cubic-bezier(.2,1.4,.4,1), toastOut 0.4s ease-in 2.2s forwards; pointer-events: none; }
   @keyframes toastIn { from { transform: translateX(-50%) translateY(-16px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
@@ -701,11 +709,9 @@
   .quick-card.q2 .qc-dot { background: var(--mint); }
   .quick-card.q3 .qc-dot { background: var(--yellow); }
 
-  /* v2.21.0 结果页手绘圈注(每页最多一个:圈住调性名+变调夹) */
-  #handCircle { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: 97%; height: 172px; pointer-events: none; }
-  #handCircle path { fill: none; stroke: var(--coral-deep); stroke-width: 2.4; stroke-linecap: round; opacity: 0.5; stroke-dasharray: 1300; stroke-dashoffset: 1300; animation: circleDraw 1.1s ease-out 0.35s forwards; }
-  @keyframes circleDraw { to { stroke-dashoffset: 0; } }
-  .result-hero { position: relative; }
+  /* v2.22 结果页高亮(替代手绘圈注):调性名+变调夹柔和底色块 */
+  .key-line { background: linear-gradient(90deg, rgba(240,145,127,0.18), rgba(240,145,127,0.04)); border-radius: 16px; padding: 8px 6px 4px; }
+  #capoHighlight { background: rgba(248,223,150,0.30); border-radius: 14px; padding: 8px 10px; border-left: 4px dashed var(--orange); }
 
   /* v2.21.0 结果页底部固定"再测一次"(滚动时吸底) */
   .act-main { position: sticky; bottom: -2px; z-index: 5; background: linear-gradient(to top, var(--paper) 62%, rgba(250,243,231,0)); padding: 14px 2px 6px; }
@@ -808,8 +814,15 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="mic-wrap">
         <div class="mic-ring ring1"></div>
         <button class="mic" id="micBtn">
-          <span class="mic-cat" id="micCat"></span>
-          <span class="t">按住，唱给猫听</span>
+          <span class="mic-dande" id="micDande">
+            <svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
+              <g class="dande-seeds" id="dandeSeeds"></g>
+              <path class="dande-stem" d="M60 70 q 3 34, 8 72" stroke="#8A766C" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <path class="dande-leaf" d="M63 96 q 14 -6, 18 -20 q -16 2, -18 20z" fill="#A8CFA2"/>
+              <circle class="dande-core" cx="60" cy="64" r="7" fill="#F0BC8A"/>
+            </svg>
+          </span>
+          <span class="t">按住，吹散蒲公英</span>
           <span class="t2">松开出结果</span>
         </button>
       </div>
@@ -951,10 +964,6 @@ window.addEventListener('unhandledrejection', function (e) {
   <!-- ========== 练习视图（音准闯关 · 轻游戏化） ========== -->
   <section class="view" id="viewPractice">
     <div class="view-head"><div class="view-title">🎮 音准闯关</div><div class="view-sub">唱准每一个音，解锁小动物伙伴</div></div>
-    <div class="card">
-      <div class="card-title">🐾 调调猫的收集墙 <span class="tag" id="wallTag">0/8</span></div>
-      <div class="wall" id="wall"></div>
-    </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">🗺️ 闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
       <div class="road" id="road"></div>
@@ -972,15 +981,12 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="card-title">🏆 动物伙伴收集墙</div>
       <div class="wall" id="wallMine"></div>
     </div>
-    <!-- v2.20.0 调性收集册：每测出一个新调，点亮一个音符徽章 -->
+    <!-- v2.22 调性收集册与历史融合:点徽章看这个调的记录 -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">🎵 调性收集册 <span class="tag" id="keyBadgeTag">0/12</span></div>
       <div class="badge-wall" id="keyBadgeWall"></div>
-      <div class="view-sub" style="margin-top:8px;font-size:11.5px">大调点亮橙色、小调点亮紫色——把 12 个调都找出来吧</div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <div class="card-title">📒 历史记录</div>
-      <div id="historyList"></div>
+      <div class="view-sub" style="margin-top:8px;font-size:11.5px">大调橙点·小调紫点 — 点徽章看这个调的记录</div>
+      <div id="historyList" style="margin-top:10px"></div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">⚙️ 设置</div>
@@ -4219,9 +4225,6 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     var lt = $('levelTag');
     if (lt) lt.textContent = '第 ' + (curIdx + 1) + ' 关';
-    renderWall($('wall'));
-    var wt = $('wallTag');
-    if (wt) wt.textContent = practice.unlocked.length + '/' + ANIMALS.length;
     if (window.__hkOnPractice) window.__hkOnPractice();
   }
 
@@ -4620,16 +4623,32 @@ window.addEventListener('unhandledrejection', function (e) {
   }
 
   /* ============ 4. 录音互动（__hkOnRec 钩子） ============ */
+  function buildDandelion() {
+    var g = $('dandeSeeds');
+    if (!g) return;
+    var NS = 'http://www.w3.org/2000/svg';
+    var n = 16;
+    for (var i = 0; i < n; i++) {
+      var ang = (i / n) * Math.PI * 2 + 0.2;
+      var x2 = 60 + Math.cos(ang) * 32, y2 = 64 + Math.sin(ang) * 32;
+      var tipX = 60 + Math.cos(ang) * 40, tipY = 64 + Math.sin(ang) * 40;
+      var dx = Math.cos(ang) * 56, dy = Math.sin(ang) * 56 - 10;
+      var seed = document.createElementNS(NS, 'g');
+      seed.setAttribute('class', 'dande-seed');
+      seed.setAttribute('style', '--dx:' + dx.toFixed(1) + 'px; --dy:' + dy.toFixed(1) + 'px; animation-delay:' + ((i * 0.21).toFixed(2)) + 's;');
+      seed.innerHTML = '<line x1="60" y1="64" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"/>' +
+        '<circle cx="' + tipX.toFixed(1) + '" cy="' + tipY.toFixed(1) + '" r="2.8" fill="#FFFDF5"/>' +
+        '<circle cx="' + tipX.toFixed(1) + '" cy="' + tipY.toFixed(1) + '" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"/>';
+      g.appendChild(seed);
+    }
+  }
   window.__hkOnRec = function (on) {
-    var micCat = $('micCat');
     if (on) {
-      if (micCat && cat.catSvg) micCat.innerHTML = cat.catSvg('happy');
       if (cat.showCat) cat.showCat('我在听喵～', 'normal', 0);
       var buddy = $('catBuddy');
       if (buddy) buddy.classList.add('listen');
       document.body.classList.add('rec-live');
     } else {
-      if (micCat && cat.catSvg) micCat.innerHTML = cat.catSvg('normal');
       var b2 = $('catBuddy');
       if (b2) b2.classList.remove('listen');
       document.body.classList.remove('rec-live');
@@ -4698,6 +4717,42 @@ window.addEventListener('unhandledrejection', function (e) {
       setTimeout(function () { toast.remove(); }, 2800);
     }
   }
+  var histFilter = null;
+  var histShowAll = false;
+  function renderHistoryList() {
+    var list = $('historyList');
+    if (!list) return;
+    var h = hkGet('hkHistory', []);
+    var filtered = h;
+    if (histFilter != null) {
+      filtered = h.filter(function (it) {
+        var m = (it.keyName || '').match(/^([A-G]#?)/);
+        return m && NAMES.indexOf(m[1]) === histFilter;
+      });
+    }
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty-state"><div class="es-ic">' + (window.__hkCat && window.__hkCat.catSvg ? window.__hkCat.catSvg('normal') : '') + '</div><div class="es-t">' + (histFilter != null ? NAMES[histFilter] + ' 调还没有记录，去哼一句吧' : '还没有记录') + '</div><div class="es-d" style="font-size:12px;color:var(--muted);margin-top:6px">去「测调」页唱一句，猫就记下来啦</div></div>';
+      if (histFilter != null) {
+        list.innerHTML += '<button class="btn mini" id="histClear" style="margin-top:8px">✕ 取消筛选</button>';
+        var hc = $('histClear');
+        if (hc) hc.addEventListener('click', function () { histFilter = null; renderKeyBadges(); renderHistoryList(); });
+      }
+      return;
+    }
+    var items = filtered.slice(0, histShowAll ? filtered.length : 3);
+    list.innerHTML = items.map(function (it) {
+      var d = new Date(it.ts);
+      return '<div class="history-item"><div class="hi-key">' + it.keyName + '</div><div class="hi-meta">' + it.badge + ' · 信心 ' + it.conf + ' · ' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + '</div></div>';
+    }).join('');
+    var tail = '';
+    if (histFilter != null) tail += '<button class="btn mini" id="histClear" style="margin-top:8px">✕ 取消筛选（' + NAMES[histFilter] + '）</button>';
+    if (filtered.length > 3) tail += '<button class="btn mini" id="histMore" style="margin-top:8px">' + (histShowAll ? '▲ 收起（最近 3 条）' : '▼ 展开全部 ' + filtered.length + ' 条') + '</button>';
+    list.innerHTML += '<div style="text-align:center">' + tail + '</div>';
+    var hc = $('histClear');
+    if (hc) hc.addEventListener('click', function () { histFilter = null; renderKeyBadges(); renderHistoryList(); });
+    var hm = $('histMore');
+    if (hm) hm.addEventListener('click', function () { histShowAll = !histShowAll; renderHistoryList(); });
+  }
   function renderKeyBadges() {
     var wall = $('keyBadgeWall');
     if (!wall) return;
@@ -4709,31 +4764,23 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var r = 0; r < 12; r++) {
       var b = badges[r];
       var div = document.createElement('div');
-      div.className = 'kw-badge' + (b ? ' got' : ' locked');
+      div.className = 'kw-badge' + (b ? ' got' : ' locked') + (histFilter === r ? ' active' : '');
       div.innerHTML = '<span class="kw-note">' + NAMES[r] + '</span>' +
         '<span class="kw-modes"><i class="' + (b && b.major ? 'maj' : '') + '"></i><i class="' + (b && b.minor ? 'min' : '') + '"></i></span>' +
         (b ? '' : '<span class="kw-lock">未发现</span>');
+      if (b) {
+        (function (root) {
+          div.addEventListener('click', function () { histFilter = (histFilter === root ? null : root); renderKeyBadges(); renderHistoryList(); });
+        })(r);
+      }
       wall.appendChild(div);
     }
   }
-  function drawHandCircle() {
-    var hero = document.querySelector('.result-hero');
-    if (!hero || $('handCircle')) return;
-    var ns = 'http://www.w3.org/2000/svg';
-    var svg = document.createElementNS(ns, 'svg');
-    svg.id = 'handCircle';
-    svg.setAttribute('viewBox', '0 0 320 190');
-    svg.setAttribute('preserveAspectRatio', 'none');
-    var pth = document.createElementNS(ns, 'path');
-    pth.setAttribute('d', 'M14 96 C 8 42, 52 10, 160 12 C 266 14, 312 44, 307 100 C 303 150, 258 182, 160 179 C 62 176, 18 148, 14 96 Z');
-    svg.appendChild(pth);
-    hero.insertBefore(svg, hero.firstChild);
-  }
+  window.__hkOnMine = function () { renderKeyBadges(); renderHistoryList(); renderStreak(); };
   window.__hkOnResult = function (key, notes) {
     moodLine(key);
     heroReveal();
     writeKeyName();
-    drawHandCircle();
     if (core.recommendFingering) {
       var capoRec = core.recommendFingering(key.mode, key.rootPC);
       var paw = $('capoPawBox');
@@ -4982,14 +5029,14 @@ window.addEventListener('unhandledrejection', function (e) {
   if (dailyBtn) dailyBtn.addEventListener('click', playDaily);
   renderDaily();
   renderKeyBadges();
+  renderHistoryList();
   renderStreak();
   startStory();
   visitGreet();
   var summonBtn = $('catSummon');
   if (summonBtn) summonBtn.addEventListener('click', summonCat);
   // 软陶猫脸录音按钮
-  var micCatEl = $('micCat');
-  if (micCatEl && cat.catSvg) micCatEl.innerHTML = cat.catSvg('normal');
+  buildDandelion();
   // 三个快捷入口
   var qg = $('quickGame'), qp = $('quickPractice'), qc = $('quickCollect');
   if (qg) qg.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('practice'); });
