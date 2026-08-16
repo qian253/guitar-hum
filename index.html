@@ -4007,6 +4007,16 @@ window.addEventListener('unhandledrejection', function (e) {
     }).catch(function () {});
   })();
 
+  /* v2.23.1 节奏型「换一批」(按钮在面板里,函数在本闭包) */
+  (function () {
+    var rs = document.getElementById('rhythmShuffle');
+    if (rs) rs.addEventListener('click', function () {
+      rhythmCtx.offset++;
+      stopAllTones(); // 停掉正在试听的节奏
+      renderRhythms(rhythmCtx.dmode, rhythmCtx.droot);
+    });
+  })();
+
   window.__hkCore = {
     state: state,
     displayPro: function () { return displayPro; },
@@ -4202,13 +4212,6 @@ window.addEventListener('unhandledrejection', function (e) {
     if (tb) tb.textContent = NAV_TITLES[name] || NAV_TITLES.record;
     hideCat();
   }
-  (function () {
-    var rs = document.getElementById('rhythmShuffle');
-    if (rs) rs.addEventListener('click', function () {
-      rhythmCtx.offset++;
-      renderRhythms(rhythmCtx.dmode, rhythmCtx.droot);
-    });
-  })();
   var navItems = document.querySelectorAll('.nav-item');
   for (var ni = 0; ni < navItems.length; ni++) {
     (function (item) { item.addEventListener('click', function () { switchView(item.dataset.view); }); })(navItems[ni]);
