@@ -686,6 +686,12 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.20.3 召唤猫按钮:呆在猫出场的位置,猫来了盖住它 */
+  #catSummon { position: fixed; right: 18px; bottom: calc(142px + env(safe-area-inset-bottom)); z-index: 79; width: 46px; height: 46px; border-radius: 50%; background: #FFF9F0; border: 2.5px solid #5A4A42; font-size: 21px; cursor: pointer; box-shadow: 0 6px 16px rgba(90,74,66,.25); animation: summonBob 3s ease-in-out infinite; padding: 0; }
+  @keyframes summonBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  #catSummon:active { transform: scale(0.88); }
+  @media (prefers-reduced-motion: reduce) { #catSummon { animation: none; } }
+
   /* v2.20.2 调性名一笔一笔写出来(逐字弹出+手绘下划线描出) */
   .kw-char { display: inline-block; opacity: 0; animation: charWrite 0.5s cubic-bezier(.2,1.4,.4,1) forwards; }
   @keyframes charWrite { from { opacity: 0; transform: translateY(12px) rotate(-10deg) scale(.6); } to { opacity: 1; transform: none; } }
@@ -982,6 +988,9 @@ window.addEventListener('unhandledrejection', function (e) {
   <div id="catBubble"></div>
   <div id="catSvg"></div>
 </div>
+
+<!-- v2.20.3 召唤猫按钮:与猫同角落,猫出现时自然盖住 -->
+<button id="catSummon" title="召唤调调猫" aria-label="召唤调调猫">🐾</button>
 
 <!-- v2.20.0 首次使用故事引导（一次性，融入故事不弹说明） -->
 <div id="storyGuide">
@@ -4035,7 +4044,6 @@ window.addEventListener('unhandledrejection', function (e) {
     var tb = $('tbTitle');
     if (tb) tb.textContent = NAV_TITLES[name] || NAV_TITLES.record;
     hideCat();
-    if (name === 'record' && window.__hkOnRecordView) window.__hkOnRecordView();
   }
   var navItems = document.querySelectorAll('.nav-item');
   for (var ni = 0; ni < navItems.length; ni++) {
@@ -4478,26 +4486,29 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     function next() {
       idx++;
-      if (idx >= STORY.length) { hkSet('hkOnboarded', true); guide.classList.remove('show'); showIdleCat(); return; }
+      if (idx >= STORY.length) { hkSet('hkOnboarded', true); guide.classList.remove('show'); return; }
       render();
     }
     render();
     guide.classList.add('show');
     $('storyCard').addEventListener('click', next);
-    $('storySkip').addEventListener('click', function () { hkSet('hkOnboarded', true); guide.classList.remove('show'); showIdleCat(); });
+    $('storySkip').addEventListener('click', function () { hkSet('hkOnboarded', true); guide.classList.remove('show'); });
   }
 
-  /* ============ v2.20.3 常驻猫:测调页一直有猫蹲着(随机招呼,点它可躲起来) ============ */
-  var IDLE_MSGS = ['喵～今天想唱点什么？', '我在呢！按住按钮就能唱给我听喵', '今天也要一起唱歌哦～', '我的耳朵一直竖着呢喵'];
-  function showIdleCat() {
-    if (!cat.showCat) return;
-    var d = new Date();
-    var msg = IDLE_MSGS[(d.getDate() + d.getMonth()) % IDLE_MSGS.length];
-    cat.showCat(msg, 'normal', 0); // 0 = 不自动消失
+  /* ============ v2.20.3 召唤猫:右下角小爪印按钮,点一下猫就出来(猫来时盖住按钮,不占位置) ============ */
+  var SUMMON_MSGS = [
+    ['喵～想我了吗？', 'normal'],
+    ['我一直在听哦，唱一句吧！', 'happy'],
+    ['加油喵！你离集齐 12 个调又近了一步', 'cheer'],
+    ['哈欠～', 'yawn'],
+    ['今天的小星星听了吗？', 'normal'],
+    ['猜调挑战等着你和朋友呢！', 'cheer'],
+    ['点我是不是很好玩喵', 'happy']
+  ];
+  function summonCat() {
+    var m = SUMMON_MSGS[Math.floor(Math.random() * SUMMON_MSGS.length)];
+    if (cat.showCat) cat.showCat(m[0], m[1], 6000);
   }
-  window.__hkOnRecordView = function () {
-    if (hkGet('hkOnboarded', false)) showIdleCat();
-  };
 
   /* ============ 2. 今日一调（小星星，公版旋律） ============ */
   function todayKeyPc() {
@@ -4898,9 +4909,10 @@ window.addEventListener('unhandledrejection', function (e) {
   renderDaily();
   renderKeyBadges();
   renderStreak();
-  if (hkGet('hkOnboarded', false)) showIdleCat();
   startStory();
   visitGreet();
+  var summonBtn = $('catSummon');
+  if (summonBtn) summonBtn.addEventListener('click', summonCat);
 })();
 </script>
 
