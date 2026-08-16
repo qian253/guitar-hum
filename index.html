@@ -15,34 +15,35 @@
   /* ============ 手绘治愈风 · 音乐绘本 设计系统 v2.14 ============ */
   :root {
     color-scheme: light;
-    --paper: #FFFBF5;          /* 暖奶油纸色 */
-    --paper2: #FFF4E8;
-    --paper3: #FFEEDC;
-    --coral: #FF8A7A;          /* 珊瑚粉主色 */
-    --coral-deep: #F4735F;
-    --peach: #FFB39C;
-    --orange: #FFC48A;
-    --mint: #A8E6CF;
-    --yellow: #FFE29A;
-    --lilac: #D5C6F5;
-    --blue: #BFE3F0;
-    --ink: #5A4A42;            /* 深棕灰文字 */
-    --ink2: #8A766C;
-    --muted: #B8A99D;
-    --line: #F0E2D2;
-    --line-strong: #E4CDB4;
-    --shadow: 0 14px 34px rgba(214, 150, 120, 0.20);   /* 水彩晕染柔影 */
-    --shadow-sm: 0 6px 16px rgba(214, 150, 120, 0.16);
+    /* v2.21.0 治愈系配色系统:燕麦纸底 + 干枯玫瑰主色 + 四辅助色各有用途 + 深暖灰褐文字 */
+    --paper: #FAF3E7;          /* 燕麦米白·背景(手绘本纸张) */
+    --paper2: #F6EBD8;         /* 纸张阴影面 */
+    --paper3: #F1E2C9;         /* 纸张深面 */
+    --coral: #D89C8C;          /* 干枯玫瑰粉·主色(按钮/强调底色) */
+    --coral-deep: #A9665A;     /* 深玫瑰棕·关键信息强调(调性名/变调夹) */
+    --peach: #E9BEAC;          /* 杏仁粉·主色渐变/描边 */
+    --orange: #E8B98A;         /* 陶土橙·暖色点缀 */
+    --mint: #9DB89A;           /* 鼠尾草绿·成功/完成态(过关、已挑战) */
+    --yellow: #F2DCA0;         /* 奶油黄·提醒/待办 */
+    --lilac: #BFAEDB;          /* 淡香芋紫·小调/夜晚情绪 */
+    --blue: #A8BECC;           /* 雾霾蓝·中性信息/说明 */
+    --ink: #4E4338;            /* 深暖灰褐·正文(不用纯黑) */
+    --ink2: #7D6C5F;           /* 次级文字 */
+    --muted: #B3A494;          /* 弱化文字 */
+    --line: #EFE3CF;           /* 手绘线(浅) */
+    --line-strong: #E0CDAF;    /* 手绘线(深) */
+    --shadow: 0 14px 34px rgba(196, 148, 118, 0.20);   /* 水彩晕染柔影 */
+    --shadow-sm: 0 6px 16px rgba(196, 148, 118, 0.16);
     --radius: 28px;
     --radius-sm: 16px;
     --font: 'Quicksand', 'Nunito', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
     --font-hand: 'ZCOOL KuaiLe', 'Ma Shan Zheng', 'PingFang SC', 'Microsoft YaHei', cursive, var(--font);
     --accent: var(--coral);
     --g1: var(--coral);        /* 兼容旧变量（呼吸光/粒子仍用） */
-    --g2: #7A5CFF;
-    --good: #6FC98F;
-    --warn: #F2A93B;
-    --serious: #F4735F;
+    --g2: #8E7CC3;
+    --good: #7BAF88;
+    --warn: #E0A84B;
+    --serious: #C96A5A;
   }
   body.result-major { --g1: #FFB45C; --g2: #FF5F6D; --accent: #FF9D5C; }
   body.result-minor { --g1: #8F7BFF; --g2: #5CB8FF; --accent: #8F86FF; }
@@ -76,8 +77,8 @@
 
   /* 手绘小元素散布层 */
   #doodleLayer { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-  .doodle { position: absolute; font-size: 22px; opacity: 0.5; animation: doodleFloat 9s ease-in-out infinite; }
-  .doodle.d2 { font-size: 16px; opacity: 0.35; }
+  .doodle { position: absolute; font-size: 22px; opacity: 0.22; animation: doodleFloat 9s ease-in-out infinite; }
+  .doodle.d2 { font-size: 16px; opacity: 0.18; }
   @keyframes doodleFloat { 0%,100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-14px) rotate(8deg); } }
 
   /* 顶栏 */
@@ -180,18 +181,22 @@
     50% { transform: scale(1.06) rotate(4deg); opacity: 0.42; }
   }
   .mic {
-    width: 160px; height: 160px; border-radius: 50%;
-    background: radial-gradient(circle at 32% 28%, #FFE3D9 0%, var(--peach) 45%, var(--coral) 100%);
+    width: 158px; height: 158px; border-radius: 50%;
+    background: radial-gradient(circle at 32% 26%, #FBE9DF 0%, var(--peach) 42%, var(--coral) 100%);
     color: #fff; border: 3px solid #FFF;
     cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    box-shadow: 0 0 0 2px var(--peach), 0 18px 40px rgba(255,138,122,0.35), 0 0 40px rgba(255,138,122,0.25);
+    box-shadow: inset 0 -12px 22px rgba(169,102,90,0.28), inset 0 8px 12px rgba(255,255,255,0.5),
+                0 0 0 2px var(--peach), 0 20px 44px rgba(169,102,90,0.30);
     transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
     font-family: var(--font); touch-action: none; position: relative; z-index: 2;
   }
-  .mic:active { transform: scale(0.92); }
-  .mic .ic { font-size: 38px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.18)); }
-  .mic .t { font-size: 16px; font-weight: 800; margin-top: 7px; letter-spacing: 0.5px; font-family: var(--font-hand); }
+  .mic:active { transform: scale(0.93); box-shadow: inset 0 -6px 12px rgba(169,102,90,0.30), inset 0 6px 10px rgba(255,255,255,0.45), 0 0 0 2px var(--peach), 0 10px 22px rgba(169,102,90,0.26); }
+  .mic.recording { transform: scale(0.95); box-shadow: inset 0 -10px 18px rgba(169,102,90,0.32), inset 0 6px 10px rgba(255,255,255,0.4), 0 0 0 3px var(--coral-deep), 0 14px 30px rgba(169,102,90,0.30); }
+  .mic .mic-cat { width: 84px; height: 84px; margin-bottom: 2px; }
+  .mic .mic-cat svg { width: 100%; height: 100%; }
+  .mic .t { font-size: 16px; font-weight: 800; margin-top: 3px; letter-spacing: 0.5px; font-family: var(--font-hand); }
+  .mic .t2 { font-size: 11.5px; opacity: 0.92; margin-top: 1px; }
   .mic .t2 { font-size: 11px; opacity: 0.9; margin-top: 3px; }
   .mic.recording { background: radial-gradient(circle at 32% 28%, #FFD1C5 0%, #FF8A7A 45%, #E85B4A 100%); }
   .mic.recording .ring1 { animation: pulse 1.3s ease-out infinite; }
@@ -542,7 +547,7 @@
 
 /* --- 水彩晕染色块（低透明度、不规则边缘，CSS 模糊模拟扩散） --- */
 #watercolorLayer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.wc-blob { position: absolute; border-radius: 50%; opacity: 0.32; }
+.wc-blob { position: absolute; border-radius: 50%; opacity: 0.22; }
 .wc-b1 { background: radial-gradient(circle at 40% 40%, rgba(255,178,156,0.55) 0%, rgba(255,178,156,0) 70%); }
 .wc-b2 { background: radial-gradient(circle at 40% 40%, rgba(168,230,207,0.55) 0%, rgba(168,230,207,0) 70%); }
 .wc-b3 { background: radial-gradient(circle at 40% 40%, rgba(213,198,245,0.55) 0%, rgba(213,198,245,0) 70%); }
@@ -686,6 +691,30 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.21.0 测调页三个快捷入口卡片 */
+  .quick-row { display: flex; gap: 10px; margin: 12px 16px 0; }
+  .quick-card { flex: 1; min-height: 76px; border: 2px solid var(--line-strong); border-radius: 16px 12px 18px 13px / 12px 16px 13px 15px; background: var(--paper2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 17px; cursor: pointer; color: var(--ink2); transition: transform .15s; padding: 0; }
+  .quick-card span { font-size: 11.5px; font-weight: 800; color: var(--ink); }
+  .quick-card:active { transform: scale(0.94); }
+  .quick-card .qc-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 2px; }
+  .quick-card.q1 .qc-dot { background: var(--lilac); }
+  .quick-card.q2 .qc-dot { background: var(--mint); }
+  .quick-card.q3 .qc-dot { background: var(--yellow); }
+
+  /* v2.21.0 结果页手绘圈注(每页最多一个:圈住调性名+变调夹) */
+  #handCircle { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: 97%; height: 172px; pointer-events: none; }
+  #handCircle path { fill: none; stroke: var(--coral-deep); stroke-width: 2.4; stroke-linecap: round; opacity: 0.5; stroke-dasharray: 1300; stroke-dashoffset: 1300; animation: circleDraw 1.1s ease-out 0.35s forwards; }
+  @keyframes circleDraw { to { stroke-dashoffset: 0; } }
+  .result-hero { position: relative; }
+
+  /* v2.21.0 结果页底部固定"再测一次"(滚动时吸底) */
+  .act-main { position: sticky; bottom: -2px; z-index: 5; background: linear-gradient(to top, var(--paper) 62%, rgba(250,243,231,0)); padding: 14px 2px 6px; }
+
+  /* v2.21.0 调性名/变调夹用深玫瑰棕强调 */
+  .key-big { color: var(--coral-deep); }
+  .ch-capo { color: var(--coral-deep); }
+  .ch-key { color: var(--coral-deep); }
+
   /* v2.20.3 召唤猫按钮:呆在猫出场的位置,猫来了盖住它 */
   #catSummon { position: fixed; right: 18px; bottom: calc(142px + env(safe-area-inset-bottom)); z-index: 79; width: 46px; height: 46px; border-radius: 50%; background: #FFF9F0; border: 2.5px solid #5A4A42; font-size: 21px; cursor: pointer; box-shadow: 0 6px 16px rgba(90,74,66,.25); animation: summonBob 3s ease-in-out infinite; padding: 0; }
   @keyframes summonBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
@@ -779,8 +808,8 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="mic-wrap">
         <div class="mic-ring ring1"></div>
         <button class="mic" id="micBtn">
-          <span class="ic">🎤</span>
-          <span class="t">按住唱歌</span>
+          <span class="mic-cat" id="micCat"></span>
+          <span class="t">按住，唱给猫听</span>
           <span class="t2">松开出结果</span>
         </button>
       </div>
@@ -805,6 +834,12 @@ window.addEventListener('unhandledrejection', function (e) {
         <div class="dc-sub" id="dailySub">跟着示范哼一句小星星</div>
       </div>
       <button class="dc-btn" id="dailyBtn">▶ 听示范</button>
+    </div>
+    <!-- v2.21.0 三个快捷入口 -->
+    <div class="quick-row">
+      <button class="quick-card q1" id="quickGame"><span>🎭</span><span>猜调挑战</span><i class="qc-dot"></i></button>
+      <button class="quick-card q2" id="quickPractice"><span>🎮</span><span>音准闯关</span><i class="qc-dot"></i></button>
+      <button class="quick-card q3" id="quickCollect"><span>🎵</span><span>调性收集册</span><i class="qc-dot"></i></button>
     </div>
   </section>
 
@@ -4433,6 +4468,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ---------- v2.20.0 桥接：猫函数导出 + renderMine 钩子 ---------- */
   window.__hkCat = { catSvg: catSvg, showCat: showCat, hideCat: hideCat, CAT_EXPR: CAT_EXPR };
+  window.__hkNav = switchView;
   var __hkOrigRenderMine = renderMine;
   renderMine = function () { __hkOrigRenderMine(); if (window.__hkOnMine) window.__hkOnMine(); };
 
@@ -4520,25 +4556,39 @@ window.addEventListener('unhandledrejection', function (e) {
     var d = new Date();
     return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
   }
-  var TWINKLE = [0, 0, 7, 7, 9, 9, 7, 5, 5, 4, 4, 2, 2, 0];
+  var DAILY_TUNES = [
+    { name: '小星星', semis: [0, 0, 7, 7, 9, 9, 7, 5, 5, 4, 4, 2, 2, 0], durs: [0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.9, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.9] },
+    { name: '两只老虎', semis: [0, 2, 4, 0, 0, 2, 4, 0, 4, 5, 7, 4, 5, 7], durs: [0.45, 0.45, 0.45, 0.6, 0.45, 0.45, 0.45, 0.6, 0.45, 0.45, 0.9, 0.45, 0.45, 0.9] },
+    { name: '生日快乐', semis: [0, 0, 2, 0, 5, 4, 0, 0, 2, 0, 7, 5, 0, 0, 12, 9, 5, 4, 2, 10, 10, 9, 5, 7, 5], durs: [0.4, 0.4, 0.8, 0.8, 0.8, 1.1, 0.4, 0.4, 0.8, 0.8, 0.8, 1.1, 0.4, 0.4, 0.8, 0.8, 0.8, 0.8, 0.9, 0.4, 0.4, 0.8, 0.8, 0.8, 1.1] },
+    { name: '欢乐颂', semis: [4, 4, 5, 7, 7, 5, 4, 2, 0, 0, 2, 4, 4, 2, 2], durs: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.6, 0.6, 1.0] }
+  ];
+  function dailyTune() {
+    var d = new Date();
+    var start = new Date(d.getFullYear(), 0, 0);
+    var day = Math.floor((d - start) / 86400000);
+    return DAILY_TUNES[day % DAILY_TUNES.length];
+  }
   function renderDaily() {
     var card = $('dailyCard');
     if (!card) return;
     var root = todayKeyPc();
-    $('dailyTitle').textContent = '今日一调 · ' + NAMES[root] + ' 大调';
-    $('dailySub').textContent = hkGet('hkDailyDone', '') === todayStr() ? '今天的挑战完成啦，明天再来听新的一调' : '小星星 · 先听示范，再跟着哼一遍';
+    var tune = dailyTune();
+    $('dailyTitle').textContent = '今日一调 · ' + NAMES[root] + ' 大调 · ' + tune.name;
+    $('dailySub').textContent = hkGet('hkDailyDone', '') === todayStr() ? '今天的挑战完成啦，明天换一首新旋律' : tune.name + ' · 先听示范，再跟着哼一遍';
     card.className = hkGet('hkDailyDone', '') === todayStr() ? 'done' : '';
     $('dailyBtn').textContent = hkGet('hkDailyDone', '') === todayStr() ? '✓ 已挑战' : '▶ 听示范';
   }
   function playDaily() {
     if (!core.playTone) return;
     var root = todayKeyPc();
+    var tune = dailyTune();
     var base = 57 + root; if (base > 66) base -= 12;
-    TWINKLE.forEach(function (s, i) {
-      var d = (i === 6 ? 0.8 : 0.42);
-      setTimeout(function () { core.playTone(base + s, d); }, i * 430);
+    var t = 0;
+    tune.semis.forEach(function (semi, i) {
+      (function (sm, du, delay) { setTimeout(function () { core.playTone(base + sm, du); }, delay); })(semi, tune.durs[i], t);
+      t += tune.durs[i] * 1000 + 100;
     });
-    if (cat.showCat) cat.showCat('小星星喵～跟着哼一遍，看看是不是 ' + NAMES[root] + ' 大调', 'happy', 6000);
+    if (cat.showCat) cat.showCat(tune.name + '喵～跟着哼一遍，看看是不是 ' + NAMES[root] + ' 大调', 'happy', 6000);
   }
 
   /* ============ 3. 调调猫记得你 ============ */
@@ -4571,12 +4621,15 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ============ 4. 录音互动（__hkOnRec 钩子） ============ */
   window.__hkOnRec = function (on) {
+    var micCat = $('micCat');
     if (on) {
+      if (micCat && cat.catSvg) micCat.innerHTML = cat.catSvg('happy');
       if (cat.showCat) cat.showCat('我在听喵～', 'normal', 0);
       var buddy = $('catBuddy');
       if (buddy) buddy.classList.add('listen');
       document.body.classList.add('rec-live');
     } else {
+      if (micCat && cat.catSvg) micCat.innerHTML = cat.catSvg('normal');
       var b2 = $('catBuddy');
       if (b2) b2.classList.remove('listen');
       document.body.classList.remove('rec-live');
@@ -4663,10 +4716,24 @@ window.addEventListener('unhandledrejection', function (e) {
       wall.appendChild(div);
     }
   }
+  function drawHandCircle() {
+    var hero = document.querySelector('.result-hero');
+    if (!hero || $('handCircle')) return;
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.id = 'handCircle';
+    svg.setAttribute('viewBox', '0 0 320 190');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    var pth = document.createElementNS(ns, 'path');
+    pth.setAttribute('d', 'M14 96 C 8 42, 52 10, 160 12 C 266 14, 312 44, 307 100 C 303 150, 258 182, 160 179 C 62 176, 18 148, 14 96 Z');
+    svg.appendChild(pth);
+    hero.insertBefore(svg, hero.firstChild);
+  }
   window.__hkOnResult = function (key, notes) {
     moodLine(key);
     heroReveal();
     writeKeyName();
+    drawHandCircle();
     if (core.recommendFingering) {
       var capoRec = core.recommendFingering(key.mode, key.rootPC);
       var paw = $('capoPawBox');
@@ -4881,11 +4948,18 @@ window.addEventListener('unhandledrejection', function (e) {
     ctx.fillText('♪', 74, 620);
     ctx.fillStyle = '#8A75D8';
     ctx.fillText('♫', W - 74, 600);
+    var badges = hkGet('hkKeyBadges', {});
+    var got = Object.keys(badges).length;
+    if (got > 0) {
+      ctx.fillStyle = '#B3A494';
+      ctx.font = '700 24px "Microsoft YaHei", sans-serif';
+      ctx.fillText('我已集齐 ' + got + '/12 个调', W / 2, 640);
+    }
     ctx.fillStyle = '#B3A298';
     ctx.font = '400 22px "Microsoft YaHei", sans-serif';
     var d = new Date();
-    ctx.fillText('唱一句·定调子 · ' + (d.getMonth() + 1) + '月' + d.getDate() + '日', W / 2, 668);
-    ctx.fillText('qian253.github.io/guitar-hum', W / 2, 704);
+    ctx.fillText('唱一句·定调子 · ' + (d.getMonth() + 1) + '月' + d.getDate() + '日', W / 2, 680);
+    ctx.fillText('qian253.github.io/guitar-hum', W / 2, 714);
     try {
       cv.toBlob(function (blob) {
         var a = document.createElement('a');
@@ -4913,6 +4987,14 @@ window.addEventListener('unhandledrejection', function (e) {
   visitGreet();
   var summonBtn = $('catSummon');
   if (summonBtn) summonBtn.addEventListener('click', summonCat);
+  // 软陶猫脸录音按钮
+  var micCatEl = $('micCat');
+  if (micCatEl && cat.catSvg) micCatEl.innerHTML = cat.catSvg('normal');
+  // 三个快捷入口
+  var qg = $('quickGame'), qp = $('quickPractice'), qc = $('quickCollect');
+  if (qg) qg.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('practice'); });
+  if (qp) qp.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('practice'); });
+  if (qc) qc.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('mine'); });
 })();
 </script>
 
