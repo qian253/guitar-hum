@@ -35,6 +35,7 @@ from note_cleaner import clean_notes
 from octave_fix import fix_octave_errors
 from preprocess import preprocess_bytes, pcm_to_wav_bytes
 from tonic_engine import analyze_tonic
+from dual_track import yin_track, verify_notes
 
 app = FastAPI(title="basic-pitch transcription")
 
@@ -170,6 +171,16 @@ def transcribe(file: UploadFile = File(...)):
         notes, clean_report = clean_notes(notes)
         # ---- 模块2：八度修正 ----
         notes, octave_report = fix_octave_errors(notes)
+        # ---- 模块2b(v2.24.0 P0)：双轨转录校验 —— basic-pitch 报的每个音,
+        #      用 YIN 逐帧 F0 交叉确认(音高差≤1半音且窗内有声帧≥30%),
+        #      否则判为气息毛刺/滑音伪影删除。让简谱干净、直方图不被污染。
+        dual_report = {"skipped": True, "note": "双轨校验未执行(预处理音频不可用)"}
+        if pre is not None:
+            try:
+                times, f0 = yin_track(pre[0], pre[1])
+                notes, dual_report = verify_notes(notes, times, f0, audio=pre[0], sr=pre[1])
+            except Exception as de:  # noqa: BLE001
+                dual_report = {"skipped": True, "error": str(de)}
 
         # ---- 模块4/5/6：主音检测（两步锁根音→定大小调，含动态权重/转调/和弦验证） ----
         recording_dur = max(n.get("end", n.get("start", 0) + n.get("dur", 0.25)) for n in notes) if notes else 0.0
@@ -181,6 +192,7 @@ def transcribe(file: UploadFile = File(...)):
                     "confidence": tonic["confidence"], "evidence": tonic["evidence"], "top2": tonic["top2"]},
             "engine": engine_used,
             "clean_report": clean_report,
+            "dual_report": dual_report,
             "octave_report": octave_report,
             "tonic_report": tonic["report"],
         }
