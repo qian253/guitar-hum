@@ -708,6 +708,11 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.28 线性图标 */
+  .icon { vertical-align: -3px; margin-right: 4px; flex-shrink: 0; }
+  .btn .icon, .tab .icon, .hand-sec .icon, .card-title .icon { vertical-align: -2px; }
+  #catSummon .icon { margin: 0; }
+
   /* v2.26 上滑取消态:按钮变灰提示 */
   .mic.cancel { filter: grayscale(0.7); opacity: 0.72; transform: scale(0.92); }
   .mic.cancel .t { color: #C96A5A; }
@@ -872,7 +877,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="status" id="status"></div>
     <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
     <div id="dailyCard">
-      <div class="dc-ic">📅</div>
+      <div class="dc-ic"><i class="ic" data-ic="calendar" data-ic-sz="22"></i></div>
       <div class="dc-body">
         <div class="dc-title" id="dailyTitle">今日一调</div>
         <div class="dc-sub" id="dailySub">跟着示范哼一句小星星</div>
@@ -903,7 +908,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="conf-text" id="confText"></div>
       <div class="mood-line" id="moodLine"></div>
       <div style="text-align:center;margin-top:10px">
-        <button class="btn mini" id="whyBtn" style="display:none">🐾 猫是怎么听出来的？</button>
+        <button class="btn mini" id="whyBtn" style="display:none"><i class="ic" data-ic="cat"></i>猫是怎么听出来的？</button>
         <div id="whyBox" style="display:none;margin-top:8px;font-size:13.5px;color:var(--ink2);line-height:1.9;text-align:left"></div>
       </div>
       <div class="alt-hint" id="altHint" style="display:none"></div>
@@ -914,7 +919,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
     <div class="tabbar" id="tabbar">
       <button class="tab on" data-tab="jianpu">简谱</button>
-      <button class="tab" data-tab="play">🎸 怎么弹</button>
+      <button class="tab" data-tab="play"><i class="ic" data-ic="guitar"></i>怎么弹</button>
     </div>
 
     <div class="tabpanels">
@@ -929,7 +934,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="tabpanel" id="panelPlay">
       <div class="play-scroll" id="playScroll">
         <div class="play-slide">
-          <div class="hand-sec">🎸 左手 · 和弦与按法<span class="hand-sub">第一个走向是按你旋律配的</span></div>
+          <div class="hand-sec"><i class="ic" data-ic="guitar"></i>左手 · 和弦与按法<span class="hand-sub">第一个走向是按你旋律配的</span></div>
           <div class="melody-chords" id="melodyChords"></div>
           <div class="play-box" id="playBox"></div>
           <div class="play-alt" id="playAlt"></div>
@@ -939,9 +944,9 @@ window.addEventListener('unhandledrejection', function (e) {
           <div class="tip" id="progTip"></div>
         </div>
         <div class="play-slide">
-          <div class="hand-sec">🎯 变调夹换算<span class="hand-sub">原调太高就移到自己舒服的调</span></div>
+          <div class="hand-sec"><i class="ic" data-ic="target"></i>变调夹换算<span class="hand-sub">原调太高就移到自己舒服的调</span></div>
           <div class="card" id="capoCard" style="display:none;margin-top:12px">
-            <div class="card-title">变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
+            <div class="card-title"><i class="ic" data-ic="target"></i>变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
             <div class="capo-form">
               <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
               <div class="capo-arrow">→</div>
@@ -952,14 +957,13 @@ window.addEventListener('unhandledrejection', function (e) {
           </div>
         </div>
         <div class="play-slide">
-          <div class="hand-sec">🎸 右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
-          <div class="rhythm-tools"><button class="btn mini" id="rhythmShuffle">🎲 换一批</button></div>
+          <div class="hand-sec"><i class="ic" data-ic="guitar"></i>右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
+          <div class="rhythm-tools"><button class="btn mini" id="rhythmShuffle"><i class="ic" data-ic="shuffle"></i>换一批</button></div>
           <div class="rhythm-list" id="rhythmList"></div>
         </div>
       </div>
       <div class="play-dots" id="playDots"></div>
     </div>
-      </div>
     </div>
 
     <div class="timbre-bar" id="timbreBar" style="display:none">
@@ -971,16 +975,16 @@ window.addEventListener('unhandledrejection', function (e) {
 
     <div class="actions">
       <div class="act-row act-main">
-        <button class="btn primary" id="shareCardBtn" style="display:none">🎁 分享我的调</button>
-        <button class="btn" id="againBtn">↻ 再测一次</button>
+        <button class="btn primary" id="shareCardBtn" style="display:none"><i class="ic" data-ic="gift"></i>分享我的调</button>
+        <button class="btn" id="againBtn"><i class="ic" data-ic="retry"></i>再测一次</button>
       </div>
       <div class="act-row act-mini">
-        <button class="btn mini primary" id="addBtn">🎙 再哼一段</button>
-        <button class="btn mini" id="replayBtn">♪ 听旋律</button>
-        <button class="btn mini" id="selfTestBtn">🔔 测试旋律</button>
-        <button class="btn mini" id="hearSelfBtn" style="display:none">🎧 听自己</button>
-        <button class="btn mini" id="singBtn" style="display:none">🔊 唱名</button>
-        <button class="btn mini" id="dlMelodyBtn" style="display:none">⬇ 下载</button>
+        <button class="btn mini primary" id="addBtn"><i class="ic" data-ic="mic"></i>再哼一段</button>
+        <button class="btn mini" id="replayBtn"><i class="ic" data-ic="music"></i>听旋律</button>
+        <button class="btn mini" id="selfTestBtn"><i class="ic" data-ic="bell"></i>测试旋律</button>
+        <button class="btn mini" id="hearSelfBtn" style="display:none"><i class="ic" data-ic="headphones"></i>听自己</button>
+        <button class="btn mini" id="singBtn" style="display:none"><i class="ic" data-ic="volume"></i>唱名</button>
+        <button class="btn mini" id="dlMelodyBtn" style="display:none"><i class="ic" data-ic="download"></i>下载</button>
       </div>
     </div>
 
@@ -1009,7 +1013,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="view-head"><div class="view-title">我的</div></div>
     <!-- v2.22.1 我的页合并:陪伴+动物墙+收集册+历史 = 一张卡,省空间 -->
     <div class="card" style="margin-top:12px">
-      <div class="card-title">🐱 我的音乐足迹</div>
+      <div class="card-title"><i class="ic" data-ic="musicnote"></i>我的音乐足迹</div>
       <div id="streakLine" style="font-size:13px;color:#8A766C;line-height:1.7;margin-bottom:12px">还没有记录</div>
       <div class="view-sub" style="font-size:12px;margin-bottom:6px">🏆 动物伙伴</div>
       <div class="wall" id="wallMine" style="margin-bottom:14px"></div>
@@ -1029,7 +1033,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.26.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.28.0</span></div>
     </div>
   </section>
 
@@ -1062,7 +1066,7 @@ window.addEventListener('unhandledrejection', function (e) {
 </div>
 
 <!-- v2.20.3 召唤猫按钮:与猫同角落,猫出现时自然盖住 -->
-<button id="catSummon" title="召唤调调猫" aria-label="召唤调调猫">🐾</button>
+<button id="catSummon" title="召唤调调猫" aria-label="召唤调调猫"><i class="ic" data-ic="cat"></i></button>
 
 <!-- v2.20.0 首次使用故事引导（一次性，融入故事不弹说明） -->
 <div id="storyGuide">
@@ -1874,6 +1878,40 @@ window.addEventListener('unhandledrejection', function (e) {
     haptic();
   }
 
+  /* v2.28 线性图标系统(Lucide 风格,MIT 许可,内联零依赖) */
+  var ICONS = {
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8Z"/><path d="M16.5 8a2.5 2.5 0 0 0 0-5C13 3 12 8 12 8Z"/>',
+    retry: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    headphones: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
+    volume: '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    guitar: '<path d="M20 7l1.7-1.7a1 1 0 0 0 0-1.4L20.1 2.3a1 1 0 0 0-1.4 0L17 4v3Z"/><path d="m17 7-5.1 5.1"/><circle cx="11.5" cy="12.5" r=".6"/><path d="M6 12a2 2 0 0 1 0-4 6 6 0 0 1 5.5 4"/><path d="M13 18a2 2 0 0 0 0-4 6 6 0 0 0-5.5 4"/>',
+    target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    dice: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+    shuffle: '<path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    play: '<path d="M6 4l14 8-14 8V4Z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    cat: '<path d="M12 5c-3 0-5 2-5 5v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-6c0-3-2-5-5-5Z"/><path d="M9 3l1.5 2M15 3l-1.5 2"/><circle cx="9.5" cy="10" r=".8" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10" r=".8" fill="currentColor" stroke="none"/><path d="M12 12.5c.8 0 1.5.4 1.5 1"/>',
+    trophy: '<path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z"/><path d="M7 6H3v2a4 4 0 0 0 4 4M17 6h4v2a4 4 0 0 1-4 4"/>',
+    musicnote: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    flame_small: '<path d="M12 2c1 3 3 4.5 4.5 6.5 1.5 2 2.5 4 2.5 6a7 7 0 0 1-14 0c0-2 .8-3.8 2-5.5C8 7 10 5 12 2Z"/>'
+  };
+  function ic(name, sz) {
+    var p = ICONS[name] || '';
+    return '<svg class="icon" viewBox="0 0 24 24" width="' + (sz || 16) + '" height="' + (sz || 16) + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+  }
+  function fillIcons(root) {
+    var els = (root || document).querySelectorAll('[data-ic]');
+    for (var i = 0; i < els.length; i++) {
+      els[i].innerHTML = ic(els[i].getAttribute('data-ic'), els[i].getAttribute('data-ic-sz') || 16) + (els[i].getAttribute('data-ic-text') || '');
+    }
+  }
   var NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   var SOLFEGE = ['do', 're', 'mi', 'fa', 'sol', 'la', 'si'];
 
@@ -3199,7 +3237,7 @@ window.addEventListener('unhandledrejection', function (e) {
         lastStyle = p.style;
         var g = document.createElement('div');
         g.className = 'rhythm-group';
-        g.textContent = (p.style === '嗨一点' ? '🔥 嗨一点 · ' : '💌 情歌 · ') + (p.style === '嗨一点' ? '欢快带感' : '温柔走心');
+        g.innerHTML = (p.style === '嗨一点' ? ic('flame') + '嗨一点 · ' : ic('heart') + '情歌 · ') + (p.style === '嗨一点' ? '欢快带感' : '温柔走心');
         list.appendChild(g);
       }
       var item = document.createElement('div');
@@ -4068,7 +4106,10 @@ window.addEventListener('unhandledrejection', function (e) {
     });
   })();
 
+  fillIcons();
   window.__hkCore = {
+    ic: ic,
+    fillIcons: fillIcons,
     state: state,
     displayPro: function () { return displayPro; },
     NOTE_NAMES: NOTE_NAMES,
@@ -4767,7 +4808,7 @@ window.addEventListener('unhandledrejection', function (e) {
     $('dailyTitle').textContent = '今日一调 · ' + NAMES[root] + ' 大调 · ' + tune.name;
     $('dailySub').textContent = hkGet('hkDailyDone', '') === todayStr() ? '今天的挑战完成啦，明天换一首新旋律' : tune.name + ' · 先听示范，再跟着哼一遍';
     card.className = hkGet('hkDailyDone', '') === todayStr() ? 'done' : '';
-    $('dailyBtn').textContent = hkGet('hkDailyDone', '') === todayStr() ? '✓ 已挑战' : '▶ 听示范';
+    $('dailyBtn').innerHTML = hkGet('hkDailyDone', '') === todayStr() ? core.ic('check') + '已挑战' : core.ic('play') + '听示范';
   }
   function playDaily() {
     if (!core.playTone) return;

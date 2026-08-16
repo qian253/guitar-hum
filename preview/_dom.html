@@ -110,7 +110,16 @@
     to { opacity: 1; transform: none; filter: blur(0); }
   }
   .view { display: none; flex-direction: column; flex: 1; }
-  .view.on { display: flex; animation: viewIn 0.34s cubic-bezier(0.22, 0.9, 0.3, 1) both; }
+  .view.on {
+    display: flex; animation: viewIn 0.34s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+    /* v2.27 修复:视图原本排在 app 容器下方,造成顶部大片空白;
+       改为覆盖层定位,顶栏之下、底栏之上,自带滚动 */
+    position: fixed; left: 0; right: 0; margin: 0 auto; max-width: 430px;
+    top: 0; bottom: calc(78px + env(safe-area-inset-bottom));
+    padding: calc(56px + env(safe-area-inset-top)) 16px 20px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    z-index: 40; background: transparent;
+  }
   @keyframes viewIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
   /* 底部导航（手绘便签风） */
@@ -458,8 +467,8 @@
   @keyframes catCheer { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.08); } }
 
   /* ===== 练习页（音准闯关） ===== */
-  .view-head { text-align: center; margin: 8px 0 12px; }
-  .view-title { font-family: var(--font-hand); font-size: 24px; letter-spacing: 1px; }
+  .view-head { text-align: center; margin: 2px 0 6px; }
+  .view-title { font-family: var(--font-hand); font-size: 20px; letter-spacing: 1px; }
   .view-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
   .road { position: relative; padding: 8px 0 14px; }
   .road-line { position: absolute; left: 50%; top: 14px; bottom: 14px; width: 5px; transform: translateX(-50%); background: repeating-linear-gradient(180deg, var(--line-strong) 0 10px, transparent 10px 18px); border-radius: 3px; }
@@ -698,6 +707,16 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.28 线性图标 */
+  .icon { vertical-align: -3px; margin-right: 4px; flex-shrink: 0; }
+  .btn .icon, .tab .icon, .hand-sec .icon, .card-title .icon { vertical-align: -2px; }
+  #catSummon .icon { margin: 0; }
+
+  /* v2.26 上滑取消态:按钮变灰提示 */
+  .mic.cancel { filter: grayscale(0.7); opacity: 0.72; transform: scale(0.92); }
+  .mic.cancel .t { color: #C96A5A; }
+  .rec-cancel .mic-wrap::before, .rec-cancel .mic-wrap::after { border-color: rgba(201,106,90,0.6); animation-play-state: paused; }
+
   /* v2.23.1 怎么弹:横向滑动分页(3页) */
   .play-scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -2px; scrollbar-width: none; }
   .play-scroll::-webkit-scrollbar { display: none; }
@@ -788,7 +807,7 @@ window.addEventListener('unhandledrejection', function (e) {
 <div id="doodleLayer"><span class="doodle" style="left: 11%; top: 23%; animation-delay: 0s; animation-duration: 7s;">🎵</span><span class="doodle d2" style="left: 48%; top: 76%; animation-delay: 0.7s; animation-duration: 8s;">🌸</span><span class="doodle" style="left: 85%; top: 37%; animation-delay: 1.4s; animation-duration: 9s;">⭐</span><span class="doodle d2" style="left: 22%; top: 90%; animation-delay: 2.1s; animation-duration: 10s;">🐾</span><span class="doodle" style="left: 59%; top: 51%; animation-delay: 2.8s; animation-duration: 11s;">🌼</span><span class="doodle d2" style="left: 96%; top: 12%; animation-delay: 3.5s; animation-duration: 7s;">🎶</span><span class="doodle" style="left: 33%; top: 65%; animation-delay: 4.2s; animation-duration: 8s;">✿</span><span class="doodle d2" style="left: 70%; top: 26%; animation-delay: 4.9s; animation-duration: 9s;">♫</span><span class="doodle" style="left: 7%; top: 79%; animation-delay: 5.6s; animation-duration: 10s;">🎵</span><span class="doodle d2" style="left: 44%; top: 40%; animation-delay: 6.3s; animation-duration: 11s;">🌸</span><span class="doodle" style="left: 81%; top: 1%; animation-delay: 7s; animation-duration: 7s;">⭐</span><span class="doodle d2" style="left: 18%; top: 54%; animation-delay: 7.7s; animation-duration: 8s;">🐾</span><span class="doodle" style="left: 55%; top: 15%; animation-delay: 8.4s; animation-duration: 9s;">🌼</span><span class="doodle d2" style="left: 92%; top: 68%; animation-delay: 9.1s; animation-duration: 10s;">🎶</span></div>
 
 <div class="topbar" id="topbar">
-  <span class="tb-title" id="tbTitle">🎵 哼调</span>
+  <span class="tb-title" id="tbTitle">哼调</span>
   <button class="tb-gear" id="tbGear" aria-label="设置">⚙️</button>
 </div>
 
@@ -797,7 +816,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <span class="dot" id="diagDot"></span><span id="diagBadgeText">v2.14.4 · 诊断</span>
   </div>
   <div class="panel" id="diagPanel">
-    <div id="diagRows"><div class="row"><span class="k">版本</span><b>v2.14.4</b></div><div class="row"><span class="k">后端</span><b>高精度 127.0.0.1:8000</b></div><div class="row"><span class="k">采样</span><b>真实采样 ✓</b></div><div class="row"><span class="k">采样率</span><b>48000Hz / Tone 48000Hz</b></div><div class="row"><span class="k">最近回放</span><b>—</b></div><div class="row"><span class="k">浏览器</span><b>Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36 </b></div><div class="row"><span class="k">AudioContext</span><b>未创建</b></div><div class="row"><span class="k">麦克风</span><b>未请求</b></div><div class="row"><span class="k">音频回调数</span><b>0</b></div><div class="row"><span class="k">信号峰值</span><b>≈0</b></div></div>
+    <div id="diagRows"><div class="row"><span class="k">版本</span><b>v2.14.4</b></div><div class="row"><span class="k">后端</span><b>本地快速模式</b></div><div class="row"><span class="k">采样</span><b>真实采样 ✓</b></div><div class="row"><span class="k">采样率</span><b>48000Hz / Tone 48000Hz</b></div><div class="row"><span class="k">最近回放</span><b>—</b></div><div class="row"><span class="k">浏览器</span><b>Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36 </b></div><div class="row"><span class="k">AudioContext</span><b>未创建</b></div><div class="row"><span class="k">麦克风</span><b>未请求</b></div><div class="row"><span class="k">音频回调数</span><b>0</b></div><div class="row"><span class="k">信号峰值</span><b>≈0</b></div></div>
     <div class="diag-config">
       <div class="k">高精度后端 URL（可选，留空=本地快速模式）</div>
       <input id="backendUrlInput" placeholder="https://xxx.onrender.com" style="width:100%;margin:4px 0;padding:8px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:12px;">
@@ -809,7 +828,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <!-- 顶部状态栏（模拟原生 App） -->
 <div class="statusbar">
-  <span class="sb-time" id="sbTime">15:33</span>
+  <span class="sb-time" id="sbTime">22:00</span>
   <span class="sb-icons">
     <svg viewBox="0 0 17 12" width="17" height="12"><rect x="0" y="7" width="3" height="5" rx="0.8"></rect><rect x="4.5" y="5" width="3" height="7" rx="0.8"></rect><rect x="9" y="2.5" width="3" height="9.5" rx="0.8"></rect><rect x="13.5" y="0" width="3" height="12" rx="0.8"></rect></svg>
     <svg viewBox="0 0 25 12" width="25" height="12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1"></rect><rect x="2.5" y="2.5" width="15" height="7" rx="1.5"></rect><rect x="22.5" y="3.5" width="2" height="5" rx="1"></rect></svg>
@@ -823,7 +842,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <header>
       <div class="logo"><span class="dot"></span>唱一句 · 定调子</div>
       <h1>哼一句，<em>告诉你调</em></h1>
-      <div class="sub">你唱着舒服的调，它告诉你<br>是什么调 + do 在哪 + 怎么弹</div>
+
     </header>
     <div id="browserWarn"></div>
     <div class="rec-area">
@@ -832,7 +851,7 @@ window.addEventListener('unhandledrejection', function (e) {
         <button class="mic" id="micBtn">
           <span class="mic-dande" id="micDande">
             <svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
-              <g class="dande-seeds" id="dandeSeeds"><g class="dande-seed"><line x1="60" y1="64" x2="91.4" y2="70.4" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="99.2" cy="71.9" r="2.8" fill="#FFFDF5"></circle><circle cx="99.2" cy="71.9" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="86.5" y2="81.9" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="93.2" cy="86.3" r="2.8" fill="#FFFDF5"></circle><circle cx="93.2" cy="86.3" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="77.7" y2="90.7" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="82.1" cy="97.3" r="2.8" fill="#FFFDF5"></circle><circle cx="82.1" cy="97.3" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="66.1" y2="95.4" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="67.7" cy="103.3" r="2.8" fill="#FFFDF5"></circle><circle cx="67.7" cy="103.3" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="53.6" y2="95.4" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="52.1" cy="103.2" r="2.8" fill="#FFFDF5"></circle><circle cx="52.1" cy="103.2" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="42.1" y2="90.5" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="37.7" cy="97.2" r="2.8" fill="#FFFDF5"></circle><circle cx="37.7" cy="97.2" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="33.3" y2="81.7" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="26.7" cy="86.1" r="2.8" fill="#FFFDF5"></circle><circle cx="26.7" cy="86.1" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="28.6" y2="70.1" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="20.7" cy="71.7" r="2.8" fill="#FFFDF5"></circle><circle cx="20.7" cy="71.7" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="28.6" y2="57.6" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="20.8" cy="56.1" r="2.8" fill="#FFFDF5"></circle><circle cx="20.8" cy="56.1" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="33.5" y2="46.1" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="26.8" cy="41.7" r="2.8" fill="#FFFDF5"></circle><circle cx="26.8" cy="41.7" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="42.3" y2="37.3" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="37.9" cy="30.7" r="2.8" fill="#FFFDF5"></circle><circle cx="37.9" cy="30.7" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="53.9" y2="32.6" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="52.3" cy="24.7" r="2.8" fill="#FFFDF5"></circle><circle cx="52.3" cy="24.7" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="66.4" y2="32.6" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="67.9" cy="24.8" r="2.8" fill="#FFFDF5"></circle><circle cx="67.9" cy="24.8" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="77.9" y2="37.5" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="82.3" cy="30.8" r="2.8" fill="#FFFDF5"></circle><circle cx="82.3" cy="30.8" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="86.7" y2="46.3" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="93.3" cy="41.9" r="2.8" fill="#FFFDF5"></circle><circle cx="93.3" cy="41.9" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g><g class="dande-seed"><line x1="60" y1="64" x2="91.4" y2="57.9" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"></line><circle cx="99.3" cy="56.3" r="2.8" fill="#FFFDF5"></circle><circle cx="99.3" cy="56.3" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"></circle></g></g>
+              <g class="dande-seeds" id="dandeSeeds"></g>
               <path class="dande-stem" d="M60 70 q 3 34, 8 72" stroke="#8A766C" stroke-width="3" fill="none" stroke-linecap="round"></path>
               <path class="dande-leaf" d="M63 96 q 14 -6, 18 -20 q -16 2, -18 20z" fill="#A8CFA2"></path>
               <circle class="dande-core" cx="60" cy="64" r="7" fill="#F0BC8A"></circle>
@@ -857,7 +876,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="status" id="status"></div>
     <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
     <div id="dailyCard" class="">
-      <div class="dc-ic">📅</div>
+      <div class="dc-ic"><i class="ic" data-ic="calendar" data-ic-sz="22"></i></div>
       <div class="dc-body">
         <div class="dc-title" id="dailyTitle">今日一调 · C 大调 · 小星星</div>
         <div class="dc-sub" id="dailySub">小星星 · 先听示范，再跟着哼一遍</div>
@@ -888,7 +907,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="conf-text" id="confText"></div>
       <div class="mood-line" id="moodLine"></div>
       <div style="text-align:center;margin-top:10px">
-        <button class="btn mini" id="whyBtn" style="display:none">🐾 猫是怎么听出来的？</button>
+        <button class="btn mini" id="whyBtn" style="display:none"><i class="ic" data-ic="cat"></i>猫是怎么听出来的？</button>
         <div id="whyBox" style="display:none;margin-top:8px;font-size:13.5px;color:var(--ink2);line-height:1.9;text-align:left"></div>
       </div>
       <div class="alt-hint" id="altHint" style="display:none"></div>
@@ -899,7 +918,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
     <div class="tabbar" id="tabbar">
       <button class="tab on" data-tab="jianpu">简谱</button>
-      <button class="tab" data-tab="play">🎸 怎么弹</button>
+      <button class="tab" data-tab="play"><i class="ic" data-ic="guitar"></i>怎么弹</button>
     </div>
 
     <div class="tabpanels">
@@ -914,7 +933,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="tabpanel" id="panelPlay">
       <div class="play-scroll" id="playScroll">
         <div class="play-slide">
-          <div class="hand-sec">🎸 左手 · 和弦与按法<span class="hand-sub">第一个走向是按你旋律配的</span></div>
+          <div class="hand-sec"><i class="ic" data-ic="guitar"></i>左手 · 和弦与按法<span class="hand-sub">第一个走向是按你旋律配的</span></div>
           <div class="melody-chords" id="melodyChords"></div>
           <div class="play-box" id="playBox"></div>
           <div class="play-alt" id="playAlt"></div>
@@ -924,9 +943,9 @@ window.addEventListener('unhandledrejection', function (e) {
           <div class="tip" id="progTip"></div>
         </div>
         <div class="play-slide">
-          <div class="hand-sec">🎯 变调夹换算<span class="hand-sub">原调太高就移到自己舒服的调</span></div>
+          <div class="hand-sec"><i class="ic" data-ic="target"></i>变调夹换算<span class="hand-sub">原调太高就移到自己舒服的调</span></div>
           <div class="card" id="capoCard" style="display:none;margin-top:12px">
-            <div class="card-title">变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
+            <div class="card-title"><i class="ic" data-ic="target"></i>变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
             <div class="capo-form">
               <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
               <div class="capo-arrow">→</div>
@@ -937,15 +956,14 @@ window.addEventListener('unhandledrejection', function (e) {
           </div>
         </div>
         <div class="play-slide">
-          <div class="hand-sec">🎸 右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
-          <div class="rhythm-tools"><button class="btn mini" id="rhythmShuffle">🎲 换一批</button></div>
+          <div class="hand-sec"><i class="ic" data-ic="guitar"></i>右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
+          <div class="rhythm-tools"><button class="btn mini" id="rhythmShuffle"><i class="ic" data-ic="shuffle"></i>换一批</button></div>
           <div class="rhythm-list" id="rhythmList"></div>
         </div>
       </div>
       <div class="play-dots" id="playDots"><i class="on"></i><i></i><i></i></div>
     </div>
-      </div>
-    </section></div>
+    </div>
 
     <div class="timbre-bar" id="timbreBar" style="display:none">
       <span class="timbre-label">音色</span>
@@ -956,55 +974,55 @@ window.addEventListener('unhandledrejection', function (e) {
 
     <div class="actions">
       <div class="act-row act-main">
-        <button class="btn primary" id="shareCardBtn" style="display:none">🎁 分享我的调</button>
-        <button class="btn" id="againBtn">↻ 再测一次</button>
+        <button class="btn primary" id="shareCardBtn" style="display:none"><i class="ic" data-ic="gift"></i>分享我的调</button>
+        <button class="btn" id="againBtn"><i class="ic" data-ic="retry"></i>再测一次</button>
       </div>
       <div class="act-row act-mini">
-        <button class="btn mini primary" id="addBtn">🎙 再哼一段</button>
-        <button class="btn mini" id="replayBtn">♪ 听旋律</button>
-        <button class="btn mini" id="selfTestBtn">🔔 测试旋律</button>
-        <button class="btn mini" id="hearSelfBtn" style="display:none">🎧 听自己</button>
-        <button class="btn mini" id="singBtn" style="display:none">🔊 唱名</button>
-        <button class="btn mini" id="dlMelodyBtn" style="display:none">⬇ 下载</button>
+        <button class="btn mini primary" id="addBtn"><i class="ic" data-ic="mic"></i>再哼一段</button>
+        <button class="btn mini" id="replayBtn"><i class="ic" data-ic="music"></i>听旋律</button>
+        <button class="btn mini" id="selfTestBtn"><i class="ic" data-ic="bell"></i>测试旋律</button>
+        <button class="btn mini" id="hearSelfBtn" style="display:none"><i class="ic" data-ic="headphones"></i>听自己</button>
+        <button class="btn mini" id="singBtn" style="display:none"><i class="ic" data-ic="volume"></i>唱名</button>
+        <button class="btn mini" id="dlMelodyBtn" style="display:none"><i class="ic" data-ic="download"></i>下载</button>
       </div>
     </div>
 
     <div class="replay-status" id="replayStatus" style="display:none"></div>
 
 
-  
+  </section>
 
   <!-- ========== 结果视图（底部导航 · 最近一次测调结果） ========== -->
   <section class="view" id="viewResult">
-    <div class="view-head"><div class="view-title">🎶 最近结果</div><div class="view-sub">你上一次哼唱的全貌都在这里</div></div>
+    <div class="view-head"><div class="view-title">最近结果</div></div>
     <div id="viewResultContent"></div>
   </section>
 
   <!-- ========== 练习视图（音准闯关 · 轻游戏化） ========== -->
   <section class="view" id="viewPractice">
-    <div class="view-head"><div class="view-title">🎮 音准闯关</div><div class="view-sub">唱准每一个音，解锁小动物伙伴</div></div>
-    <div class="card" style="margin-top:12px">
-      <div class="card-title">🗺️ 闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
+    <div class="view-head"><div class="view-title">音准闯关</div></div>
+    <div class="card" style="margin-top:6px">
+      <div class="card-title">闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
       <div class="road" id="road"><div class="road-line"></div><div class="level-node current">1</div><div class="level-node">2</div><div class="level-node">3</div><div class="level-node">4</div><div class="level-node">5</div><div class="level-node">6</div><div class="level-node">7</div><div class="level-node">8</div></div>
     </div>
   </section>
 
   <!-- ========== 我的视图 ========== -->
   <section class="view" id="viewMine">
-    <div class="view-head"><div class="view-title">🐱 我的</div><div class="view-sub">与调调猫一起走过的路</div></div>
+    <div class="view-head"><div class="view-title">我的</div></div>
     <!-- v2.22.1 我的页合并:陪伴+动物墙+收集册+历史 = 一张卡,省空间 -->
     <div class="card" style="margin-top:12px">
-      <div class="card-title">🐱 我的音乐足迹</div>
-      <div id="streakLine" style="font-size:13px;color:#8A766C;line-height:1.7;margin-bottom:12px">连续陪伴 1 天 （再陪 2 天，猫就有小蝴蝶结啦 🎀）</div>
+      <div class="card-title"><i class="ic" data-ic="musicnote"></i>我的音乐足迹</div>
+      <div id="streakLine" style="font-size:13px;color:#8A766C;line-height:1.7;margin-bottom:12px">还没有记录</div>
       <div class="view-sub" style="font-size:12px;margin-bottom:6px">🏆 动物伙伴</div>
       <div class="wall" id="wallMine" style="margin-bottom:14px"><div class="wall-item" title="小狗（闯关解锁）">🐶</div><div class="wall-item" title="小兔（闯关解锁）">🐰</div><div class="wall-item" title="小熊（闯关解锁）">🐻</div><div class="wall-item" title="小企鹅（闯关解锁）">🐧</div><div class="wall-item" title="小狐狸（闯关解锁）">🦊</div><div class="wall-item" title="小熊猫（闯关解锁）">🐼</div><div class="wall-item" title="猫头鹰（闯关解锁）">🦉</div><div class="wall-item" title="小鲸鱼（闯关解锁）">🐳</div></div>
       <div class="view-sub" style="font-size:12px;margin-bottom:6px">🎵 调性收集册 <span class="tag" id="keyBadgeTag">0/12</span></div>
-      <div class="badge-wall" id="keyBadgeWall" style="margin-bottom:8px"><div class="kw-badge locked"><span class="kw-note">C</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">C#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">D</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">D#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">E</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">F</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">F#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">G</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">G#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">A</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">A#</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div><div class="kw-badge locked"><span class="kw-note">B</span><span class="kw-modes"><i class=""></i><i class=""></i></span><span class="kw-lock">未发现</span></div></div>
+      <div class="badge-wall" id="keyBadgeWall" style="margin-bottom:8px"></div>
       <div class="view-sub" style="font-size:11.5px;margin-bottom:6px">大调橙点·小调紫点 — 点徽章看这个调的记录</div>
       <div id="historyList"><div class="empty-state"><div class="es-ic"><svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg"><path d="M66 86 q10 -6 6 -20 q-2 8 -8 10 q-1 8 -8 10" fill="#8A75D8"></path><ellipse cx="44" cy="66" rx="22" ry="17" fill="#FFC9A8"></ellipse><path d="M26 66 q-3 4 -6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"></path><path d="M62 66 q3 4 6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"></path><ellipse cx="44" cy="36" rx="24" ry="21" fill="#FFC9A8"></ellipse><path d="M24 24 q-4 -16 6 -14 q14 -4 12 12 z" fill="#FFC9A8"></path><path d="M26 22 q0 -8 4 -9 q8 -3 8 7 z" fill="#F7A8A0"></path><path d="M64 24 q4 -16 -6 -14 q-14 -4 -12 12 z" fill="#FFC9A8"></path><path d="M62 22 q0 -8 -4 -9 q-8 -3 -8 7 z" fill="#F7A8A0"></path><path d="M20 34 a24 24 0 0 1 48 0" stroke="#8A75D8" stroke-width="5" fill="none" stroke-linecap="round"></path><rect x="17" y="30" width="8" height="12" rx="4" fill="#8A75D8"></rect><rect x="63" y="30" width="8" height="12" rx="4" fill="#8A75D8"></rect><g class="cat-blink"><circle cx="34" cy="40" r="3.2" fill="#5A4A42"></circle><circle cx="54" cy="40" r="3.2" fill="#5A4A42"></circle></g><path d="M41 47 q3 3 6 0" stroke="#5A4A42" stroke-width="2.2" fill="none" stroke-linecap="round"></path><circle cx="29" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"></circle><circle cx="59" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"></circle><path d="M26 44 h-8 M26 48 h-7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"></path><path d="M62 44 h8 M62 48 h7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"></path><text x="78" y="16" font-size="14" fill="#FF8A7A">♪</text><text x="6" y="58" font-size="12" fill="#A8E6CF">♫</text></svg></div><div class="es-t">还没有记录</div><div class="es-d" style="font-size:12px;color:var(--muted);margin-top:6px">去「测调」页唱一句，猫就记下来啦</div></div></div>
     </div>
-    <div class="card" style="margin-top:12px">
-      <div class="card-title">⚙️ 设置</div>
+    <div class="card" style="margin-top:6px">
+      <div class="card-title">设置</div>
       <div class="settings-row" style="cursor: pointer;"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
       <div class="settings-row" id="setExpertRow" style="cursor:pointer"><span class="sr-l">🧪 专家判据（显示专业分析）</span><span class="sr-r" id="setExpertVal">关</span></div>
       <div class="settings-row"><span class="sr-l">🎸 回放音色</span>
@@ -1014,11 +1032,11 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.23.1</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.28.0</span></div>
     </div>
   </section>
 
-
+</div>
 
 <!-- 底部导航 -->
 <nav class="bottomnav" id="bottomnav">
@@ -1047,21 +1065,21 @@ window.addEventListener('unhandledrejection', function (e) {
 </div>
 
 <!-- v2.20.3 召唤猫按钮:与猫同角落,猫出现时自然盖住 -->
-<button id="catSummon" title="召唤调调猫" aria-label="召唤调调猫">🐾</button>
+<button id="catSummon" title="召唤调调猫" aria-label="召唤调调猫"><i class="ic" data-ic="cat"></i></button>
 
 <!-- v2.20.0 首次使用故事引导（一次性，融入故事不弹说明） -->
-<div id="storyGuide" class="show">
+<div id="storyGuide">
   <div class="story-card" id="storyCard">
     <span class="story-skip" id="storySkip">跳过</span>
-    <div class="story-cat" id="storyCatSvg"><svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg"><path d="M66 86 q10 -6 6 -20 q-2 8 -8 10 q-1 8 -8 10" fill="#8A75D8"></path><ellipse cx="44" cy="66" rx="22" ry="17" fill="#FFC9A8"></ellipse><path d="M26 66 q-3 4 -6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"></path><path d="M62 66 q3 4 6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"></path><ellipse cx="44" cy="36" rx="24" ry="21" fill="#FFC9A8"></ellipse><path d="M24 24 q-4 -16 6 -14 q14 -4 12 12 z" fill="#FFC9A8"></path><path d="M26 22 q0 -8 4 -9 q8 -3 8 7 z" fill="#F7A8A0"></path><path d="M64 24 q4 -16 -6 -14 q-14 -4 -12 12 z" fill="#FFC9A8"></path><path d="M62 22 q0 -8 -4 -9 q-8 -3 -8 7 z" fill="#F7A8A0"></path><path d="M20 34 a24 24 0 0 1 48 0" stroke="#8A75D8" stroke-width="5" fill="none" stroke-linecap="round"></path><rect x="17" y="30" width="8" height="12" rx="4" fill="#8A75D8"></rect><rect x="63" y="30" width="8" height="12" rx="4" fill="#8A75D8"></rect><g class="cat-blink"><circle cx="34" cy="40" r="3.2" fill="#5A4A42"></circle><circle cx="54" cy="40" r="3.2" fill="#5A4A42"></circle></g><path d="M41 47 q3 3 6 0" stroke="#5A4A42" stroke-width="2.2" fill="none" stroke-linecap="round"></path><circle cx="29" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"></circle><circle cx="59" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"></circle><path d="M26 44 h-8 M26 48 h-7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"></path><path d="M62 44 h8 M62 48 h7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"></path><text x="78" y="16" font-size="14" fill="#FF8A7A">♪</text><text x="6" y="58" font-size="12" fill="#A8E6CF">♫</text></svg></div>
-    <div class="story-title" id="storyTitle">你好呀，我是一只想学吉他的小猫</div>
-    <div class="story-text" id="storyText">可是我有一个烦恼：喜欢的歌，谱子上总写着 B 小调、G 大调……我完全听不懂。</div>
+    <div class="story-cat" id="storyCatSvg"></div>
+    <div class="story-title" id="storyTitle"></div>
+    <div class="story-text" id="storyText"></div>
     <div class="story-arrow" id="storyArrow">👇 点一点，继续听</div>
-    <div class="story-dots" id="storyDots"><i class="on"></i><i></i><i></i></div>
+    <div class="story-dots" id="storyDots"></div>
   </div>
 </div>
 
-<div id="errBox"></div>
+<div id="errBox"><div class="err" style="border:1px solid rgba(227,73,72,.5);background:rgba(227,73,72,.08);padding:10px;border-radius:10px"><b>⚠ 出错了：</b>Uncaught TypeError: core.ic is not a function<br><small>位置：index.html:4811:105</small></div></div>
 
 <footer>
   全部在浏览器本地运行，不上传你的声音。<br>
@@ -1112,6 +1130,40 @@ window.addEventListener('unhandledrejection', function (e) {
     11: { key: 'Bm小调', relativeMajor: 'D 大调', doPositions: [{ pos: '5弦2品', label: '低音 do', midi: 47 }, { pos: '2弦空弦', label: 'do', midi: 59 }, { pos: '1弦7品', label: '高音 do', midi: 71 }], playLike: { open: false, label: 'Am', capo: 2 }, commonChords: ['Bm', 'D', 'Em', 'F#m', 'G', 'A', '属和弦用 F#'], note: 'Bm 是横按和弦，可先弹 Am 调指法夹 2 品。' },
   };
 
+  /* v2.28 线性图标系统(Lucide 风格,MIT 许可,内联零依赖) */
+  var ICONS = {
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8Z"/><path d="M16.5 8a2.5 2.5 0 0 0 0-5C13 3 12 8 12 8Z"/>',
+    retry: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    headphones: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
+    volume: '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    guitar: '<path d="M20 7l1.7-1.7a1 1 0 0 0 0-1.4L20.1 2.3a1 1 0 0 0-1.4 0L17 4v3Z"/><path d="m17 7-5.1 5.1"/><circle cx="11.5" cy="12.5" r=".6"/><path d="M6 12a2 2 0 0 1 0-4 6 6 0 0 1 5.5 4"/><path d="M13 18a2 2 0 0 0 0-4 6 6 0 0 0-5.5 4"/>',
+    target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    dice: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+    shuffle: '<path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    play: '<path d="M6 4l14 8-14 8V4Z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    cat: '<path d="M12 5c-3 0-5 2-5 5v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-6c0-3-2-5-5-5Z"/><path d="M9 3l1.5 2M15 3l-1.5 2"/><circle cx="9.5" cy="10" r=".8" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10" r=".8" fill="currentColor" stroke="none"/><path d="M12 12.5c.8 0 1.5.4 1.5 1"/>',
+    trophy: '<path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z"/><path d="M7 6H3v2a4 4 0 0 0 4 4M17 6h4v2a4 4 0 0 1-4 4"/>',
+    musicnote: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    flame_small: '<path d="M12 2c1 3 3 4.5 4.5 6.5 1.5 2 2.5 4 2.5 6a7 7 0 0 1-14 0c0-2 .8-3.8 2-5.5C8 7 10 5 12 2Z"/>'
+  };
+  function ic(name, sz) {
+    var p = ICONS[name] || '';
+    return '<svg class="icon" viewBox="0 0 24 24" width="' + (sz || 16) + '" height="' + (sz || 16) + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+  }
+  function fillIcons(root) {
+    var els = (root || document).querySelectorAll('[data-ic]');
+    for (var i = 0; i < els.length; i++) {
+      els[i].innerHTML = ic(els[i].getAttribute('data-ic'), els[i].getAttribute('data-ic-sz') || 16) + (els[i].getAttribute('data-ic-text') || '');
+    }
+  }
   var NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   function midiName(m) { return NOTE_NAMES[m % 12] + String(Math.floor(m / 12) - 1); }
 
@@ -2139,6 +2191,15 @@ window.addEventListener('unhandledrejection', function (e) {
     liveNote.textContent = '…';
     liveCents.textContent = '';
     if (silent) { setStatus(''); return; } // 权限弹窗期间已松手：静默取消，不分析
+    if (state.cancelling) {
+      // v2.26 上滑取消:丢弃本次录音,不分析
+      state.cancelling = false;
+      state.buf = [];
+      micBtn.classList.remove('cancel');
+      setStatus('已取消，再唱一次吧');
+      if (window.__hkOnCancel) window.__hkOnCancel();
+      return;
+    }
     setStatus('正在分析…');
     setTimeout(analyze, 60);
   }
@@ -3175,7 +3236,7 @@ window.addEventListener('unhandledrejection', function (e) {
         lastStyle = p.style;
         var g = document.createElement('div');
         g.className = 'rhythm-group';
-        g.textContent = (p.style === '嗨一点' ? '🔥 嗨一点 · ' : '💌 情歌 · ') + (p.style === '嗨一点' ? '欢快带感' : '温柔走心');
+        g.innerHTML = (p.style === '嗨一点' ? ic('flame') + '嗨一点 · ' : ic('heart') + '情歌 · ') + (p.style === '嗨一点' ? '欢快带感' : '温柔走心');
         list.appendChild(g);
       }
       var item = document.createElement('div');
@@ -3489,19 +3550,47 @@ window.addEventListener('unhandledrejection', function (e) {
   function pressStart(e) {
     if (e.cancelable) e.preventDefault(); // 干掉 300ms 延迟与合成 click，避免点按穿透
     state.pressing = true;
+    state.pressY = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
+    state.cancelMode = false;
     startRecording();
   }
   function pressEnd(e) {
     if (e.cancelable) e.preventDefault();
     state.pressing = false;
-    if (state.recording) stopRecording();
+    if (state.recording) {
+      // 上滑取消 或 系统中断(touchcancel):丢弃录音;正常松手:分析
+      if (state.cancelMode || (e.type === 'touchcancel')) state.cancelling = true;
+      stopRecording();
+    }
+  }
+  // 上滑取消手势:按住后手指上移 70px 进入取消态,回落恢复
+  function pressMove(e) {
+    if (!state.recording) return;
+    var y = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
+    if (!state.cancelMode && state.pressY != null && y < state.pressY - 70) {
+      state.cancelMode = true;
+      micBtn.classList.add('cancel');
+      document.body.classList.add('rec-cancel');
+      micBtn.querySelector('.t').textContent = '松手取消';
+      micBtn.querySelector('.t2').textContent = '这次不唱了';
+      setStatus('已上滑：松手丢弃这次录音');
+    } else if (state.cancelMode && y >= state.pressY - 40) {
+      state.cancelMode = false;
+      micBtn.classList.remove('cancel');
+      document.body.classList.remove('rec-cancel');
+      micBtn.querySelector('.t').textContent = '松开完成';
+      micBtn.querySelector('.t2').textContent = '最长 ' + state.maxRecS + ' 秒';
+      setStatus('');
+    }
   }
   micBtn.addEventListener('touchstart', pressStart, { passive: false });
   micBtn.addEventListener('mousedown', pressStart);
   micBtn.addEventListener('touchend', pressEnd, { passive: false });
   micBtn.addEventListener('touchcancel', pressEnd);
   micBtn.addEventListener('mouseup', pressEnd);
-  micBtn.addEventListener('mouseleave', function () { state.pressing = false; if (state.recording) stopRecording(); });
+  micBtn.addEventListener('touchmove', pressMove, { passive: true });
+  micBtn.addEventListener('mousemove', pressMove);
+  micBtn.addEventListener('mouseleave', function () { state.pressing = false; if (state.recording) { if (state.cancelMode) state.cancelling = true; stopRecording(); } });
   micBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); }); // 长按不弹菜单
   document.addEventListener('keydown', function (e) {
     if (e.code === 'Space' && e.target === document.body) {
@@ -4006,7 +4095,20 @@ window.addEventListener('unhandledrejection', function (e) {
     }).catch(function () {});
   })();
 
+  /* v2.23.1 节奏型「换一批」(按钮在面板里,函数在本闭包) */
+  (function () {
+    var rs = document.getElementById('rhythmShuffle');
+    if (rs) rs.addEventListener('click', function () {
+      rhythmCtx.offset++;
+      stopAllTones(); // 停掉正在试听的节奏
+      renderRhythms(rhythmCtx.dmode, rhythmCtx.droot);
+    });
+  })();
+
+  fillIcons();
   window.__hkCore = {
+    ic: ic,
+    fillIcons: fillIcons,
     state: state,
     displayPro: function () { return displayPro; },
     NOTE_NAMES: NOTE_NAMES,
@@ -4169,7 +4271,7 @@ window.addEventListener('unhandledrejection', function (e) {
   })();
 
   /* ---------- 底部导航 ---------- */
-  var NAV_TITLES = { record: '🎵 哼调', result: '🎶 最近结果', practice: '🎮 音准闯关', mine: '🐱 我的' };
+  var NAV_TITLES = { record: '哼调', result: '最近结果', practice: '音准闯关', mine: '我的' };
   var currentView = 'record';
   var lastFlowScreen = 'screenRecord'; // 测调流程当前停留的屏
   function switchView(name) {
@@ -4201,13 +4303,6 @@ window.addEventListener('unhandledrejection', function (e) {
     if (tb) tb.textContent = NAV_TITLES[name] || NAV_TITLES.record;
     hideCat();
   }
-  (function () {
-    var rs = document.getElementById('rhythmShuffle');
-    if (rs) rs.addEventListener('click', function () {
-      rhythmCtx.offset++;
-      renderRhythms(rhythmCtx.dmode, rhythmCtx.droot);
-    });
-  })();
   var navItems = document.querySelectorAll('.nav-item');
   for (var ni = 0; ni < navItems.length; ni++) {
     (function (item) { item.addEventListener('click', function () { switchView(item.dataset.view); }); })(navItems[ni]);
@@ -4288,7 +4383,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var box = $('viewResultContent');
     if (!box) return;
     if (!lastSnapshot) {
-      box.innerHTML = '<div class="empty-state"><div class="es-ic">' + catSvg('happy') + '</div><div class="es-t">还没有测过调哦～</div><div style="margin-top:8px;font-size:13px;color:var(--muted)">去「测调」页按住哼一句，猫等着听呢</div></div>';
+      box.innerHTML = '<div style="padding:6px 2px;font-size:13px;color:var(--muted)">还没有测过调哦～去「测调」页按住哼一句，猫等着听呢</div>';
       return;
     }
     box.innerHTML =
@@ -4712,7 +4807,7 @@ window.addEventListener('unhandledrejection', function (e) {
     $('dailyTitle').textContent = '今日一调 · ' + NAMES[root] + ' 大调 · ' + tune.name;
     $('dailySub').textContent = hkGet('hkDailyDone', '') === todayStr() ? '今天的挑战完成啦，明天换一首新旋律' : tune.name + ' · 先听示范，再跟着哼一遍';
     card.className = hkGet('hkDailyDone', '') === todayStr() ? 'done' : '';
-    $('dailyBtn').textContent = hkGet('hkDailyDone', '') === todayStr() ? '✓ 已挑战' : '▶ 听示范';
+    $('dailyBtn').innerHTML = hkGet('hkDailyDone', '') === todayStr() ? core.ic('check') + '已挑战' : core.ic('play') + '听示范';
   }
   function playDaily() {
     if (!core.playTone) return;
@@ -4843,6 +4938,9 @@ window.addEventListener('unhandledrejection', function (e) {
     DND.parts = alive;
     requestAnimationFrame(dandeLoop);
   }
+  window.__hkOnCancel = function () {
+    if (cat.showCat) cat.showCat('没关系，再唱一次喵～', 'tilt', 3000);
+  };
   window.__hkOnRec = function (on) {
     if (on) {
       DND.running = true;
@@ -4940,7 +5038,7 @@ window.addEventListener('unhandledrejection', function (e) {
       });
     }
     if (!filtered.length) {
-      list.innerHTML = '<div class="empty-state"><div class="es-ic">' + (window.__hkCat && window.__hkCat.catSvg ? window.__hkCat.catSvg('normal') : '') + '</div><div class="es-t">' + (histFilter != null ? NAMES[histFilter] + ' 调还没有记录，去哼一句吧' : '还没有记录') + '</div><div class="es-d" style="font-size:12px;color:var(--muted);margin-top:6px">去「测调」页唱一句，猫就记下来啦</div></div>';
+      list.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:2px 0">' + (histFilter != null ? NAMES[histFilter] + ' 调还没有记录，去「测调」页哼一句吧' : '还没有记录，去「测调」页哼一句吧') + '</div>';
       if (histFilter != null) {
         list.innerHTML += '<button class="btn mini" id="histClear" style="margin-top:8px">✕ 取消筛选</button>';
         var hc = $('histClear');
@@ -5248,7 +5346,7 @@ window.addEventListener('unhandledrejection', function (e) {
   buildDandelion();
 
 })();
-</script><canvas id="dandeCanvas" width="750" height="485"></canvas>
+</script>
 
 <script>
 /* ================================================================
