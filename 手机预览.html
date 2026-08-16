@@ -14,82 +14,56 @@
   .phone { width: 390px; height: 844px; background: #000; border-radius: 44px; padding: 10px; box-shadow: 0 0 0 6px var(--frame), 0 0 0 8px #221B18, 0 24px 60px rgba(0,0,0,.5); position: relative; }
   .phone::before { content: ''; position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 120px; height: 22px; background: #000; border-radius: 12px; z-index: 5; }
   .phone iframe { width: 100%; height: 100%; border: none; border-radius: 34px; background: var(--paper); }
-  .toolbar { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+  .toolbar { margin-top: 16px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
   .btn { border: 2px solid #6B5B52; background: #3D322C; color: #E8DDD0; font-weight: 700; font-size: 13.5px; padding: 9px 18px; border-radius: 999px; cursor: pointer; }
   .btn:hover { border-color: #F0B79A; color: #F0B79A; }
-  .tip { margin-top: 12px; font-size: 12px; color: #8A766C; max-width: 420px; text-align: center; line-height: 1.7; }
-  .shots { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .shots a { display: block; width: 132px; text-align: center; font-size: 11.5px; color: #B3A298; text-decoration: none; }
-  .shots img { width: 132px; border-radius: 12px; border: 2px solid #6B5B52; display: block; margin-bottom: 4px; }
+  .tip { margin-top: 12px; font-size: 12px; color: #8A766C; text-align: center; line-height: 1.7; }
 </style>
 </head>
 <body>
   <h1>🔍 唱一句·定调子 · 手机实时预览</h1>
-  <div class="sub">手机里的页面 = <b>实时预览</b>:只有 Claude 保存代码时才刷新,平时纹丝不动 · 下方是历史截图</div>
+  <div class="sub">Claude 保存代码时才刷新,平时纹丝不动 · 进度清单看聊天窗口 · 测录音点「↗ 新标签打开」或手机</div>
 
   <div class="phone"><iframe id="appFrame"></iframe></div>
 
   <div class="toolbar">
     <button class="btn" onclick="document.getElementById('appFrame').src=location.origin+'/index.html?t='+Date.now()">🔄 手动刷新</button>
     <span class="btn" id="refreshStatus" style="border-style:dashed;cursor:default">👀 监视中(改动才刷新)</span>
-    <button class="btn" onclick="window.open(location.origin+'/index.html')">↗ 新标签打开</button>
+    <button class="btn" onclick="window.open(location.origin+'/index.html')">↗ 新标签打开(测录音)</button>
     <button class="btn" onclick="location.reload()">↻ 刷新本预览页</button>
   </div>
 
   <div class="tip">
-    💡 <b>Claude 每改完代码,这个页面会自动加载最新效果(不用按任何键)</b>。测录音去新标签或真机:<br>
-    手机连同一个 Wi-Fi,浏览器访问 <b>http://本机IP:8017</b>(CMD 里 ipconfig 查 IP)。<br>
-    VSCode 里看:右键本文件 → Reveal in File Explorer → 双击用浏览器打开;或 Ctrl+Shift+P → Simple Browser → http://localhost:8017/手机预览.html
-  </div>
-
-  <div class="shots" id="shots">
-    <a href="preview/shot_record.jpg"><img src="preview/shot_record.jpg">录制屏(最新截图)</a>
+    手机真机:连同一个 Wi-Fi,访问 <b>http://本机IP:8017</b>(CMD 里 ipconfig 查 IP)<br>
+    双机摆放:双击 hum-key 文件夹里的 arrange_preview.ps1(VSCode 左 + 浏览器右)
   </div>
 
   <script>
-    // 自适应端口：从哪个服务器打开本页，iframe 就从哪里加载 index.html（Live Server 5500 / 本地 8017 都行）
+    var origin = location.origin;
     (function () {
       var frame = document.getElementById('appFrame');
       if (location.protocol === 'file:') {
-        frame.srcdoc = '<div style="padding:60px 20px;text-align:center;font-family:sans-serif;color:#8A766C">请通过服务器打开本页：<br>VSCode 里点底部「Go Live」，再访问 http://127.0.0.1:5500/手机预览.html</div>';
+        frame.srcdoc = '<div style="padding:60px 20px;text-align:center;font-family:sans-serif;color:#8A766C">请通过服务器打开本页:<br>双击 hum-key 文件夹里的「一键预览.bat」</div>';
         return;
       }
-      frame.src = location.origin + '/index.html';
+      frame.src = origin + '/index.html';
     })();
-    // 智能刷新：每 2 秒只检查 index.html 是否有改动（Last-Modified），
-    // 有改动才重载 iframe——平时纹丝不动，Claude 保存代码后自动更新。
+    // 智能刷新:index.html 改动(Last-Modified 变化)才重载 iframe
     var lastMod = null;
     var statusEl = document.getElementById('refreshStatus');
-    function checkChange() {
-      fetch(location.origin + '/index.html', { method: 'HEAD', cache: 'no-store' }).then(function (res) {
+    function checkApp() {
+      fetch(origin + '/index.html', { method: 'HEAD', cache: 'no-store' }).then(function (res) {
         var lm = res.headers.get('Last-Modified');
         if (!lm) return;
         if (lastMod !== null && lm !== lastMod) {
-          document.getElementById('appFrame').src = location.origin + '/index.html?t=' + Date.now();
-          if (statusEl) {
-            statusEl.textContent = '🔄 已更新 ' + new Date().toLocaleTimeString();
-            statusEl.style.color = '#4E9B6E';
-          }
+          document.getElementById('appFrame').src = origin + '/index.html?t=' + Date.now();
+          if (statusEl) { statusEl.textContent = '🔄 已更新 ' + new Date().toLocaleTimeString(); statusEl.style.color = '#4E9B6E'; }
         }
         lastMod = lm;
       }).catch(function () {});
     }
-    setInterval(checkChange, 2000);
-    checkChange();
-    // 每 30 秒自动尝试刷新截图区文件列表(手动截图文件放在 preview/ 目录)
-    fetch('preview/').then(function (r) { return r.text(); }).then(function (html) {
-      var imgs = html.match(/href="([^"]+\.(?:png|jpg))"/gi) || [];
-      var box = document.getElementById('shots');
-      var urls = imgs.map(function (m) { return m.replace(/href="|"/gi, ''); }).filter(function (u) { return u.indexOf('shot_') === 0; });
-      if (!urls.length) return;
-      box.innerHTML = '';
-      urls.forEach(function (u) {
-        var a = document.createElement('a');
-        a.href = 'preview/' + u;
-        a.innerHTML = '<img src="preview/' + u + '">' + decodeURIComponent(u);
-        box.appendChild(a);
-      });
-    }).catch(function () {});
+    setInterval(checkApp, 2000);
+    checkApp();
   </script>
 </body>
 </html>
