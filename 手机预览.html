@@ -25,13 +25,13 @@
 </head>
 <body>
   <h1>🔍 唱一句·定调子 · 手机实时预览</h1>
-  <div class="sub">左手机 = <b>实时页面</b>(Claude 每改完一次,点「刷新页面」即看到最新效果) · 下方是历史截图</div>
+  <div class="sub">手机里的页面 = <b>实时预览</b>:只有 Claude 保存代码时才刷新,平时纹丝不动 · 下方是历史截图</div>
 
   <div class="phone"><iframe id="appFrame"></iframe></div>
 
   <div class="toolbar">
-    <button class="btn" onclick="document.getElementById('appFrame').src=location.origin+'/index.html?t='+Date.now()">🔄 刷新页面</button>
-    <label class="btn" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="autoRefresh" checked style="width:15px;height:15px"> 自动刷新(2秒)</label>
+    <button class="btn" onclick="document.getElementById('appFrame').src=location.origin+'/index.html?t='+Date.now()">🔄 手动刷新</button>
+    <span class="btn" id="refreshStatus" style="border-style:dashed;cursor:default">👀 监视中(改动才刷新)</span>
     <button class="btn" onclick="window.open(location.origin+'/index.html')">↗ 新标签打开</button>
     <button class="btn" onclick="location.reload()">↻ 刷新本预览页</button>
   </div>
@@ -56,20 +56,26 @@
       }
       frame.src = location.origin + '/index.html';
     })();
-    // 自动刷新：每 2 秒重载 iframe（Claude 保存代码后自动看到最新效果；页面失焦时降到 5 秒省电）
-    var timer = null;
-    function armAuto() {
-      if (timer) clearInterval(timer);
-      var on = document.getElementById('autoRefresh').checked;
-      if (!on) return;
-      timer = setInterval(function () {
-        var hidden = document.hidden;
-        if (hidden) return;
-        document.getElementById('appFrame').src = location.origin + '/index.html?t=' + Date.now();
-      }, 2000);
+    // 智能刷新：每 2 秒只检查 index.html 是否有改动（Last-Modified），
+    // 有改动才重载 iframe——平时纹丝不动，Claude 保存代码后自动更新。
+    var lastMod = null;
+    var statusEl = document.getElementById('refreshStatus');
+    function checkChange() {
+      fetch(location.origin + '/index.html', { method: 'HEAD', cache: 'no-store' }).then(function (res) {
+        var lm = res.headers.get('Last-Modified');
+        if (!lm) return;
+        if (lastMod !== null && lm !== lastMod) {
+          document.getElementById('appFrame').src = location.origin + '/index.html?t=' + Date.now();
+          if (statusEl) {
+            statusEl.textContent = '🔄 已更新 ' + new Date().toLocaleTimeString();
+            statusEl.style.color = '#4E9B6E';
+          }
+        }
+        lastMod = lm;
+      }).catch(function () {});
     }
-    document.getElementById('autoRefresh').addEventListener('change', armAuto);
-    armAuto();
+    setInterval(checkChange, 2000);
+    checkChange();
     // 每 30 秒自动尝试刷新截图区文件列表(手动截图文件放在 preview/ 目录)
     fetch('preview/').then(function (r) { return r.text(); }).then(function (html) {
       var imgs = html.match(/href="([^"]+\.(?:png|jpg))"/gi) || [];
