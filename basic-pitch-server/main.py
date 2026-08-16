@@ -57,6 +57,20 @@ def health():
     return {"ok": True}
 
 
+@app.get("/chords")
+def chords():
+    """v2.23.0 吉他和弦指法库:前端每次加载时同步(失败则用内置精简版回退)"""
+    from chord_lib import CHORD_LIB, VERSION
+    return {"version": VERSION, "chords": CHORD_LIB}
+
+
+@app.get("/rhythms")
+def rhythms():
+    """v2.23.0 右手节奏型库:按情绪分组(嗨一点/情歌),前端每次结果推荐 3 个"""
+    from rhythm_lib import RHYTHM_LIB, VERSION
+    return {"version": VERSION, "groups": RHYTHM_LIB}
+
+
 def _transcribe(path):
     """basic-pitch 转录；失败时尝试 torchcrepe 备选（若环境已安装）。"""
     try:

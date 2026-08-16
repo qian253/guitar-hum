@@ -194,12 +194,7 @@
   .mic .mic-dande svg { width: 100%; height: 100%; }
   @keyframes dandeSway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
   .dande-seed { transform-origin: 60px 64px; }
-  .mic.recording .dande-seed { animation: seedFly 3.4s ease-in infinite; }
-  @keyframes seedFly {
-    0% { transform: translate(0, 0); opacity: 0.95; }
-    40% { transform: translate(var(--dx), var(--dy)) rotate(12deg); opacity: 0.8; }
-    100% { transform: translate(calc(var(--dx) * 1.8), calc(var(--dy) * 1.8 - 26px)) rotate(34deg); opacity: 0; }
-  }
+  #dandeCanvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 70; }
   .mic .t { font-size: 16px; font-weight: 800; margin-top: 4px; letter-spacing: 0.5px; font-family: var(--font-hand); color: var(--ink); }
   .mic .t2 { font-size: 11.5px; color: var(--ink2); margin-top: 1px; }
   @media (prefers-reduced-motion: reduce) { .mic .mic-dande, .mic.recording .dande-seed { animation: none; } }
@@ -417,6 +412,8 @@
   .replay-status.warn { color: #C58A1F; }
 
   .err { color: #C58A1F; font-size: 14px; text-align: center; padding: 18px; line-height: 1.8; background: #FFF9E8; border: 2px solid #F5E5B8; border-radius: var(--radius-sm); }
+  .err { transition: opacity 0.6s ease; cursor: pointer; }
+  .err.fade { opacity: 0; }
   .err b { color: var(--ink); }
   #errBox { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 90; width: min(90vw, 400px); }
 
@@ -699,6 +696,14 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.23.0 怎么弹:左手/右手分区 */
+  .hand-sec { margin-top: 20px; padding: 10px 14px; background: var(--paper3); border-radius: 14px; font-size: 14.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; justify-content: space-between; }
+  .hand-sub { font-size: 11.5px; font-weight: 400; color: var(--ink2); }
+  .rhythm-group { margin: 12px 0 6px; font-size: 13px; font-weight: 800; color: var(--coral-deep); }
+  .why-line { margin: 3px 0; }
+  #capoPawBox svg { border-radius: 14px; }
+  @media (prefers-reduced-motion: reduce) { .clamp-tag, .paw-move, .capo-clamp { animation: none !important; } }
+
   /* v2.21.0 测调页三个快捷入口卡片 */
   .quick-row { display: flex; gap: 10px; margin: 12px 16px 0; }
   .quick-card { flex: 1; min-height: 76px; border: 2px solid var(--line-strong); border-radius: 16px 12px 18px 13px / 12px 16px 13px 15px; background: var(--paper2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 17px; cursor: pointer; color: var(--ink2); transition: transform .15s; padding: 0; }
@@ -848,12 +853,6 @@ window.addEventListener('unhandledrejection', function (e) {
       </div>
       <button class="dc-btn" id="dailyBtn">▶ 听示范</button>
     </div>
-    <!-- v2.21.0 三个快捷入口 -->
-    <div class="quick-row">
-      <button class="quick-card q1" id="quickGame"><span>🎭</span><span>猜调挑战</span><i class="qc-dot"></i></button>
-      <button class="quick-card q2" id="quickPractice"><span>🎮</span><span>音准闯关</span><i class="qc-dot"></i></button>
-      <button class="quick-card q3" id="quickCollect"><span>🎵</span><span>调性收集册</span><i class="qc-dot"></i></button>
-    </div>
   </section>
 
   <!-- ========== 分析屏 ========== -->
@@ -872,11 +871,15 @@ window.addEventListener('unhandledrejection', function (e) {
         <span class="mode-badge" id="modeBadge"></span>
         <button class="pro-toggle" id="proToggleBtn" style="display:none">专业模式</button>
       </div>
-      <div class="capo-highlight" id="capoHighlight"></div>
       <div id="capoPawBox"></div>
+      <div class="capo-highlight" id="capoHighlight"></div>
       <div class="conf" id="confRow"><span>信心</span><div class="meter"><i id="confBar"></i></div><span id="confPct"></span></div>
       <div class="conf-text" id="confText"></div>
       <div class="mood-line" id="moodLine"></div>
+      <div style="text-align:center;margin-top:10px">
+        <button class="btn mini" id="whyBtn" style="display:none">🐾 猫是怎么听出来的？</button>
+        <div id="whyBox" style="display:none;margin-top:8px;font-size:13.5px;color:var(--ink2);line-height:1.9;text-align:left"></div>
+      </div>
       <div class="alt-hint" id="altHint" style="display:none"></div>
       <div class="tone-map" id="toneMap"></div>
       <div class="rel-hint" id="relHint" style="display:none"></div>
@@ -885,9 +888,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
     <div class="tabbar" id="tabbar">
       <button class="tab on" data-tab="jianpu">简谱</button>
-      <button class="tab" data-tab="prog">和弦走向</button>
-      <button class="tab" data-tab="fret">吉他指法</button>
-      <button class="tab" data-tab="rhythm">节奏型</button>
+      <button class="tab" data-tab="play">🎸 怎么弹</button>
     </div>
 
     <div class="tabpanels">
@@ -899,22 +900,31 @@ window.addEventListener('unhandledrejection', function (e) {
           <div class="jianpu-note" id="jianpuNoteInfo"></div>
         </div>
       </div>
-      <div class="tabpanel" id="panelProg">
-        <div class="melody-chords" id="melodyChords"></div>
-        <div class="card-title" style="margin-top:16px">常用走向（左右滑动）</div>
-        <div class="prog-scroll" id="progScroll"></div>
-        <div class="prog-dots" id="progDots"></div>
-        <div class="tip" id="progTip"></div>
-      </div>
-      <div class="tabpanel" id="panelFret">
+      <div class="tabpanel" id="panelPlay">
+        <!-- v2.23.0 「怎么弹」= 定位 → 左手和弦按法 → 变调夹换算 → 右手节奏型 -->
         <div class="card-title" id="posCardTitle">do 在吉他的位置</div>
         <div class="do-list" id="doList"></div>
         <svg id="fretboard" viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="fb-note">低音 do 是最常用的定位点；练习：先把食指放上去，再顺着唱一遍 do 的位置。</div>
         <div class="play-box" id="playBox"></div>
         <div class="play-alt" id="playAlt"></div>
+        <div class="hand-sec">🎸 左手 · 和弦与按法<span class="hand-sub">照图按,横按先跳过也没关系</span></div>
+        <div class="melody-chords" id="melodyChords"></div>
+        <div class="card-title" style="margin-top:14px">常用走向（左右滑动）</div>
+        <div class="prog-scroll" id="progScroll"></div>
+        <div class="prog-dots" id="progDots"></div>
+        <div class="tip" id="progTip"></div>
+            <div class="card" id="capoCard" style="display:none;margin-top:14px">
+      <div class="card-title">🎯 变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
+      <div class="capo-form">
+        <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
+        <div class="capo-arrow">→</div>
+        <div class="capo-col"><span class="k">你想唱的调</span><select id="capoDstSel"></select></div>
       </div>
-      <div class="tabpanel" id="panelRhythm">
+      <div id="capoResult"></div>
+      <div class="capo-hint">乐理小抄：全音-全音-半音-全音-全音-全音-半音，从 do 顺着数，就能推出任何调的 do re mi。</div>
+    </div>
+        <div class="hand-sec">🎸 右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
         <div class="rhythm-list" id="rhythmList"></div>
       </div>
     </div>
@@ -943,16 +953,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
     <div class="replay-status" id="replayStatus" style="display:none"></div>
 
-    <div class="card" id="capoCard" style="display:none">
-      <div class="card-title">变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
-      <div class="capo-form">
-        <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
-        <div class="capo-arrow">→</div>
-        <div class="capo-col"><span class="k">你想唱的调</span><select id="capoDstSel"></select></div>
-      </div>
-      <div id="capoResult"></div>
-      <div class="capo-hint">乐理小抄：全音-全音-半音-全音-全音-全音-半音，从 do 顺着数，就能推出任何调的 do re mi。</div>
-    </div>
+
   </section>
 
   <!-- ========== 结果视图（底部导航 · 最近一次测调结果） ========== -->
@@ -987,6 +988,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="card" style="margin-top:12px">
       <div class="card-title">⚙️ 设置</div>
       <div class="settings-row"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
+      <div class="settings-row" id="setExpertRow" style="cursor:pointer"><span class="sr-l">🧪 专家判据（显示专业分析）</span><span class="sr-r" id="setExpertVal">关</span></div>
       <div class="settings-row"><span class="sr-l">🎸 回放音色</span>
         <select id="setTimbreSel">
           <option value="nylon">尼龙弦</option>
@@ -994,7 +996,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.22.1</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.23.0</span></div>
     </div>
   </section>
 
@@ -1880,11 +1882,15 @@ window.addEventListener('unhandledrejection', function (e) {
     ]
   };
   var RHYTHM_PATTERNS = [
-    { id: '5323', name: '5323 分解', tag: '最经典', desc: '根音打头，四拍分解，新手第一课', strings: [5, 3, 2, 3] },
-    { id: '5321', name: '5321 分解', tag: '更完整', desc: '根音后依次拨到底，收尾更稳', strings: [5, 3, 2, 1] },
-    { id: '4321', name: '4321 分解', tag: '柔一点', desc: '从 4 弦起，适合慢歌', strings: [4, 3, 2, 1] },
-    { id: 'root-strum', name: '根音 + 扫弦', tag: '弹唱', desc: '一拍根音，一拍向下扫弦', type: 'strum' }
-  ];
+  { id: 'pop-strum', name: '流行扫弦', type: 'strum', strings: [], tag: '↓ ↓↑ ↑↓↑', desc: '弹唱最常用,欢快带感', style: '嗨一点' },
+  { id: 'root-strum', name: '根音+扫弦', type: 'strum', strings: [], tag: '根 ↓ 根 ↓', desc: '一拍根音一拍扫,稳又嗨', style: '嗨一点' },
+  { id: 'palm-strum', name: '闷音扫弦', type: 'strum', strings: [], tag: '↓↑ 闷↓↑ 闷', desc: '手掌轻压琴桥,节奏感强', style: '嗨一点' },
+  { id: 'rock-8th', name: '八分扫弦', type: 'strum', strings: [], tag: '↓↑↓↑ ↓↑↓↑', desc: '摇滚/民谣快歌首选', style: '嗨一点' },
+  { id: '5323', name: '5323 分解', type: 'pluck', strings: [5, 3, 2, 3], tag: '5 3 2 3', desc: '最温柔的分解,慢歌万能', style: '情歌' },
+  { id: '5321', name: '5321 分解', type: 'pluck', strings: [5, 3, 2, 1], tag: '5 3 2 1', desc: '分解到高音,清澈透亮', style: '情歌' },
+  { id: '4321', name: '4321 分解', type: 'pluck', strings: [4, 3, 2, 1], tag: '4 3 2 1', desc: '从四弦起,中音区更暖', style: '情歌' },
+  { id: 'waltz', name: '三拍子', type: 'pluck', strings: [5, 3, 2], tag: '5 3 2', desc: '华尔兹感,适合圆舞曲风', style: '情歌' }
+];;
   // 简谱/旋律转录参数：比定调更敏感、更忠实，逐音保留（问题2）
   var JIANPU_OPTS = { minConf: 0.5, minLen: 0.08, leaveCents: 0.5, enterCents: 0.3, leaveMs: 60, unvoicedMs: 100, mergeSlop: 0.05, maxNoteDur: 8 };
 
@@ -2305,10 +2311,19 @@ window.addEventListener('unhandledrejection', function (e) {
     } catch (e) { console.error('分析出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
   }
 
+  var errFadeTimer = null;
   function showError(msg) {
     showScreen('record');
     hideAnalyze();
-    errBox.innerHTML = '<div class="err">' + msg + '</div>';
+    if (errFadeTimer) clearTimeout(errFadeTimer);
+    var el = document.createElement('div');
+    el.className = 'err';
+    el.innerHTML = msg;
+    el.addEventListener('click', function () { el.classList.add('fade'); setTimeout(function () { el.remove(); }, 600); });
+    errBox.innerHTML = '';
+    errBox.appendChild(el);
+    // v2.22.2 提示 5 秒后慢慢褪去,不常驻挡屏
+    errFadeTimer = setTimeout(function () { el.classList.add('fade'); setTimeout(function () { el.remove(); }, 600); }, 5000);
   }
 
   /* ---------- 渲染 ---------- */
@@ -2494,13 +2509,36 @@ window.addEventListener('unhandledrejection', function (e) {
         }
       }
       if (key.shortTake) evParts.push('旋律偏短，再哼长一点更稳');
-      if (evParts.length) {
+      // v2.23.0 新手模式:判据链默认隐藏(专业名词吓人),想看大白话解释点「为什么」;
+      // 专家判据开关(设置里)打开才显示完整专业判据。
+      var expert = false;
+      try { expert = localStorage.getItem('hkExpert') === '1'; } catch (e) {}
+      if (expert && evParts.length) {
         rh.style.display = 'block';
         rh.innerHTML = '判据：<b>' + evParts.join(' · ') + '</b>';
       } else {
         rh.style.display = 'none';
       }
+      // 「猫是怎么听出来的」大白话解释
+      var whyBtn = $('whyBtn');
+      if (whyBtn) {
+        whyBtn.style.display = expert ? 'none' : '';
+        var whyLines = ['你一共哼了 ' + notes.length + ' 个音。',
+          '猫把这些音和 24 个调逐一比对，' + (showMarketName ? relDoName + ' 大调（' + doNoteName + ' 小调）' : doNoteName + (dmode === 'major' ? ' 大调' : ' 小调')) + ' 最贴合。'];
+        if (key.confidence < 0.4) whyLines.push('不过这次听得不太清，哼长一点、响一点会更准。');
+        else if (key.confidence >= 0.7) whyLines.push('证据很足，放心按这个调弹。');
+        else whyLines.push('基本可以确定，多哼几句还能更稳。');
+        $('whyBox').innerHTML = whyLines.map(function (t) { return '<div class="why-line">· ' + t + '</div>'; }).join('');
+      }
 
+      var wb = $('whyBtn'), wbox = $('whyBox');
+      if (wb) {
+        wb.onclick = function () {
+          var show = wbox.style.display === 'none';
+          wbox.style.display = show ? 'block' : 'none';
+          wb.textContent = show ? '🙈 藏起来' : '🐾 猫是怎么听出来的？';
+        };
+      }
       var ml = $('melodyLine'); ml.innerHTML = '';
       var solfegeIdx = scaleDegreeIndexes(notes, droot, dmode);
       notes.forEach(function (n, i) {
@@ -3100,10 +3138,22 @@ window.addEventListener('unhandledrejection', function (e) {
   function renderRhythms(dmode, droot) {
     var rec = recommendFingering(dmode, droot);
     var list = $('rhythmList'); list.innerHTML = '';
-    RHYTHM_PATTERNS.forEach(function (p) {
+    // v2.23.0 推荐 3 个:大调 2 嗨+1 情歌,小调 1 嗨+2 情歌
+    var hi = RHYTHM_PATTERNS.filter(function (p) { return p.style === '嗨一点'; });
+    var lo = RHYTHM_PATTERNS.filter(function (p) { return p.style === '情歌'; });
+    var pick = dmode === 'major' ? hi.slice(0, 2).concat(lo.slice(0, 1)) : hi.slice(0, 1).concat(lo.slice(0, 2));
+    var lastStyle = null;
+    pick.forEach(function (p) {
+      if (p.style !== lastStyle) {
+        lastStyle = p.style;
+        var g = document.createElement('div');
+        g.className = 'rhythm-group';
+        g.textContent = (p.style === '嗨一点' ? '🔥 嗨一点 · ' : '💌 情歌 · ') + (p.style === '嗨一点' ? '欢快带感' : '温柔走心');
+        list.appendChild(g);
+      }
       var item = document.createElement('div');
       item.className = 'rhythm-item';
-      var tab = p.type === 'strum' ? '根+扫' : p.strings.join('');
+      var tab = p.type === 'strum' ? '扫弦' : p.strings.join('');
       item.innerHTML = '<button class="rhythm-play" aria-label="试听 ' + p.name + '">▶</button>' +
         '<div class="rhythm-info"><div class="rhythm-name">' + p.name + '<span class="tag">' + p.tag + '</span></div>' +
         '<div class="rhythm-desc">' + p.desc + '</div></div>' +
@@ -3905,6 +3955,29 @@ window.addEventListener('unhandledrejection', function (e) {
   });
 
   /* ---------- v2.20.0 桥接：核心函数导出 + 结果/录音钩子（供体验层脚本使用） ---------- */
+  /* v2.23.0 从后端同步和弦库/节奏库(失败静默,用内置精简版) */
+  (function () {
+    var url = '';
+    try { url = (localStorage.getItem('bpBackendUrl') || '').trim().replace(/\/+$/, ''); } catch (e) {}
+    if (!url) return;
+    fetch(url + '/chords', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.chords) return;
+      Object.keys(d.chords).forEach(function (k) {
+        CHORD_SHAPES[k] = { frets: d.chords[k].frets, barre: d.chords[k].barre, fingers: d.chords[k].fingers || null };
+      });
+    }).catch(function () {});
+    fetch(url + '/rhythms', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.groups) return;
+      var flat = [];
+      Object.keys(d.groups).forEach(function (g) {
+        d.groups[g].forEach(function (p) {
+          flat.push({ id: p.id, name: p.name, type: p.type, strings: p.strings || [], tag: p.pattern, desc: p.desc, style: g });
+        });
+      });
+      if (flat.length) RHYTHM_PATTERNS = flat;
+    }).catch(function () {});
+  })();
+
   window.__hkCore = {
     state: state,
     displayPro: function () { return displayPro; },
@@ -4420,6 +4493,8 @@ window.addEventListener('unhandledrejection', function (e) {
     var pro = localStorage.getItem('hkDisplayPro') === '1';
     var sp = $('setProVal');
     if (sp) sp.textContent = pro ? '开' : '关';
+    var ex = $('setExpertVal');
+    if (ex) ex.textContent = localStorage.getItem('hkExpert') === '1' ? '开' : '关';
     var flowers = hkGet('hkFlowers', 0);
     if (flowers > 0) {
       var wallHead = document.querySelector('#viewMine .card .card-title');
@@ -4435,6 +4510,15 @@ window.addEventListener('unhandledrejection', function (e) {
         }
         ft.textContent = '🌼×' + flowers;
       }
+    }
+    var exRow = $('setExpertRow');
+    if (exRow) {
+      exRow.addEventListener('click', function () {
+        var on = localStorage.getItem('hkExpert') === '1';
+        localStorage.setItem('hkExpert', on ? '0' : '1');
+        var ex2 = $('setExpertVal');
+        if (ex2) ex2.textContent = on ? '关' : '开';
+      });
     }
     var sel = $('setTimbreSel');
     if (sel) sel.value = (window.__curTimbre || 'nylon');
@@ -4620,6 +4704,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ============ 4. 录音互动（__hkOnRec 钩子） ============ */
   function buildDandelion() {
+    // 静态绒毛(轻摆动);录音时的种子飘散由 canvas 粒子系统负责(见 dandeInit)
     var g = $('dandeSeeds');
     if (!g) return;
     var NS = 'http://www.w3.org/2000/svg';
@@ -4628,23 +4713,94 @@ window.addEventListener('unhandledrejection', function (e) {
       var ang = (i / n) * Math.PI * 2 + 0.2;
       var x2 = 60 + Math.cos(ang) * 32, y2 = 64 + Math.sin(ang) * 32;
       var tipX = 60 + Math.cos(ang) * 40, tipY = 64 + Math.sin(ang) * 40;
-      var dx = Math.cos(ang) * 56, dy = Math.sin(ang) * 56 - 10;
       var seed = document.createElementNS(NS, 'g');
       seed.setAttribute('class', 'dande-seed');
-      seed.setAttribute('style', '--dx:' + dx.toFixed(1) + 'px; --dy:' + dy.toFixed(1) + 'px; animation-delay:' + ((i * 0.21).toFixed(2)) + 's;');
       seed.innerHTML = '<line x1="60" y1="64" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"/>' +
         '<circle cx="' + tipX.toFixed(1) + '" cy="' + tipY.toFixed(1) + '" r="2.8" fill="#FFFDF5"/>' +
         '<circle cx="' + tipX.toFixed(1) + '" cy="' + tipY.toFixed(1) + '" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"/>';
       g.appendChild(seed);
     }
+    dandeInit();
+  }
+  /* ---- 蒲公英种子粒子(参考 tsParticles 的风场+生命周期,零依赖 canvas) ---- */
+  var DND = { parts: [], running: false, spawnT: 0, cv: null, ctx: null };
+  function dandeInit() {
+    if (DND.cv) return;
+    var cv = document.createElement('canvas');
+    cv.id = 'dandeCanvas';
+    document.body.appendChild(cv);
+    DND.cv = cv; DND.ctx = cv.getContext('2d');
+    function resize() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    dandeLoop();
+  }
+  function dandeCenter() {
+    var btn = $('micBtn');
+    if (!btn) return { x: window.innerWidth / 2, y: window.innerHeight * 0.4 };
+    var r = btn.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height * 0.26 };
+  }
+  function dandeSpawn(burst) {
+    var c = dandeCenter();
+    var ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.5;
+    var sp = 0.5 + Math.random() * 1.3;
+    DND.parts.push({
+      x: c.x + (Math.random() - 0.5) * 14, y: c.y + (Math.random() - 0.5) * 8,
+      vx: Math.cos(ang) * sp + 0.3, vy: Math.sin(ang) * sp - (burst ? 0.9 : 0.25),
+      life: 0, max: 2.4 + Math.random() * 2.2, r: 1.8 + Math.random() * 1.6,
+      rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.08, ph: Math.random() * 6.28
+    });
+  }
+  function dandeLoop() {
+    var cv = DND.cv, ctx = DND.ctx;
+    if (!cv) return;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    // 录音中持续吐种子;平时偶尔掉一颗(若有若无)
+    if (DND.running) {
+      if (performance.now() - DND.spawnT > 240) { DND.spawnT = performance.now(); dandeSpawn(false); }
+    } else if (Math.random() < 0.005) {
+      dandeSpawn(false);
+    }
+    var alive = [];
+    for (var i = 0; i < DND.parts.length; i++) {
+      var p = DND.parts[i];
+      p.life += 0.016;
+      if (p.life >= p.max) continue;
+      // 风:正弦侧摆 + 浮力
+      p.vx += Math.sin(p.life * 2.1 + p.ph) * 0.013;
+      p.vy -= 0.013;
+      p.x += p.vx; p.y += p.vy;
+      p.rot += p.vr;
+      var a = Math.max(0, 1 - p.life / p.max);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = a * 0.8;
+      ctx.strokeStyle = '#8A766C';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -p.r * 2.2); ctx.stroke();
+      ctx.fillStyle = '#FFFDF5';
+      ctx.beginPath(); ctx.arc(0, -p.r * 2.2, p.r * 0.9, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = 'rgba(138,118,108,0.4)';
+      ctx.beginPath(); ctx.arc(0, -p.r * 2.2, p.r * 1.5, 0, 6.29); ctx.stroke();
+      ctx.restore();
+      alive.push(p);
+    }
+    DND.parts = alive;
+    requestAnimationFrame(dandeLoop);
   }
   window.__hkOnRec = function (on) {
     if (on) {
+      DND.running = true;
+      for (var k = 0; k < 4; k++) dandeSpawn(true);
       if (cat.showCat) cat.showCat('我在听喵～', 'normal', 0);
       var buddy = $('catBuddy');
       if (buddy) buddy.classList.add('listen');
       document.body.classList.add('rec-live');
     } else {
+      DND.running = false;
+      for (var j = 0; j < 14; j++) dandeSpawn(true); // 松开:种子齐飞
       var b2 = $('catBuddy');
       if (b2) b2.classList.remove('listen');
       document.body.classList.remove('rec-live');
@@ -4685,17 +4841,21 @@ window.addEventListener('unhandledrejection', function (e) {
         '</svg>';
     }
     var fretX = 42 + Math.min(capo, 7) * 36;
-    return '<svg viewBox="0 0 340 96" xmlns="http://www.w3.org/2000/svg">' +
+    var cellX = fretX - 36 + 2;
+    return '<svg viewBox="0 0 340 132" xmlns="http://www.w3.org/2000/svg">' +
       '<rect x="8" y="26" width="324" height="40" rx="16" fill="#EAD9BE" stroke="#5A4A42" stroke-width="2.5"/>' +
       '<g stroke="#5A4A42" stroke-width="1.2" opacity="0.5">' +
       [58, 94, 130, 166, 202, 238, 274, 310].map(function (x) { return '<line x1="' + x + '" y1="26" x2="' + x + '" y2="66"/>'; }).join('') +
       '</g>' +
+      '<rect x="' + cellX + '" y="27" width="32" height="38" rx="8" fill="rgba(240,145,127,0.35)" class="clamp-tag"/>' +
+      '<g class="clamp-tag"><text x="' + (fretX - 2) + '" y="100" font-size="20" fill="#C05B45" text-anchor="middle" font-weight="bold">夹这里！</text>' +
+      '<text x="' + (fretX - 2) + '" y="121" font-size="13" fill="#5A4A42" text-anchor="middle" font-weight="bold">第 ' + capo + ' 品</text></g>' +
       '<g transform="translate(' + fretX + ',0)">' +
-      '<g class="capo-clamp"><rect x="-10" y="18" width="20" height="56" rx="7" fill="#FFB08A" stroke="#5A4A42" stroke-width="2.5"/>' +
+      '<g class="capo-clamp"><rect x="-10" y="18" width="20" height="56" rx="7" fill="#F6BFA6" stroke="#5A4A42" stroke-width="2.5"/>' +
       '<rect x="-6" y="24" width="12" height="8" rx="3" fill="#FFF"/></g>' +
       '<g class="paw-move"><text x="18" y="84" font-size="24">🐾</text></g>' +
       '</g>' +
-      '<g class="clamp-tag"><text x="170" y="86" font-size="13" fill="#5A4A42" text-anchor="middle" font-weight="bold">咔哒！夹在第 ' + capo + ' 品</text></g>' +
+      '<g class="clamp-tag"><text x="170" y="16" font-size="13" fill="#5A4A42" text-anchor="middle" font-weight="bold">咔哒！</text></g>' +
       '</svg>';
   }
   function collectBadge(key) {
@@ -4735,14 +4895,14 @@ window.addEventListener('unhandledrejection', function (e) {
       }
       return;
     }
-    var items = filtered.slice(0, histShowAll ? filtered.length : 3);
+    var items = filtered.slice(0, histShowAll ? filtered.length : 0);
     list.innerHTML = items.map(function (it) {
       var d = new Date(it.ts);
       return '<div class="history-item"><div class="hi-key">' + it.keyName + '</div><div class="hi-meta">' + it.badge + ' · 信心 ' + it.conf + ' · ' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + '</div></div>';
     }).join('');
     var tail = '';
     if (histFilter != null) tail += '<button class="btn mini" id="histClear" style="margin-top:8px">✕ 取消筛选（' + NAMES[histFilter] + '）</button>';
-    if (filtered.length > 3) tail += '<button class="btn mini" id="histMore" style="margin-top:8px">' + (histShowAll ? '▲ 收起（最近 3 条）' : '▼ 展开全部 ' + filtered.length + ' 条') + '</button>';
+    tail += '<button class="btn mini" id="histMore" style="margin-top:8px">' + (histShowAll ? '▲ 收起记录' : '📒 查看记录（' + filtered.length + ' 条）') + '</button>';
     list.innerHTML += '<div style="text-align:center">' + tail + '</div>';
     var hc = $('histClear');
     if (hc) hc.addEventListener('click', function () { histFilter = null; renderKeyBadges(); renderHistoryList(); });
@@ -5033,11 +5193,7 @@ window.addEventListener('unhandledrejection', function (e) {
   if (summonBtn) summonBtn.addEventListener('click', summonCat);
   // 软陶猫脸录音按钮
   buildDandelion();
-  // 三个快捷入口
-  var qg = $('quickGame'), qp = $('quickPractice'), qc = $('quickCollect');
-  if (qg) qg.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('practice'); });
-  if (qp) qp.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('practice'); });
-  if (qc) qc.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('mine'); });
+
 })();
 </script>
 
