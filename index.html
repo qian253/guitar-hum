@@ -111,7 +111,16 @@
     to { opacity: 1; transform: none; filter: blur(0); }
   }
   .view { display: none; flex-direction: column; flex: 1; }
-  .view.on { display: flex; animation: viewIn 0.34s cubic-bezier(0.22, 0.9, 0.3, 1) both; }
+  .view.on {
+    display: flex; animation: viewIn 0.34s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+    /* v2.27 修复:视图原本排在 app 容器下方,造成顶部大片空白;
+       改为覆盖层定位,顶栏之下、底栏之上,自带滚动 */
+    position: fixed; left: 0; right: 0; margin: 0 auto; max-width: 430px;
+    top: 0; bottom: calc(78px + env(safe-area-inset-bottom));
+    padding: calc(56px + env(safe-area-inset-top)) 16px 20px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    z-index: 40; background: transparent;
+  }
   @keyframes viewIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
   /* 底部导航（手绘便签风） */
@@ -829,7 +838,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <header>
       <div class="logo"><span class="dot"></span>唱一句 · 定调子</div>
       <h1>哼一句，<em>告诉你调</em></h1>
-      <div class="sub">你唱着舒服的调，它告诉你<br>是什么调 + do 在哪 + 怎么弹</div>
+
     </header>
     <div id="browserWarn"></div>
     <div class="rec-area">
@@ -982,22 +991,22 @@ window.addEventListener('unhandledrejection', function (e) {
 
   <!-- ========== 结果视图（底部导航 · 最近一次测调结果） ========== -->
   <section class="view" id="viewResult">
-    <div class="view-head"><div class="view-title">🎶 最近结果</div></div>
+    <div class="view-head"><div class="view-title">最近结果</div></div>
     <div id="viewResultContent"></div>
   </section>
 
   <!-- ========== 练习视图（音准闯关 · 轻游戏化） ========== -->
   <section class="view" id="viewPractice">
-    <div class="view-head"><div class="view-title">🎮 音准闯关</div></div>
+    <div class="view-head"><div class="view-title">音准闯关</div></div>
     <div class="card" style="margin-top:6px">
-      <div class="card-title">🗺️ 闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
+      <div class="card-title">闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
       <div class="road" id="road"></div>
     </div>
   </section>
 
   <!-- ========== 我的视图 ========== -->
   <section class="view" id="viewMine">
-    <div class="view-head"><div class="view-title">🐱 我的</div></div>
+    <div class="view-head"><div class="view-title">我的</div></div>
     <!-- v2.22.1 我的页合并:陪伴+动物墙+收集册+历史 = 一张卡,省空间 -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">🐱 我的音乐足迹</div>
@@ -1010,7 +1019,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div id="historyList"></div>
     </div>
     <div class="card" style="margin-top:6px">
-      <div class="card-title">⚙️ 设置</div>
+      <div class="card-title">设置</div>
       <div class="settings-row"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
       <div class="settings-row" id="setExpertRow" style="cursor:pointer"><span class="sr-l">🧪 专家判据（显示专业分析）</span><span class="sr-r" id="setExpertVal">关</span></div>
       <div class="settings-row"><span class="sr-l">🎸 回放音色</span>
@@ -4222,7 +4231,7 @@ window.addEventListener('unhandledrejection', function (e) {
   })();
 
   /* ---------- 底部导航 ---------- */
-  var NAV_TITLES = { record: '🎵 哼调', result: '🎶 最近结果', practice: '🎮 音准闯关', mine: '🐱 我的' };
+  var NAV_TITLES = { record: '哼调', result: '最近结果', practice: '音准闯关', mine: '我的' };
   var currentView = 'record';
   var lastFlowScreen = 'screenRecord'; // 测调流程当前停留的屏
   function switchView(name) {
