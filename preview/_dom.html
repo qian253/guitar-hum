@@ -385,10 +385,13 @@
   .melody-chords { background: #FFFFFF; border: 2px solid var(--line); border-radius: var(--radius-sm); padding: 16px; }
   .mc-head { font-size: 13px; font-weight: 800; color: var(--muted); margin-bottom: 12px; }
   .mc-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .mc-chord { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 52px; }
+  .mc-chord { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 74px; }
   .mc-chord .mc-name { font-size: 18px; font-weight: 800; color: var(--ink); }
   .mc-chord .mc-roman { font-size: 11px; color: var(--muted); }
-  .mc-arrow { color: var(--muted); font-size: 16px; }
+  .mc-arrow { color: var(--muted); font-size: 16px; align-self: center; }
+  .mc-diag { width: 54px; }
+  .mc-diag svg { width: 100%; height: auto; }
+  .mc-diag-none { display: flex; align-items: center; justify-content: center; height: 60px; color: var(--muted); }
   .mc-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
   .test-sound-wrap { margin-top: 12px; text-align: center; }
   .test-sound-btn { font-family: var(--font); font-size: 13px; font-weight: 800; color: var(--ink2); background: #FFFFFF; border: 2px solid var(--line); padding: 9px 16px; border-radius: 999px; cursor: pointer; touch-action: manipulation; min-height: 46px; box-shadow: var(--shadow-sm); }
@@ -695,6 +698,15 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.23.1 怎么弹:横向滑动分页(3页) */
+  .play-scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -2px; scrollbar-width: none; }
+  .play-scroll::-webkit-scrollbar { display: none; }
+  .play-slide { min-width: 100%; scroll-snap-align: start; padding: 2px; }
+  .play-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+  .play-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); transition: all .25s; }
+  .play-dots i.on { background: var(--coral); transform: scale(1.35); }
+  .rhythm-tools { text-align: right; margin-bottom: 4px; }
+
   /* v2.23.0 怎么弹:左手/右手分区 */
   .hand-sec { margin-top: 20px; padding: 10px 14px; background: var(--paper3); border-radius: 14px; font-size: 14.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; justify-content: space-between; }
   .hand-sub { font-size: 11.5px; font-weight: 400; color: var(--ink2); }
@@ -797,7 +809,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <!-- 顶部状态栏（模拟原生 App） -->
 <div class="statusbar">
-  <span class="sb-time" id="sbTime">15:21</span>
+  <span class="sb-time" id="sbTime">15:33</span>
   <span class="sb-icons">
     <svg viewBox="0 0 17 12" width="17" height="12"><rect x="0" y="7" width="3" height="5" rx="0.8"></rect><rect x="4.5" y="5" width="3" height="7" rx="0.8"></rect><rect x="9" y="2.5" width="3" height="9.5" rx="0.8"></rect><rect x="13.5" y="0" width="3" height="12" rx="0.8"></rect></svg>
     <svg viewBox="0 0 25 12" width="25" height="12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1"></rect><rect x="2.5" y="2.5" width="15" height="7" rx="1.5"></rect><rect x="22.5" y="3.5" width="2" height="5" rx="1"></rect></svg>
@@ -900,33 +912,40 @@ window.addEventListener('unhandledrejection', function (e) {
         </div>
       </div>
       <div class="tabpanel" id="panelPlay">
-        <!-- v2.23.0 「怎么弹」= 定位 → 左手和弦按法 → 变调夹换算 → 右手节奏型 -->
-        <div class="card-title" id="posCardTitle">do 在吉他的位置</div>
-        <div class="do-list" id="doList"></div>
-        <svg id="fretboard" viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet"></svg>
-        <div class="fb-note">低音 do 是最常用的定位点；练习：先把食指放上去，再顺着唱一遍 do 的位置。</div>
-        <div class="play-box" id="playBox"></div>
-        <div class="play-alt" id="playAlt"></div>
-        <div class="hand-sec">🎸 左手 · 和弦与按法<span class="hand-sub">照图按,横按先跳过也没关系</span></div>
-        <div class="melody-chords" id="melodyChords"></div>
-        <div class="card-title" style="margin-top:14px">常用走向（左右滑动）</div>
-        <div class="prog-scroll" id="progScroll"></div>
-        <div class="prog-dots" id="progDots"></div>
-        <div class="tip" id="progTip"></div>
-            <div class="card" id="capoCard" style="display:none;margin-top:14px">
-      <div class="card-title">🎯 变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
-      <div class="capo-form">
-        <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
-        <div class="capo-arrow">→</div>
-        <div class="capo-col"><span class="k">你想唱的调</span><select id="capoDstSel"></select></div>
+      <div class="play-scroll" id="playScroll">
+        <div class="play-slide">
+          <div class="hand-sec">🎸 左手 · 和弦与按法<span class="hand-sub">第一个走向是按你旋律配的</span></div>
+          <div class="melody-chords" id="melodyChords"></div>
+          <div class="play-box" id="playBox"></div>
+          <div class="play-alt" id="playAlt"></div>
+          <div class="card-title" style="margin-top:14px">想换换口味？备选走向模板（试听,左右滑）</div>
+          <div class="prog-scroll" id="progScroll"></div>
+          <div class="prog-dots" id="progDots"></div>
+          <div class="tip" id="progTip"></div>
+        </div>
+        <div class="play-slide">
+          <div class="hand-sec">🎯 变调夹换算<span class="hand-sub">原调太高就移到自己舒服的调</span></div>
+          <div class="card" id="capoCard" style="display:none;margin-top:12px">
+            <div class="card-title">变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
+            <div class="capo-form">
+              <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
+              <div class="capo-arrow">→</div>
+              <div class="capo-col"><span class="k">你想唱的调</span><select id="capoDstSel"></select></div>
+            </div>
+            <div id="capoResult"></div>
+            <div class="capo-hint">乐理小抄：全音-全音-半音-全音-全音-全音-半音，从 do 顺着数，就能推出任何调的 do re mi。</div>
+          </div>
+        </div>
+        <div class="play-slide">
+          <div class="hand-sec">🎸 右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
+          <div class="rhythm-tools"><button class="btn mini" id="rhythmShuffle">🎲 换一批</button></div>
+          <div class="rhythm-list" id="rhythmList"></div>
+        </div>
       </div>
-      <div id="capoResult"></div>
-      <div class="capo-hint">乐理小抄：全音-全音-半音-全音-全音-全音-半音，从 do 顺着数，就能推出任何调的 do re mi。</div>
+      <div class="play-dots" id="playDots"><i class="on"></i><i></i><i></i></div>
     </div>
-        <div class="hand-sec">🎸 右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
-        <div class="rhythm-list" id="rhythmList"></div>
       </div>
-    </div>
+    </section></div>
 
     <div class="timbre-bar" id="timbreBar" style="display:none">
       <span class="timbre-label">音色</span>
@@ -953,7 +972,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="replay-status" id="replayStatus" style="display:none"></div>
 
 
-  </section>
+  
 
   <!-- ========== 结果视图（底部导航 · 最近一次测调结果） ========== -->
   <section class="view" id="viewResult">
@@ -995,11 +1014,11 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.23.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.23.1</span></div>
     </div>
   </section>
 
-</div>
+
 
 <!-- 底部导航 -->
 <nav class="bottomnav" id="bottomnav">
@@ -2548,7 +2567,7 @@ window.addEventListener('unhandledrejection', function (e) {
       });
 
       // do 位置（问题1）：大调只标 do；小调同时标 la（主音）+ do（关系大调主音）
-      var dl = $('doList'); dl.innerHTML = '';
+      var dl = $('doList'); if (dl) { dl.innerHTML = '';
       var fbGroups = [];
       function doRow(label, pos, isLa) {
         var row = document.createElement('div'); row.className = 'do-row';
@@ -2556,12 +2575,12 @@ window.addEventListener('unhandledrejection', function (e) {
         dl.appendChild(row);
       }
       if (dmode === 'major') {
-        $('posCardTitle').innerHTML = 'do 在吉他的位置 <span class="tag">do = ' + NOTE_NAMES[droot] + '</span>';
+        var pct = $('posCardTitle'); if (pct) pct.innerHTML = 'do 在吉他的位置 <span class="tag">do = ' + NOTE_NAMES[droot] + '</span>';
         entry.doPositions.forEach(function (dp) { doRow(dp.label, dp.pos, false); });
         fbGroups.push({ tag: 'do', color: '#3987e5', positions: entry.doPositions });
       } else {
         var relMajPc2 = (droot + 3) % 12;
-        $('posCardTitle').innerHTML = '主音与 do 定位 <span class="tag">la = ' + NOTE_NAMES[droot] + ' · do = ' + NOTE_NAMES[relMajPc2] + '</span>';
+        var pct2 = $('posCardTitle'); if (pct2) pct2.innerHTML = '主音与 do 定位 <span class="tag">la = ' + NOTE_NAMES[droot] + ' · do = ' + NOTE_NAMES[relMajPc2] + '</span>';
         var laEntry = GM.MINOR[droot];
         var doEntry = GM.MAJOR[relMajPc2];
         laEntry.doPositions.forEach(function (dp) { doRow(dp.label.replace(/do/g, 'la'), dp.pos, true); });
@@ -2569,7 +2588,8 @@ window.addEventListener('unhandledrejection', function (e) {
         fbGroups.push({ tag: 'la', color: '#ec835a', positions: laEntry.doPositions });
         fbGroups.push({ tag: 'do', color: '#3987e5', positions: doEntry.doPositions });
       }
-      drawFretboard(fbGroups);
+        drawFretboard(fbGroups);
+      }
 
       // 怎么弹（问题3）：只推荐 C / G 调简化指法 + 变调夹，不再出现 E 调等复杂指法
       var pb = $('playBox');
@@ -3134,13 +3154,21 @@ window.addEventListener('unhandledrejection', function (e) {
   }
 
   /* ---------- 常用节奏型（问题3）：5323/5321/4321/根音+扫弦，可试听 ---------- */
+  var rhythmCtx = { dmode: 'major', droot: 0, offset: 0 };
   function renderRhythms(dmode, droot) {
+    rhythmCtx.dmode = dmode; rhythmCtx.droot = droot;
     var rec = recommendFingering(dmode, droot);
     var list = $('rhythmList'); list.innerHTML = '';
-    // v2.23.0 推荐 3 个:大调 2 嗨+1 情歌,小调 1 嗨+2 情歌
+    // v2.23.1 推荐 3 个(大调 2 嗨+1 情歌/小调 1 嗨+2 情歌),「换一批」轮换组合
     var hi = RHYTHM_PATTERNS.filter(function (p) { return p.style === '嗨一点'; });
     var lo = RHYTHM_PATTERNS.filter(function (p) { return p.style === '情歌'; });
-    var pick = dmode === 'major' ? hi.slice(0, 2).concat(lo.slice(0, 1)) : hi.slice(0, 1).concat(lo.slice(0, 2));
+    var o = rhythmCtx.offset;
+    var pick;
+    if (dmode === 'major') {
+      pick = [hi[o % hi.length], hi[(o + 1) % hi.length], lo[o % lo.length]];
+    } else {
+      pick = [hi[o % hi.length], lo[o % lo.length], lo[(o + 1) % lo.length]];
+    }
     var lastStyle = null;
     pick.forEach(function (p) {
       if (p.style !== lastStyle) {
@@ -3354,7 +3382,8 @@ window.addEventListener('unhandledrejection', function (e) {
       for (var d = 0; d < diatonic.length; d++) { if (diatonic[d].name === cname) { ci = diatonic[d]; break; } }
       var shapeName = ci ? (shapeSet[ci.deg] || '') : '';
       var score = analysis.melody_alignment['片段' + (i + 1)] ? analysis.melody_alignment['片段' + (i + 1)]['匹配得分'] : '';
-      flow += '<div class="mc-chord" title="匹配得分 ' + score + '"><span class="mc-name">' + cname + '</span><span class="mc-roman">' + (ci ? ci.roman : '') + ' · ' + shapeName + '</span></div>';
+      var diag = (shapeName && CHORD_SHAPES[shapeName]) ? '<div class="mc-diag">' + chordDiagramSVG(CHORD_SHAPES[shapeName]) + '</div>' : '<div class="mc-diag mc-diag-none">?</div>';
+      flow += '<div class="mc-chord" title="匹配得分 ' + score + '"><span class="mc-name">' + cname + '</span>' + diag + '<span class="mc-roman">' + (ci ? ci.roman : '') + (shapeName ? ' · ' + shapeName : '') + '</span></div>';
     });
     var capoNote = rec.capo > 0 ? '（' + rec.shape + ' 调指法夹 ' + rec.capo + ' 品）' : '（' + rec.shape + ' 调开放和弦）';
     el.innerHTML = '<div class="mc-head">根据你的旋律配的和弦（三层模型）</div><div class="mc-flow">' + flow + '</div>' +
@@ -3367,11 +3396,11 @@ window.addEventListener('unhandledrejection', function (e) {
     var s = [];
     for (var i = 0; i < 6; i++) {
       var x = L + i * sw;
-      s.push('<line x1="' + x + '" y1="' + T + '" x2="' + x + '" y2="' + (T + fw * 5) + '" stroke="rgba(255,255,255,0.4)" stroke-width="' + (0.6 + i * 0.12) + '"/>');
+      s.push('<line x1="' + x + '" y1="' + T + '" x2="' + x + '" y2="' + (T + fw * 5) + '" stroke="rgba(90,74,66,0.55)" stroke-width="' + (0.8 + i * 0.12) + '"/>');
     }
     for (var f = 0; f <= 5; f++) {
       var y = T + f * fw;
-      s.push('<line x1="' + L + '" y1="' + y + '" x2="' + (W - R) + '" y2="' + y + '" stroke="rgba(255,255,255,0.16)" stroke-width="' + (f === 0 ? 3 : 1.2) + '"/>');
+      s.push('<line x1="' + L + '" y1="' + y + '" x2="' + (W - R) + '" y2="' + y + '" stroke="rgba(90,74,66,0.28)" stroke-width="' + (f === 0 ? 3 : 1.2) + '"/>');
     }
     for (var i2 = 0; i2 < 6; i2++) {
       var x2 = L + i2 * sw;
@@ -4121,6 +4150,24 @@ window.addEventListener('unhandledrejection', function (e) {
   }
   $('catBuddy').addEventListener('click', hideCat);
 
+  /* ---------- v2.23.1 怎么弹分页圆点 ---------- */
+  (function () {
+    var sc = document.getElementById('playScroll');
+    var dotsBox = document.getElementById('playDots');
+    if (!sc || !dotsBox) return;
+    for (var i = 0; i < 3; i++) {
+      var d = document.createElement('i');
+      if (i === 0) d.className = 'on';
+      dotsBox.appendChild(d);
+    }
+    sc.addEventListener('scroll', function () {
+      var idx = Math.round(sc.scrollLeft / Math.max(1, sc.clientWidth));
+      if (idx < 0) idx = 0; if (idx > 2) idx = 2;
+      var dots = dotsBox.querySelectorAll('i');
+      for (var j = 0; j < dots.length; j++) dots[j].className = j === idx ? 'on' : '';
+    }, { passive: true });
+  })();
+
   /* ---------- 底部导航 ---------- */
   var NAV_TITLES = { record: '🎵 哼调', result: '🎶 最近结果', practice: '🎮 音准闯关', mine: '🐱 我的' };
   var currentView = 'record';
@@ -4154,6 +4201,13 @@ window.addEventListener('unhandledrejection', function (e) {
     if (tb) tb.textContent = NAV_TITLES[name] || NAV_TITLES.record;
     hideCat();
   }
+  (function () {
+    var rs = document.getElementById('rhythmShuffle');
+    if (rs) rs.addEventListener('click', function () {
+      rhythmCtx.offset++;
+      renderRhythms(rhythmCtx.dmode, rhythmCtx.droot);
+    });
+  })();
   var navItems = document.querySelectorAll('.nav-item');
   for (var ni = 0; ni < navItems.length; ni++) {
     (function (item) { item.addEventListener('click', function () { switchView(item.dataset.view); }); })(navItems[ni]);
