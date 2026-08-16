@@ -459,8 +459,8 @@
   @keyframes catCheer { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.08); } }
 
   /* ===== 练习页（音准闯关） ===== */
-  .view-head { text-align: center; margin: 8px 0 12px; }
-  .view-title { font-family: var(--font-hand); font-size: 24px; letter-spacing: 1px; }
+  .view-head { text-align: center; margin: 2px 0 6px; }
+  .view-title { font-family: var(--font-hand); font-size: 20px; letter-spacing: 1px; }
   .view-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
   .road { position: relative; padding: 8px 0 14px; }
   .road-line { position: absolute; left: 50%; top: 14px; bottom: 14px; width: 5px; transform: translateX(-50%); background: repeating-linear-gradient(180deg, var(--line-strong) 0 10px, transparent 10px 18px); border-radius: 3px; }
@@ -982,14 +982,14 @@ window.addEventListener('unhandledrejection', function (e) {
 
   <!-- ========== 结果视图（底部导航 · 最近一次测调结果） ========== -->
   <section class="view" id="viewResult">
-    <div class="view-head"><div class="view-title">🎶 最近结果</div><div class="view-sub">你上一次哼唱的全貌都在这里</div></div>
+    <div class="view-head"><div class="view-title">🎶 最近结果</div></div>
     <div id="viewResultContent"></div>
   </section>
 
   <!-- ========== 练习视图（音准闯关 · 轻游戏化） ========== -->
   <section class="view" id="viewPractice">
-    <div class="view-head"><div class="view-title">🎮 音准闯关</div><div class="view-sub">唱准每一个音，解锁小动物伙伴</div></div>
-    <div class="card" style="margin-top:12px">
+    <div class="view-head"><div class="view-title">🎮 音准闯关</div></div>
+    <div class="card" style="margin-top:6px">
       <div class="card-title">🗺️ 闯关小路 <span class="tag" id="levelTag">第 1 关</span></div>
       <div class="road" id="road"></div>
     </div>
@@ -997,7 +997,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
   <!-- ========== 我的视图 ========== -->
   <section class="view" id="viewMine">
-    <div class="view-head"><div class="view-title">🐱 我的</div><div class="view-sub">与调调猫一起走过的路</div></div>
+    <div class="view-head"><div class="view-title">🐱 我的</div></div>
     <!-- v2.22.1 我的页合并:陪伴+动物墙+收集册+历史 = 一张卡,省空间 -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">🐱 我的音乐足迹</div>
@@ -1009,7 +1009,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="view-sub" style="font-size:11.5px;margin-bottom:6px">大调橙点·小调紫点 — 点徽章看这个调的记录</div>
       <div id="historyList"></div>
     </div>
-    <div class="card" style="margin-top:12px">
+    <div class="card" style="margin-top:6px">
       <div class="card-title">⚙️ 设置</div>
       <div class="settings-row"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
       <div class="settings-row" id="setExpertRow" style="cursor:pointer"><span class="sr-l">🧪 专家判据（显示专业分析）</span><span class="sr-r" id="setExpertVal">关</span></div>
@@ -4334,7 +4334,7 @@ window.addEventListener('unhandledrejection', function (e) {
     var box = $('viewResultContent');
     if (!box) return;
     if (!lastSnapshot) {
-      box.innerHTML = '<div class="empty-state"><div class="es-ic">' + catSvg('happy') + '</div><div class="es-t">还没有测过调哦～</div><div style="margin-top:8px;font-size:13px;color:var(--muted)">去「测调」页按住哼一句，猫等着听呢</div></div>';
+      box.innerHTML = '<div style="padding:6px 2px;font-size:13px;color:var(--muted)">还没有测过调哦～去「测调」页按住哼一句，猫等着听呢</div>';
       return;
     }
     box.innerHTML =
@@ -4989,7 +4989,7 @@ window.addEventListener('unhandledrejection', function (e) {
       });
     }
     if (!filtered.length) {
-      list.innerHTML = '<div class="empty-state"><div class="es-ic">' + (window.__hkCat && window.__hkCat.catSvg ? window.__hkCat.catSvg('normal') : '') + '</div><div class="es-t">' + (histFilter != null ? NAMES[histFilter] + ' 调还没有记录，去哼一句吧' : '还没有记录') + '</div><div class="es-d" style="font-size:12px;color:var(--muted);margin-top:6px">去「测调」页唱一句，猫就记下来啦</div></div>';
+      list.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:2px 0">' + (histFilter != null ? NAMES[histFilter] + ' 调还没有记录，去「测调」页哼一句吧' : '还没有记录，去「测调」页哼一句吧') + '</div>';
       if (histFilter != null) {
         list.innerHTML += '<button class="btn mini" id="histClear" style="margin-top:8px">✕ 取消筛选</button>';
         var hc = $('histClear');
