@@ -171,7 +171,7 @@
   .mic-ring { position: absolute; border-radius: 50%; border: 2.5px dashed var(--peach); opacity: 0; pointer-events: none; }
   .mic-wrap::before, .mic-wrap::after {
     content: ''; position: absolute; border-radius: 50%;
-    border: 2.5px dashed var(--peach); pointer-events: none; opacity: 0.45;
+    border: 2.5px solid rgba(246,191,166,0.55); pointer-events: none; opacity: 0.4;
     animation: ringBreathe 3.4s ease-in-out infinite;
   }
   .mic-wrap::before { inset: 2px; opacity: 0.28; animation-delay: 0s; }
@@ -973,20 +973,16 @@ window.addEventListener('unhandledrejection', function (e) {
   <!-- ========== 我的视图 ========== -->
   <section class="view" id="viewMine">
     <div class="view-head"><div class="view-title">🐱 我的</div><div class="view-sub">与调调猫一起走过的路</div></div>
+    <!-- v2.22.1 我的页合并:陪伴+动物墙+收集册+历史 = 一张卡,省空间 -->
     <div class="card" style="margin-top:12px">
-      <div class="card-title">🔥 连续陪伴</div>
-      <div id="streakLine" style="font-size:13.5px;color:#8A766C;line-height:1.7">还没有记录</div>
-    </div>
-    <div class="card">
-      <div class="card-title">🏆 动物伙伴收集墙</div>
-      <div class="wall" id="wallMine"></div>
-    </div>
-    <!-- v2.22 调性收集册与历史融合:点徽章看这个调的记录 -->
-    <div class="card" style="margin-top:12px">
-      <div class="card-title">🎵 调性收集册 <span class="tag" id="keyBadgeTag">0/12</span></div>
-      <div class="badge-wall" id="keyBadgeWall"></div>
-      <div class="view-sub" style="margin-top:8px;font-size:11.5px">大调橙点·小调紫点 — 点徽章看这个调的记录</div>
-      <div id="historyList" style="margin-top:10px"></div>
+      <div class="card-title">🐱 我的音乐足迹</div>
+      <div id="streakLine" style="font-size:13px;color:#8A766C;line-height:1.7;margin-bottom:12px">还没有记录</div>
+      <div class="view-sub" style="font-size:12px;margin-bottom:6px">🏆 动物伙伴</div>
+      <div class="wall" id="wallMine" style="margin-bottom:14px"></div>
+      <div class="view-sub" style="font-size:12px;margin-bottom:6px">🎵 调性收集册 <span class="tag" id="keyBadgeTag">0/12</span></div>
+      <div class="badge-wall" id="keyBadgeWall" style="margin-bottom:8px"></div>
+      <div class="view-sub" style="font-size:11.5px;margin-bottom:6px">大调橙点·小调紫点 — 点徽章看这个调的记录</div>
+      <div id="historyList"></div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="card-title">⚙️ 设置</div>
@@ -998,7 +994,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.14.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.22.1</span></div>
     </div>
   </section>
 
@@ -5104,62 +5100,10 @@ window.addEventListener('unhandledrejection', function (e) {
     for (var k = 1; k < pts.length; k++) d += 'L' + pts[k][0].toFixed(1) + ' ' + pts[k][1].toFixed(1);
     return d + 'Z';
   }
-  var SVGNS = 'http://www.w3.org/2000/svg';
-  function applySketch(el) {
-    if (!el || el.dataset.sketched) return;
-    if (el.offsetWidth < 24 || el.offsetHeight < 24) return; // 太小不描
-    el.dataset.sketched = '1';
-    var w = el.offsetWidth, h = el.offsetHeight;
-    var svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('class', 'sketch-border');
-    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-    var shadow = document.createElementNS(SVGNS, 'path');
-    shadow.setAttribute('class', 'sketch-shadow');
-    shadow.setAttribute('d', wobblyPath(w, h, 11));
-    svg.appendChild(shadow);
-    var line = document.createElementNS(SVGNS, 'path');
-    line.setAttribute('class', 'draw-line');
-    line.setAttribute('d', wobblyPath(w, h, 7));
-    svg.appendChild(line);
-    try { line.style.setProperty('--len', line.getTotalLength()); } catch (e) {}
-    el.appendChild(svg);
-  }
-  var SKETCH_SEL = '.card, .btn, .rhythm-item, .prog-slide, .history-item, .capo-highlight, .tone-map, .seg-summary, .alt-hint, .melody-chords, .settings-row, .quick-card';
-  function sketchAll(root) {
-    try {
-      var els = (root || document).querySelectorAll(SKETCH_SEL);
-      for (var i = 0; i < els.length; i++) applySketch(els[i]);
-    } catch (e) {}
-  }
-  // 初始描边
-  setTimeout(sketchAll, 150);
-  // 之后新增的元素（结果渲染/切换页）也描边
-  (function () {
-    var obs = new MutationObserver(function (muts) {
-      for (var i = 0; i < muts.length; i++) {
-        for (var j = 0; j < muts[i].addedNodes.length; j++) {
-          var nd = muts[i].addedNodes[j];
-          if (nd.nodeType !== 1) continue;
-          if (nd.matches && nd.matches(SKETCH_SEL)) applySketch(nd);
-          else sketchAll(nd);
-        }
-      }
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-  })();
-  window.addEventListener('resize', function () {
-    // 旋转/缩放后重描（防抖）
-    clearTimeout(window.__sketchRt);
-    window.__sketchRt = setTimeout(function () {
-      var olds = document.querySelectorAll('[data-sketched]');
-      for (var i = 0; i < olds.length; i++) {
-        var sv = olds[i].querySelector(':scope > .sketch-border');
-        if (sv) sv.remove();
-        delete olds[i].dataset.sketched;
-      }
-      sketchAll();
-    }, 300);
-  });
+  // v2.22 手绘描边层已移除(用户反馈:线条太乱)——手绘感由不规则圆角+纸张纹理+水彩块承担,
+  // 同时移除其 MutationObserver(每页少一个全量 DOM 监听,更省电)。
+  function applySketch() {}
+  function sketchAll() {}
 
   /* ---------- 调性文字「被写出来」：逐字显现 ---------- */
   function charReveal(el) {
