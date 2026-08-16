@@ -215,6 +215,62 @@ def _quick_root(notes):
     return best_root, margin
 
 
+# ---------- v2.25.0 P1 三支柱 ----------
+def triad_skeleton_scores(notes):
+    """支柱2·三和弦骨架:每个候选根音的三和弦命中数(软计数,时长占比≥1/6 计满)。
+    最强线索:哪怕只哼了 3 个音,只要构成某三和弦骨架就能锁定根音。"""
+    hist = _build_hist(notes)
+    out = []
+    for root in range(12):
+        maj = sum(min(1.0, hist[(root + x) % 12] * 6.0) for x in (0, 4, 7)) / 3.0
+        mn = sum(min(1.0, hist[(root + x) % 12] * 6.0) for x in (0, 3, 7)) / 3.0
+        out.append(max(maj, mn))
+    return out
+
+
+def tendency_scores(notes):
+    """支柱3·序列倾向(音与音之间的引力,而非统计频率):
+    半音上行→目标音 +0.3(导音解决) / 纯五度下行→目标音 +0.2(V→I) / 纯四度上行→目标音 +0.15(V→I 上行)。
+    时长门:目标音时长 ≥1.5×来源音才计——滤掉经过音(E→F 这类音阶内半音上行
+    不是导音解决,自然小调 5→6、大调 3→4 都是它,不带门会系统性误赞 IV 级)。"""
+    tend = [0.0] * 12
+    pairs = 0
+    for i in range(1, len(notes)):
+        iv = int(round(notes[i]["midi"])) - int(round(notes[i - 1]["midi"]))
+        pairs += 1
+        src_dur = max(0.05, notes[i - 1].get("dur", 0.25))
+        dst_dur = max(0.05, notes[i].get("dur", 0.25))
+        if dst_dur < src_dur * 1.5:
+            continue
+        if iv == 1:
+            tend[_pc(notes[i]["midi"])] += 0.3
+        elif iv == -7:
+            tend[_pc(notes[i]["midi"])] += 0.2
+        elif iv == 5:
+            tend[_pc(notes[i]["midi"])] += 0.15
+    norm = max(0.3, pairs * 0.3)
+    return [min(1.0, t / norm) for t in tend]
+
+
+def interval_plausibility(notes):
+    """音程合理性(全局置信度调制):大二度/大小三度/四五度主导 → 更像旋律;
+    全是半音蠕动 → 更像无调性爬音,信心应降低。
+    (千问原案的「音程直方图与各调典型分布相关」在数学上平移不变、与音级直方图等价,
+    故以全局合理性替代,作用在置信度上。)"""
+    counts = {}
+    total = 0
+    for i in range(1, len(notes)):
+        d = abs(int(round(notes[i]["midi"])) - int(round(notes[i - 1]["midi"]))) % 12
+        if d > 6:
+            d = 12 - d
+        counts[d] = counts.get(d, 0) + 1
+        total += 1
+    if total <= 0:
+        return 1.0
+    melodic = sum(counts.get(d, 0) for d in (2, 3, 4, 5, 7))
+    return melodic / total
+
+
 def detect_modulation(notes, min_half_notes=4, min_margin=0.05):
     """按时间中点分两段各自定根音；两段根音不同且各自有据 → 判定疑似转调/离调。"""
     if len(notes) < 2 * min_half_notes:
@@ -330,28 +386,48 @@ def analyze_tonic(notes, recording_dur=None):
         mn = _corr(hist, _shift(MINOR_PROF, root)) + w_scale * _scale_membership(hist, root, "minor")
         s = max(maj, mn)
         s += w_stab * ((stab[root] - stab_min) / stab_span)
-        if ending_pc == root and last_dur >= 0.5:
-            s += w_ending
+        if ending_pc == root:
+            if last_dur >= 0.8:
+                s += 0.20
+            elif last_dur >= 0.5:
+                s += 0.15
+            else:
+                s += 0.05
         if root in GUILD["major"] or root in GUILD["minor"]:
             s += GUITAR_BIAS
         root_scores.append({"root": root, "major": maj, "minor": mn, "score": s})
-    ordered = sorted(range(12), key=lambda i: -root_scores[i]["score"])
+    # ---- v2.25.0 P1 三支柱融合:0.45×音级统计 + 0.30×三和弦骨架 + 0.25×序列倾向 ----
+    p1_raw = [root_scores[i]["score"] for i in range(12)]
+    p2_raw = triad_skeleton_scores(notes)
+    p3_raw = tendency_scores(notes)
+
+    def _minmax(a):
+        mn = min(a)
+        sp = (max(a) - mn) or 1.0
+        return [(v - mn) / sp for v in a]
+
+    n1, n2, n3 = _minmax(p1_raw), _minmax(p2_raw), _minmax(p3_raw)
+    fused = [0.45 * n1[i] + 0.30 * n2[i] + 0.25 * n3[i] for i in range(12)]
+    ordered = sorted(range(12), key=lambda i: -fused[i])
     best_root = ordered[0]
     second_root = ordered[1]
-    margin = root_scores[best_root]["score"] - root_scores[second_root]["score"]
+    margin = fused[best_root] - fused[second_root]
+    plaus = interval_plausibility(notes)
 
     # ---- 第二步：同根音内定大小调（模块5） ----
     md = decide_mode(notes, best_root, hist)
     mode = md["mode"]
 
     # ---- 置信度 ----
-    confidence = max(0.0, min(1.0, margin / 0.18))
+    confidence = max(0.0, min(1.0, margin / 0.15))
+    confidence = round(confidence * (0.55 + 0.45 * plaus), 3)  # 音程合理性调制
     if total_dur < 3 or n < 5:
         confidence = min(confidence, 0.7)
     if abs(md["major_e"] - md["minor_e"]) < 0.06:
         confidence = min(confidence, 0.6)
-    conf_breakdown = {"margin": round(margin, 4), "base": round(max(0.0, min(1.0, margin / 0.18)), 3),
-                      "short_cap": total_dur < 3 or n < 5, "mode_fuzzy_cap": abs(md["major_e"] - md["minor_e"]) < 0.06}
+    conf_breakdown = {"margin": round(margin, 4), "base": round(max(0.0, min(1.0, margin / 0.15)), 3),
+                      "short_cap": total_dur < 3 or n < 5, "mode_fuzzy_cap": abs(md["major_e"] - md["minor_e"]) < 0.06,
+                      "interval_plausibility": round(plaus, 3)}
 
     # ---- 转调检测（模块4） ----
     modulation = detect_modulation(notes)
@@ -379,6 +455,9 @@ def analyze_tonic(notes, recording_dur=None):
             SPELL[best_root], SPELL[(best_root + 4) % 12], md["major_third"], SPELL[(best_root + 3) % 12], md["minor_third"],
             md["major_triad"], md["minor_triad"], md["leading"], "大调" if mode == "major" else "小调"),
         "根音得分前四：" + " | ".join("%s %.3f" % (SPELL[root_scores[i]["root"]], root_scores[i]["score"]) for i in ordered[:4]),
+        "三支柱：统计=%s 三和弦=%s 倾向=%s(融合判 %s)" % (
+            SPELL[max(range(12), key=lambda i: n1[i])], SPELL[max(range(12), key=lambda i: n2[i])],
+            SPELL[max(range(12), key=lambda i: n3[i])], SPELL[best_root]),
         "音级稳定性模块主音：%s%s" % (SPELL[stab_best],
                                     "小" if _dot(hist, _shift(MINOR_PROF, stab_best)) > _dot(hist, _shift(MAJOR_PROF, stab_best)) else "大"),
     ]
@@ -406,6 +485,14 @@ def analyze_tonic(notes, recording_dur=None):
         "root_scores": sorted([{"root": r["root"], "name": SPELL[r["root"]], "major": round(r["major"], 3),
                                 "minor": round(r["minor"], 3), "score": round(r["score"], 3)} for r in root_scores],
                               key=lambda x: -x["score"]),
+        "pillars": {
+            "p1_statistic": {SPELL[i]: round(n1[i], 3) for i in range(12)},
+            "p2_triad": {SPELL[i]: round(n2[i], 3) for i in range(12)},
+            "p3_tendency": {SPELL[i]: round(n3[i], 3) for i in range(12)},
+            "fused": {SPELL[i]: round(fused[i], 3) for i in range(12)},
+            "weights": {"p1": 0.45, "p2": 0.30, "p3": 0.25},
+            "interval_plausibility": round(plaus, 3),
+        },
         "stability": {"best_root": stab_best, "best_name": SPELL[stab_best]},
         "chew": chew,
         "weights": weights,
