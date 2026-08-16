@@ -699,6 +699,11 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.26 上滑取消态:按钮变灰提示 */
+  .mic.cancel { filter: grayscale(0.7); opacity: 0.72; transform: scale(0.92); }
+  .mic.cancel .t { color: #C96A5A; }
+  .rec-cancel .mic-wrap::before, .rec-cancel .mic-wrap::after { border-color: rgba(201,106,90,0.6); animation-play-state: paused; }
+
   /* v2.23.1 怎么弹:横向滑动分页(3页) */
   .play-scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -2px; scrollbar-width: none; }
   .play-scroll::-webkit-scrollbar { display: none; }
@@ -1015,7 +1020,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.23.1</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.26.0</span></div>
     </div>
   </section>
 
@@ -2140,6 +2145,15 @@ window.addEventListener('unhandledrejection', function (e) {
     liveNote.textContent = '…';
     liveCents.textContent = '';
     if (silent) { setStatus(''); return; } // 权限弹窗期间已松手：静默取消，不分析
+    if (state.cancelling) {
+      // v2.26 上滑取消:丢弃本次录音,不分析
+      state.cancelling = false;
+      state.buf = [];
+      micBtn.classList.remove('cancel');
+      setStatus('已取消，再唱一次吧');
+      if (window.__hkOnCancel) window.__hkOnCancel();
+      return;
+    }
     setStatus('正在分析…');
     setTimeout(analyze, 60);
   }
@@ -3490,19 +3504,47 @@ window.addEventListener('unhandledrejection', function (e) {
   function pressStart(e) {
     if (e.cancelable) e.preventDefault(); // 干掉 300ms 延迟与合成 click，避免点按穿透
     state.pressing = true;
+    state.pressY = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
+    state.cancelMode = false;
     startRecording();
   }
   function pressEnd(e) {
     if (e.cancelable) e.preventDefault();
     state.pressing = false;
-    if (state.recording) stopRecording();
+    if (state.recording) {
+      // 上滑取消 或 系统中断(touchcancel):丢弃录音;正常松手:分析
+      if (state.cancelMode || (e.type === 'touchcancel')) state.cancelling = true;
+      stopRecording();
+    }
+  }
+  // 上滑取消手势:按住后手指上移 70px 进入取消态,回落恢复
+  function pressMove(e) {
+    if (!state.recording) return;
+    var y = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
+    if (!state.cancelMode && state.pressY != null && y < state.pressY - 70) {
+      state.cancelMode = true;
+      micBtn.classList.add('cancel');
+      document.body.classList.add('rec-cancel');
+      micBtn.querySelector('.t').textContent = '松手取消';
+      micBtn.querySelector('.t2').textContent = '这次不唱了';
+      setStatus('已上滑：松手丢弃这次录音');
+    } else if (state.cancelMode && y >= state.pressY - 40) {
+      state.cancelMode = false;
+      micBtn.classList.remove('cancel');
+      document.body.classList.remove('rec-cancel');
+      micBtn.querySelector('.t').textContent = '松开完成';
+      micBtn.querySelector('.t2').textContent = '最长 ' + state.maxRecS + ' 秒';
+      setStatus('');
+    }
   }
   micBtn.addEventListener('touchstart', pressStart, { passive: false });
   micBtn.addEventListener('mousedown', pressStart);
   micBtn.addEventListener('touchend', pressEnd, { passive: false });
   micBtn.addEventListener('touchcancel', pressEnd);
   micBtn.addEventListener('mouseup', pressEnd);
-  micBtn.addEventListener('mouseleave', function () { state.pressing = false; if (state.recording) stopRecording(); });
+  micBtn.addEventListener('touchmove', pressMove, { passive: true });
+  micBtn.addEventListener('mousemove', pressMove);
+  micBtn.addEventListener('mouseleave', function () { state.pressing = false; if (state.recording) { if (state.cancelMode) state.cancelling = true; stopRecording(); } });
   micBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); }); // 长按不弹菜单
   document.addEventListener('keydown', function (e) {
     if (e.code === 'Space' && e.target === document.body) {
@@ -4847,6 +4889,9 @@ window.addEventListener('unhandledrejection', function (e) {
     DND.parts = alive;
     requestAnimationFrame(dandeLoop);
   }
+  window.__hkOnCancel = function () {
+    if (cat.showCat) cat.showCat('没关系，再唱一次喵～', 'tilt', 3000);
+  };
   window.__hkOnRec = function (on) {
     if (on) {
       DND.running = true;
