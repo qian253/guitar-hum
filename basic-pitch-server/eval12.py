@@ -9,7 +9,12 @@ import sys
 import tonic_engine as te
 
 DATA = json.load(open("C:/Users/keyou/Downloads/哼唱标注数据.json", encoding="utf-8"))
-SAMPLES = DATA[16:28]
+# v2 测试集(2026-08-17 20:40~21:00 小星星模板录制):最后 22 条取每调最后一录
+_PICKS = [40, 41, 44, 46, 50, 51, 52, 54, 56, 58, 60, 61]
+SAMPLES = [DATA[i] for i in _PICKS]
+# v1 旧测试集(17:22~17:34 自由即兴,内容多与标签不符,作压力集):
+OLD_PICKS = list(range(16, 28))
+SAMPLES_V1 = [DATA[i] for i in OLD_PICKS]
 
 def norm_notes(raw):
     out = []
@@ -40,7 +45,7 @@ def content_fit(notes, root):
 def eval_all():
     hits = root_hits = 0
     print(f"{'#':>3} {'标注':>5} {'检测':<12} {'主音':>4} {'conf':>5} {'成员占比':>7} {'主音占比':>7}")
-    for i in range(12):
+    for i in range(len(SAMPLES)):
         item = SAMPLES[i]
         tr = item["truth"]["root"]
         notes = norm_notes(item["notes"] or [])
@@ -52,7 +57,7 @@ def eval_all():
         mem, tshare = content_fit(notes, tr)
         print(f"[{i:>2}] {te.DISPLAY[tr]:>5} {r['keyName']:<12} {'✓' if ok_r else '✗':>4} {r['confidence']:>5.0%} {mem:>7.0%} {tshare:>7.0%}")
     print("-" * 60)
-    print(f"主音命中 {root_hits}/12 = {root_hits/12:.1%} | 全对 {hits}/12 = {hits/12:.1%}")
+    print(f"主音命中 {root_hits}/{len(SAMPLES)} = {root_hits/len(SAMPLES):.1%} | 全对 {hits}/{len(SAMPLES)} = {hits/len(SAMPLES):.1%}")
     return hits, root_hits
 
 def eval_one(idx):

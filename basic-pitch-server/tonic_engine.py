@@ -37,6 +37,10 @@ STABILITY_WEIGHT = 0.10
 ENDING_BONUS = 0.15
 GUITAR_BIAS = 0.02
 ENDING_MAX_MULT = 1.5
+OPENING_BONUS_STRONG = 0.35   # 起始长音主音加成(镜像结束音:人唱歌常以主音起调)
+OPENING_BONUS_MID = 0.25
+OPENING_BONUS_WEAK = 0.05
+FUSION_W = (0.45, 0.30, 0.25)  # P1统计/P2三和弦/P3倾向 融合权重(实验可调)
 
 
 def _norm(p):
@@ -178,20 +182,44 @@ def _amp_weight(n, amp_mean):
     return d * max(0.3, min(2.0, a / amp_mean))
 
 
-# ---------- 大小调判定（同根音二选一；小调须明显占优 ×1.5） ----------
+# ---------- 大小调判定（同根音二选一；小调须明显占优 ×1.25） ----------
+def _third_energy_cents(notes, root, is_major):
+    """三度能量(音分感知版):人声的 mi/降mi 常有 ±40~80 音分偏移,四舍五入进直方图
+    会把「略低的大三度」全丢进小三度(12 条实测 3 例大调被判小调的真凶)。
+    按每音与目标三度的音分距离软计数:≤75 音分计入,权重 1-|cents|/75。"""
+    third_pc = (root + 4) % 12 if is_major else (root + 3) % 12
+    e = 0.0
+    for n in notes:
+        m = n["midi"]
+        r = round(m)
+        d = ((r % 12) - third_pc + 12) % 12
+        if d > 6:
+            d -= 12
+        cents = d * 100 + (m - r) * 100  # 音分距离(带方向)
+        if abs(cents) < 75:
+            e += max(0.05, n.get("dur", 0.25)) * (1 - abs(cents) / 75)
+    return e
+
+
 def decide_mode(notes, root, hist):
-    major_third = hist[(root + 4) % 12]
-    minor_third = hist[(root + 3) % 12]
+    major_third = _third_energy_cents(notes, root, True)
+    minor_third = _third_energy_cents(notes, root, False)
     major_triad = hist[root] + hist[(root + 4) % 12] + hist[(root + 7) % 12]
     minor_triad = hist[root] + hist[(root + 3) % 12] + hist[(root + 7) % 12]
     leading = 0
     for i in range(1, len(notes)):
         if _pc(notes[i - 1]["midi"]) == (root + 11) % 12 and _pc(notes[i]["midi"]) == root:
             leading += 1
+    # 三度能量归一:与直方图里的三度项同量级比较(直方图是归一化概率,这里换算成占比)
+    total_w = sum(max(0.05, n.get("dur", 0.25)) for n in notes)
+    if total_w > 0:
+        major_third = major_third / total_w
+        minor_third = minor_third / total_w
     major_e = major_third * 2 + (major_triad - minor_triad) * 0.4 + leading * 0.4
     minor_e = minor_third * 2 + (minor_triad - major_triad) * 0.4
-    # v2.25.6 minor 阈值 1.25→1.5:哼唱音准漂移常致小三度虚高
-    mode = "minor" if minor_e > major_e * 1.5 else "major"
+    # 回滚 v2.25.6:1.5× 基于「音准漂移致小三度虚高」的错误前提(实测音准准确,漂移假设不成立),
+    # 且把 5 个小调合成用例全部打坏。恢复 1.25×。
+    mode = "minor" if minor_e > major_e * 1.25 else "major"
     return {
         "mode": mode, "major_third": major_third, "minor_third": minor_third,
         "major_triad": major_triad, "minor_triad": minor_triad, "leading": leading,
@@ -232,8 +260,8 @@ def triad_skeleton_scores(notes):
 def tendency_scores(notes):
     """支柱3·序列倾向(音与音之间的引力,而非统计频率):
     半音上行→目标音 +0.3(导音解决) / 纯五度下行→目标音 +0.2(V→I) / 纯四度上行→目标音 +0.15(V→I 上行)。
-    时长门:目标音时长 ≥1.0×来源音才计(v2.25.1: 1.5×→1.0× 放宽,
-    阶段四诊断显示原门控命中率仅 3.5%、5/12 样本完全无 P3 信号)。"""
+    时长门:目标音时长 ≥2.0×来源音才计(v2.33.2:1.0×→2.0×——小星星实测 1.0× 把
+    「主音→属音」的旋律下行误当 V→I 解决,给属音方向加分把 C# 大调样本判成 F#)。"""
     tend = [0.0] * 12
     pairs = 0
     for i in range(1, len(notes)):
@@ -241,7 +269,7 @@ def tendency_scores(notes):
         pairs += 1
         src_dur = max(0.05, notes[i - 1].get("dur", 0.25))
         dst_dur = max(0.05, notes[i].get("dur", 0.25))
-        if dst_dur < src_dur * 1.0:
+        if dst_dur < src_dur * 2.0:
             continue
         if iv == 1:
             tend[_pc(notes[i]["midi"])] += 0.3
@@ -343,6 +371,10 @@ def analyze_tonic(notes, recording_dur=None):
     trailing_silence = max(0.0, (recording_dur or 0) - (last.get("end") or 0))
     ending_mult = ENDING_MAX_MULT if (last_dur > 0.5 and trailing_silence >= 0.3 and total_dur > 5) else 1.0
     ending_pc = _pc(last["midi"])
+    # 起始长音(镜像结束音:人唱歌常以主音起调,起始长音是主音的强信号)
+    first = notes[0]
+    first_dur = max(0.05, first.get("dur", 0.25))
+    first_pc = _pc(first["midi"])
 
     # 重心音（时长×振幅；无振幅退化为纯时长）
     amps = [n.get("amplitude", 0.0) or n.get("amp", 0.0) or 0.0 for n in notes]
@@ -394,6 +426,13 @@ def analyze_tonic(notes, recording_dur=None):
                 s += 0.15
             else:
                 s += 0.05
+        if first_pc == root:
+            if first_dur >= 0.8:
+                s += OPENING_BONUS_STRONG
+            elif first_dur >= 0.5:
+                s += OPENING_BONUS_MID
+            else:
+                s += OPENING_BONUS_WEAK
         if root in GUILD["major"] or root in GUILD["minor"]:
             s += GUITAR_BIAS
         root_scores.append({"root": root, "major": maj, "minor": mn, "score": s})
@@ -425,7 +464,13 @@ def analyze_tonic(notes, recording_dur=None):
         return [(v - mn) / sp for v in a]
 
     n1, n2, n3 = _minmax(p1_raw), _minmax(p2_raw), _minmax(p3_raw)
-    fused = [0.45 * n1[i] + 0.30 * n2[i] + 0.25 * n3[i] for i in range(12)]
+    # P2 三和弦骨架长度门控(12 条小星星实测:旋律音符集合≠和弦,≥9 音的自然旋律同时命中
+    # 主三和弦与 IV 级三和弦,P2 满权重是最大误判源;它只对 3~5 音极短输入有效)
+    w2_scale = 1.0 if n <= 5 else (0.5 if n <= 8 else 0.1667)
+    w2 = 0.30 * w2_scale
+    w1 = 0.45 + 0.30 * (1 - w2_scale)  # P2 让出的权重归 P1
+    w3 = FUSION_W[2]
+    fused = [w1 * n1[i] + w2 * n2[i] + w3 * n3[i] for i in range(12)]
     ordered = sorted(range(12), key=lambda i: -fused[i])
     best_root = ordered[0]
     second_root = ordered[1]
