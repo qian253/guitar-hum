@@ -223,7 +223,7 @@
   .live .cents.on { color: var(--good); }
   .live .stamp { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .bar { width: 100%; max-width: 260px; height: 6px; background: var(--line); border-radius: 3px; margin: 10px auto 0; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--peach), var(--coral)); border-radius: 3px; transition: width 0.08s linear; }
+  .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--mint), #7BAF88); border-radius: 3px; transition: width 0.08s linear; }
   .wave-wrap { display: none; width: 100%; max-width: 320px; height: 58px; margin: 12px auto 0; border-radius: var(--radius-sm); overflow: hidden; background: #FFFFFF; border: 2px solid var(--line); }
   .wave-wrap.show { display: block; }
   #wave { width: 100%; height: 100%; display: block; }
@@ -721,11 +721,10 @@
   @media (prefers-reduced-motion: reduce) { .scene-float, .rec-live #sceneCat { animation: none; } }
   .rhythm-diag { width: 150px; height: auto; flex-shrink: 0; }
 
-  /* v2.29 手绘场景升级(参考治愈系专注App设计语言) */
+  /* v2.29/v2.31 手绘场景(黄油暖底+音乐小屋) */
   #screenRecord { background: linear-gradient(180deg, var(--paper) 0%, #F7E6C0 58%, rgba(242,211,136,0.85) 130%); }
-    .scene-area { margin-top: auto; margin-bottom: 2px; padding: 0 10px; opacity: 0.96; pointer-events: none; max-height: 96px; overflow: hidden; }
+  .scene-area { margin-top: auto; margin-bottom: 2px; padding: 0 10px; opacity: 0.96; pointer-events: none; }
   .scene-area svg { width: 100%; height: auto; display: block; }
-  @media (prefers-reduced-motion: reduce) { .scene-area { opacity: 0.5; } }
 
   /* v2.28 线性图标 */
   .icon { vertical-align: -3px; margin-right: 4px; flex-shrink: 0; }
@@ -952,7 +951,10 @@ window.addEventListener('unhandledrejection', function (e) {
         <text x="148" y="58" font-size="16" fill="#F0917F" class="scene-float">♫</text>
         <text x="206" y="42" font-size="14" fill="#C9B3E9" class="scene-float sf2">♪</text>
       </svg>
-    </div></div>
+    </div>
+    <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
+    <div id="dailyCard">
+      <div class="dc-ic"><i class="ic" data-ic="calendar" data-ic-sz="22"></i></div>
       <div class="dc-body">
         <div class="dc-title" id="dailyTitle">今日一调</div>
         <div class="dc-sub" id="dailySub">跟着示范哼一句小星星</div>
@@ -2015,15 +2017,39 @@ window.addEventListener('unhandledrejection', function (e) {
     ]
   };
   var RHYTHM_PATTERNS = [
-  { id: 'pop-strum', name: '流行扫弦', type: 'strum', strings: [], tag: '↓ ↓↑ ↑↓↑', desc: '弹唱最常用,欢快带感', style: '嗨一点' },
-  { id: 'root-strum', name: '根音+扫弦', type: 'strum', strings: [], tag: '根 ↓ 根 ↓', desc: '一拍根音一拍扫,稳又嗨', style: '嗨一点' },
-  { id: 'palm-strum', name: '闷音扫弦', type: 'strum', strings: [], tag: '↓↑ 闷↓↑ 闷', desc: '手掌轻压琴桥,节奏感强', style: '嗨一点' },
-  { id: 'rock-8th', name: '八分扫弦', type: 'strum', strings: [], tag: '↓↑↓↑ ↓↑↓↑', desc: '摇滚/民谣快歌首选', style: '嗨一点' },
-  { id: '5323', name: '5323 分解', type: 'pluck', strings: [5, 3, 2, 3], tag: '5 3 2 3', desc: '最温柔的分解,慢歌万能', style: '情歌' },
-  { id: '5321', name: '5321 分解', type: 'pluck', strings: [5, 3, 2, 1], tag: '5 3 2 1', desc: '分解到高音,清澈透亮', style: '情歌' },
-  { id: '4321', name: '4321 分解', type: 'pluck', strings: [4, 3, 2, 1], tag: '4 3 2 1', desc: '从四弦起,中音区更暖', style: '情歌' },
-  { id: 'waltz', name: '三拍子', type: 'pluck', strings: [5, 3, 2], tag: '5 3 2', desc: '华尔兹感,适合圆舞曲风', style: '情歌' }
-];;
+  /* ---- 嗨一点(扫弦/律动) ---- */
+  { id: 'pop-strum', name: '流行扫弦', type: 'strum', strings: [], tag: '下 下上 上下上 下', desc: '弹唱万能,欢快带感', style: '嗨一点', beats: 4 },
+  { id: 'slow-rock', name: '慢摇滚', type: 'strum', strings: [], tag: '下 上下上 下上下 下', desc: '经典慢摇,情绪推进', style: '嗨一点', beats: 4 },
+  { id: 'chop-strum', name: '切音扫弦', type: 'strum', strings: [], tag: '下切 上切 下切 上切', desc: '手掌切音,节奏感爆棚', style: '嗨一点', beats: 4 },
+  { id: 'rock-8th', name: '摇滚八分', type: 'strum', strings: [], tag: '下上 下上 下上 下上', desc: '摇滚/快歌首选', style: '嗨一点', beats: 4 },
+  { id: 'country', name: '乡村根扫', type: 'strum', strings: [], tag: '根 下 根 下', desc: '根音+扫弦,轻快摇摆', style: '嗨一点', beats: 4 },
+  { id: 'folk-16', name: '民谣十六分', type: 'strum', strings: [], tag: '下上下上 下上下上 下上下上 下上下上', desc: '密集十六分,民谣快歌', style: '嗨一点', beats: 4 },
+  { id: 'sync-heavy', name: '重扫切分', type: 'strum', strings: [], tag: '下 下上 下 上切', desc: '切分重音,很带感', style: '嗨一点', beats: 4 },
+  { id: 'funk', name: '放克闷扫', type: 'strum', strings: [], tag: '闷上 下 闷上 下', desc: '闷音律动,复古放克', style: '嗨一点', beats: 4 },
+  { id: 'march', name: '进行曲感', type: 'strum', strings: [], tag: '下 下 下 下上', desc: '坚定有力', style: '嗨一点', beats: 4 },
+  { id: 'waltz-fast', name: '三拍子舞曲', type: 'strum', strings: [], tag: '下 下上 下', desc: '3/4 华尔兹,转圈感', style: '嗨一点', beats: 3 },
+  { id: 'reggae', name: '雷鬼反拍', type: 'strum', strings: [], tag: '闷 下 闷 下', desc: '反拍律动,慵懒摇摆', style: '嗨一点', beats: 4 },
+  { id: 'power', name: '强力扫弦', type: 'strum', strings: [], tag: '下 下 闷下 下', desc: '力量型副歌', style: '嗨一点', beats: 4 },
+  { id: 'folk-fast', name: '民谣快歌', type: 'strum', strings: [], tag: '下 下 上 下上', desc: '简单有力的快歌', style: '嗨一点', beats: 4 },
+  { id: 'sync-slow', name: '切分慢摇', type: 'strum', strings: [], tag: '下 闷 下上 闷', desc: '切分+闷音,高级感', style: '嗨一点', beats: 4 },
+  { id: 'party', name: '派对扫弦', type: 'strum', strings: [], tag: '下上 下 下上 下', desc: '聚会气氛组', style: '嗨一点', beats: 4 },
+  /* ---- 情歌(分解/抒情) ---- */
+  { id: 'gen323', name: '根三二三', type: 'pluck', strings: [], tag: '根 3 2 3', desc: '最温柔的基础分解', style: '情歌', beats: 4 },
+  { id: 'gen321', name: '根三二一', type: 'pluck', strings: [], tag: '根 3 2 1', desc: '分解到高音,清澈透亮', style: '情歌', beats: 4 },
+  { id: 'gen32313', name: '根三二三一三', type: 'pluck', strings: [], tag: '根 3 2 3 1 3', desc: '6/8 流动感,适合慢歌', style: '情歌', beats: 6 },
+  { id: 'arpeggio-up', name: '琶音上行', type: 'pluck', strings: [], tag: '根 2 3 1', desc: '层层上行,情绪上扬', style: '情歌', beats: 4 },
+  { id: 'arpeggio-down', name: '琶音下行', type: 'pluck', strings: [], tag: '根 1 2 3', desc: '缓缓下行,安静收尾', style: '情歌', beats: 4 },
+  { id: 'eight-pluck', name: '八分分解', type: 'pluck', strings: [], tag: '根 3 2 3 1 3 2 3', desc: '八分音符流动', style: '情歌', beats: 4 },
+  { id: 'double-stop', name: '双音分解', type: 'pluck', strings: [], tag: '根2 根3 根2 根3', desc: '双音和声,更丰满', style: '情歌', beats: 4 },
+  { id: 'waltz-pluck', name: '三拍子分解', type: 'pluck', strings: [], tag: '根 3 2', desc: '3/4 华尔兹分解', style: '情歌', beats: 3 },
+  { id: 'waltz-lyric', name: '三拍子抒情', type: 'pluck', strings: [], tag: '根 2 1', desc: '抒情华尔兹', style: '情歌', beats: 3 },
+  { id: 'finger-roll', name: '轮指分解', type: 'pluck', strings: [], tag: '3 2 1 2 3 2 1 2', desc: '轮指流畅,像流水', style: '情歌', beats: 4 },
+  { id: 'bass-line', name: '低音线条', type: 'pluck', strings: [], tag: '根 2 3 5 3 2', desc: '6/8 低音旋律线', style: '情歌', beats: 6 },
+  { id: 'thumb-2', name: '拇指二指法', type: 'pluck', strings: [], tag: '根 2 3 1 2 3', desc: '6/8 经典指弹', style: '情歌', beats: 6 },
+  { id: 'harmonic-ish', name: '轻透分解', type: 'pluck', strings: [], tag: '3 1 2 1', desc: '高音区轻透', style: '情歌', beats: 4 },
+  { id: 'waltz-root', name: '圆舞曲', type: 'pluck', strings: [], tag: '根 3 2', desc: '三拍子圆舞曲', style: '情歌', beats: 3 },
+  { id: 'gen4321', name: '根四三二一', type: 'pluck', strings: [], tag: '根 4 3 2 1', desc: '五连分解,柔和铺陈', style: '情歌', beats: 4 }
+];;;
   // 简谱/旋律转录参数：比定调更敏感、更忠实，逐音保留（问题2）
   var JIANPU_OPTS = { minConf: 0.5, minLen: 0.08, leaveCents: 0.5, enterCents: 0.3, leaveMs: 60, unvoicedMs: 100, mergeSlop: 0.05, maxNoteDur: 8 };
 
@@ -3269,29 +3295,14 @@ window.addEventListener('unhandledrejection', function (e) {
     return Math.max(0.62, Math.min(0.95, (base || 0.9) - (midi - 60) * 0.006));
   }
   function playTone(midi, dur) { stopAllTones(); ensureAudioStarted().then(function () { playNote(midi, 0.03, dur, velByPitch(midi, 0.9)); }); }
-  function strumChord(voicing, offset, gap, vel) {
-    var strs = [6, 5, 4, 3, 2, 1], k = 0;
-    for (var i = 0; i < 6; i++) {
-      var m = voicing[strs[i]];
-      if (m == null) continue;
-      // 下扫自然强弱：低音弦略重、高音弦略轻
-      playNote(m, offset + k * gap + humanize(0.006), 0.2, (vel || 0.75) * (1 - k * 0.06));
-      k++;
-    }
-  }
 
   /* ---------- 常用节奏型（问题3）：5323/5321/4321/根音+扫弦，可试听 ---------- */
   var rhythmCtx = { dmode: 'major', droot: 0, offset: 0 };
   // v2.30 节奏图:拍点+符号的简易节奏谱(分解=弦号,扫弦=方向)
   function rhythmDiagramSVG(p) {
     var beats = 4, boxW = 42, h = 30;
-    var toks = [];
-    if (p.type === 'strum') {
-      toks = String(p.tag || '↓ ↓↑ ↑↓↑').split(/\s+/).slice(0, beats);
-      while (toks.length < beats) toks.push('↓');
-    } else {
-      toks = (p.strings || [5, 3, 2, 3]).slice(0, beats).map(String);
-    }
+    var toks = String(p.tag || '下 下上 上下上 下').trim().split(/\s+/).slice(0, beats);
+    while (toks.length < beats) toks.push(p.type === 'strum' ? '下' : '3');
     var out = '';
     for (var i = 0; i < beats; i++) {
       out += '<text x="' + (i * boxW + boxW / 2) + '" y="' + (h / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#4E4338">' + toks[i] + '</text>';
@@ -3352,28 +3363,66 @@ window.addEventListener('unhandledrejection', function (e) {
     await ensureAudioStarted();
     await waitSampler(2000);
     var voicing = SHAPE_VOICING[shapeName];
-    var eighth = 0.24, t = 0.05, bars = 2;
-    if (p.type === 'strum') {
-      var rootString = shapeName === 'C' ? 5 : 6;
-      for (var bar = 0; bar < bars; bar++) {
-        playNote(voicing[rootString], t, eighth * 2, 0.95);                     // 根音：重
-        strumChord(voicing, t + eighth * 2 + humanize(0.012), 0.04, 0.6);      // 扫弦：轻
-        t += eighth * 4;
+    var rootString = shapeName === 'C' ? 5 : 6;
+    var rootMidi = voicing[rootString];
+    var beat = 0.46, t = 0.05, bars = 2;
+    var toks = String(p.tag || '').trim().split(/\s+/);
+    if (!toks.length) toks = p.type === 'strum' ? ['下', '下上', '上下上', '下'] : ['根', '3', '2', '3'];
+    function playDown(off, vel, gap) {
+      strumChord(voicing, off, gap || 0.028, vel, 1);
+    }
+    function playUp(off, vel, gap) {
+      strumChord(voicing, off, gap || 0.022, vel, -1);
+    }
+    function playTok(tok, off) {
+      // 分解双音:根2 形式
+      var m2 = tok.match(/^根(\d)$/);
+      if (m2) {
+        playNote(rootMidi, off, beat * 0.8, 0.8);
+        var mm = voicing[parseInt(m2[1], 10)];
+        if (mm != null) playNote(mm, off + humanize(0.01), beat * 0.7, 0.6);
+        return;
       }
-    } else {
-      for (var bar2 = 0; bar2 < bars; bar2++) {
-        for (var i = 0; i < p.strings.length; i++) {
-          var m = voicing[p.strings[i]];
-          if (m == null) { t += eighth; continue; }
-          // 4/4 强弱次强弱：每小节第 1 拍最重；根音重、分解音轻
-          var isDownbeat = (i % 4 === 0);
-          var vel = isDownbeat ? 0.9 : (i % 2 === 0 ? 0.72 : 0.6);
-          playNote(m, t + humanize(0.008), eighth * 0.9, vel);
-          t += eighth;
-        }
+      if (tok === '根') { playNote(rootMidi, off, beat * 0.9, 0.85); return; }
+      if (/^[1-6]$/.test(tok)) {
+        var m3 = voicing[parseInt(tok, 10)];
+        if (m3 != null) playNote(m3, off + humanize(0.008), beat * 0.8, 0.62);
+        return;
       }
+      if (tok === '下') { playDown(off, 0.8); return; }
+      if (tok === '上') { playUp(off, 0.6); return; }
+      if (tok === '闷') { strumChord(voicing, off, 0.03, 0.35, 1); return; }
+      if (tok === '切') { strumChord(voicing, off, 0.02, 0.5, 1); return; }
+      if (tok === '下上') { playDown(off, 0.75); playUp(off + beat / 2, 0.55); return; }
+      if (tok === '上下') { playUp(off, 0.55); playDown(off + beat / 2, 0.7); return; }
+      if (tok === '下切') { playDown(off, 0.7, 0.02); return; }
+      if (tok === '上切') { playUp(off, 0.5, 0.02); return; }
+      if (tok === '闷上') { strumChord(voicing, off, 0.03, 0.35, 1); playUp(off + beat / 2, 0.55); return; }
+      if (tok === '闷下') { strumChord(voicing, off, 0.03, 0.35, 1); playDown(off + beat / 2, 0.65); return; }
+      if (tok === '上下上') { playUp(off, 0.5); playDown(off + beat / 3, 0.65); playUp(off + beat * 2 / 3, 0.55); return; }
+      if (tok === '下上下') { playDown(off, 0.7); playUp(off + beat / 3, 0.5); playDown(off + beat * 2 / 3, 0.65); return; }
+      if (tok === '下上下上') { playDown(off, 0.7); playUp(off + beat / 4, 0.5); playDown(off + beat / 2, 0.65); playUp(off + beat * 3 / 4, 0.55); return; }
+      // 兜底:单下扫
+      playDown(off, 0.7);
+    }
+    for (var bar = 0; bar < bars; bar++) {
+      for (var k = 0; k < toks.length; k++) {
+        playTok(toks[k], t + humanize(0.008));
+        t += beat;
+      }
+      t += 0.06; // 小节间换气
     }
     return Math.round(t * 1000) + 300;
+  }
+
+  function strumChord(voicing, offset, gap, vel, dir) {
+    var strs = dir >= 0 ? [6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6], k = 0;
+    for (var i = 0; i < 6; i++) {
+      var m = voicing[strs[i]];
+      if (m == null) continue;
+      playNote(m, offset + k * gap + humanize(0.006), 0.2, (vel || 0.75) * (1 - k * 0.06));
+      k++;
+    }
   }
 
   /* ---------- 常用和弦走向（问题4）：指法图 + 滑动 + 风格 + 试听 ---------- */
