@@ -745,7 +745,6 @@
   /* v2.28 线性图标 */
   .icon { vertical-align: -3px; margin-right: 4px; flex-shrink: 0; }
   .btn .icon, .tab .icon, .hand-sec .icon, .card-title .icon { vertical-align: -2px; }
-  #catSummon .icon { margin: 0; }
 
   /* v2.26 上滑取消态:按钮变灰提示 */
   .mic.cancel { filter: grayscale(0.7); opacity: 0.72; transform: scale(0.92); }
@@ -791,11 +790,27 @@
   .ch-capo { color: var(--coral-deep); }
   .ch-key { color: var(--coral-deep); }
 
-  /* v2.20.3 召唤猫按钮:呆在猫出场的位置,猫来了盖住它 */
-  #catSummon { position: fixed; right: 18px; bottom: calc(142px + env(safe-area-inset-bottom)); z-index: 79; width: 46px; height: 46px; border-radius: 50%; background: #FFF9F0; border: 2.5px solid #5A4A42; font-size: 21px; cursor: pointer; box-shadow: 0 6px 16px rgba(90,74,66,.25); animation: summonBob 3s ease-in-out infinite; padding: 0; }
-  @keyframes summonBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-  #catSummon:active { transform: scale(0.88); }
-  @media (prefers-reduced-motion: reduce) { #catSummon { animation: none; } }
+  /* v2.34.0 调调猫 AI Agent 浮标:同一只猫的化身,默认=睡觉中的猫耳朵(纯内联SVG,手绘线条) */
+  #agentFloat { position: fixed; right: 24px; bottom: calc(24px + 76px + env(safe-area-inset-bottom)); z-index: 95; width: 54px; height: 46px; background: transparent; border: none; padding: 0; cursor: pointer; animation: afBreath 2s ease-in-out infinite; transform-origin: 50% 100%; -webkit-tap-highlight-color: transparent; }
+  @keyframes afBreath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  #agentFloat svg { width: 100%; height: 100%; overflow: visible; }
+  #agentFloat .af-ear-l { transform-origin: 15px 26px; }
+  #agentFloat .af-ear-r { transform-origin: 39px 26px; }
+  #agentFloat:hover .af-ear-l { animation: afEarL 0.35s ease-out 1; }
+  #agentFloat:hover .af-ear-r { animation: afEarR 0.35s ease-out 1; }
+  @keyframes afEarL { 0%, 100% { transform: rotate(0deg); } 45% { transform: rotate(-14deg); } }
+  @keyframes afEarR { 0%, 100% { transform: rotate(0deg); } 45% { transform: rotate(14deg); } }
+  #agentFloat.on { animation: none; transform: scale(0.5); opacity: 0; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { #agentFloat { animation: none; } #agentFloat:hover .af-ear-l, #agentFloat:hover .af-ear-r { animation: none; } }
+
+  /* Agent 弹层:同一只猫 + 手绘虚线对话气泡 */
+  #agentPop { position: fixed; right: 18px; bottom: calc(24px + 76px + env(safe-area-inset-bottom)); z-index: 94; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 252px; transform: translateY(14px); opacity: 0; pointer-events: none; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s; }
+  #agentPop.show { transform: none; opacity: 1; pointer-events: auto; }
+  #agentBubble { background: #FFFDF6; border: 2px dashed #DCCBAA; border-radius: 18px 18px 18px 6px; padding: 10px 14px; font-size: 13px; line-height: 1.7; color: var(--ink); font-weight: 600; box-shadow: 0 6px 16px rgba(90, 74, 66, 0.14); max-width: 250px; text-align: left; position: relative; }
+  #agentBubble .ap-tail { position: absolute; right: 30px; bottom: -8px; width: 13px; height: 13px; background: #FFFDF6; border-right: 2px dashed #DCCBAA; border-bottom: 2px dashed #DCCBAA; transform: rotate(45deg); border-radius: 0 0 4px 0; }
+  #agentBubble .ap-typing { color: var(--muted); letter-spacing: 2px; }
+  #agentCat { width: 74px; height: 74px; margin-right: 12px; filter: drop-shadow(0 6px 12px rgba(214, 150, 120, 0.3)); }
+  #agentCat svg { width: 100%; height: 100%; }
 
   /* v2.20.2 调性名一笔一笔写出来(逐字弹出+手绘下划线描出) */
   .kw-char { display: inline-block; opacity: 0; animation: charWrite 0.5s cubic-bezier(.2,1.4,.4,1) forwards; }
@@ -1106,6 +1121,11 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="card-title">设置</div>
       <div class="settings-row"><span class="sr-l">专业模式（显示真实调性）</span><span class="sr-r" id="setProVal">关</span></div>
       <div class="settings-row" id="setExpertRow" style="cursor:pointer"><span class="sr-l">🧪 专家判据（显示专业分析）</span><span class="sr-r" id="setExpertVal">关</span></div>
+      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <span class="sr-l">🐱 AI 助手（可选，智谱 GLM）</span>
+        <input id="setAgentKey" type="password" autocomplete="off" placeholder="粘贴智谱 API Key，让调调猫拥有真大脑；留空则用本地小脑" style="width:100%;min-height:38px;padding:8px 10px;border:2px solid var(--line);border-radius:12px;font-size:12.5px;background:#FFF;color:var(--ink);">
+        <span class="sr-hint" id="setAgentState" style="font-size:11px;color:var(--muted)"></span>
+      </div>
       <div class="settings-row"><span class="sr-l">🎸 回放音色</span>
         <select id="setTimbreSel">
           <option value="nylon">尼龙弦</option>
@@ -1113,7 +1133,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.33.1</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.34.0</span></div>
     </div>
   </section>
 
@@ -1145,8 +1165,27 @@ window.addEventListener('unhandledrejection', function (e) {
   <div id="catSvg"></div>
 </div>
 
-<!-- v2.20.3 召唤猫按钮:与猫同角落,猫出现时自然盖住 -->
-<button id="catSummon" title="召唤调调猫" aria-label="召唤调调猫">🐾</button>
+<!-- v2.34.0 调调猫 Agent 浮标:同一只猫的化身,睡觉中的猫耳朵;点击弹出完整小猫+对话气泡 -->
+<button id="agentFloat" title="调调猫小助手" aria-label="调调猫小助手">
+  <svg viewBox="0 0 54 46" aria-hidden="true">
+    <g class="af-ear-l">
+      <path d="M12 24 Q10 12 18 7 Q20 15 17 24 Z" fill="#FFF9F2" stroke="#5A4A42" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M15.5 22 Q14.5 16 17 11.5" fill="none" stroke="#EAD9BC" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+    <g class="af-ear-r">
+      <path d="M42 24 Q44 12 36 7 Q34 15 37 24 Z" fill="#FFF9F2" stroke="#5A4A42" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M38.5 22 Q39.5 16 37 11.5" fill="none" stroke="#EAD9BC" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+    <path d="M9 44 Q8 26 27 25 Q46 26 45 44 Q45 45.5 27 45.5 Q9 45.5 9 44 Z" fill="#FFF9F2" stroke="#5A4A42" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M19 35.5 Q22 33 25 35.5" fill="none" stroke="#5A4A42" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M29 35.5 Q32 33 35 35.5" fill="none" stroke="#5A4A42" stroke-width="2.2" stroke-linecap="round"/>
+  </svg>
+</button>
+
+<div id="agentPop" role="dialog" aria-label="调调猫小助手">
+  <div id="agentBubble"><span class="ap-tail"></span></div>
+  <div id="agentCat"></div>
+</div>
 
 <!-- v2.20.0 首次使用故事引导（一次性，融入故事不弹说明） -->
 <div id="storyGuide">
@@ -2101,7 +2140,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.33.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.34.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -4796,6 +4835,7 @@ window.addEventListener('unhandledrejection', function (e) {
   function showCat(msg, expr, stayMs) {
     var buddy = $('catBuddy');
     if (!buddy) return;
+    if (typeof closeAgent === 'function') closeAgent(); // v2.34.0 全局同一只猫:结果页猫出场时 Agent 气泡让位
     var bubble = $('catBubble');
     var svgBox = $('catSvg');
     bubble.textContent = msg;
@@ -5228,6 +5268,26 @@ window.addEventListener('unhandledrejection', function (e) {
         if (ex2) ex2.textContent = on ? '关' : '开';
       });
     }
+    // v2.34.0 AI 助手 key:只存 localStorage,不进代码库;留空=本地小脑
+    var ak = $('setAgentKey');
+    function agentKeyHint() {
+      var st = $('setAgentState');
+      if (!st) return;
+      var k = null;
+      try { k = localStorage.getItem('hkAgentKey'); } catch (e) {}
+      st.textContent = k ? '已设置 ✓ 猫拥有了 AI 大脑（智谱 glm-4-flash）' : '未设置：猫用本地小脑回复（规则模板）';
+    }
+    if (ak) {
+      try { if (localStorage.getItem('hkAgentKey')) ak.value = localStorage.getItem('hkAgentKey'); } catch (e) {}
+      ak.addEventListener('change', function () {
+        var v = ak.value.trim();
+        try {
+          if (v) localStorage.setItem('hkAgentKey', v); else localStorage.removeItem('hkAgentKey');
+        } catch (e) {}
+        agentKeyHint();
+      });
+    }
+    agentKeyHint();
     var sel = $('setTimbreSel');
     if (sel) sel.value = (window.__curTimbre || 'nylon');
   }
@@ -5332,10 +5392,188 @@ window.addEventListener('unhandledrejection', function (e) {
     ['猜调挑战等着你和朋友呢！', 'cheer'],
     ['点我是不是很好玩喵', 'happy']
   ];
-  function summonCat() {
-    var m = SUMMON_MSGS[Math.floor(Math.random() * SUMMON_MSGS.length)];
-    if (cat.showCat) cat.showCat(m[0], m[1], 6000);
+
+  /* ============ v2.34.0 调调猫 AI Agent ============
+   * 浮标 = 同一只猫的化身(睡觉中的猫耳朵);点击弹出完整小猫 + 手绘虚线气泡。
+   * 职责:把音准分析/调性结果翻译成好朋友聊天式的猫语。
+   * 对外接口:
+   *   window.__hkAgent.showAgentResult(text, opts)  — 接入 AI 模型后直接调它让猫说话
+   *   window.__hkAgent.ask(text)                    — 问猫(本地规则回答;配置 apiUrl 后走远端)
+   *   window.__hkAgentConfig = { apiUrl, autoWhisper } — 远端模型接入点与自动低语开关
+   * 工具/记忆:AgentTools(可查最近分析/徽章/练习/连续天数) + AgentMem(localStorage 对话史+事实)
+   */
+  var agentState = { lastResult: null, pendingWhisper: null, open: false, timer: null, whisperT: null };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var AgentMem = {
+    load: function () { try { return JSON.parse(localStorage.getItem('hkAgentMem')) || { history: [], facts: {} }; } catch (e) { return { history: [], facts: {} }; } },
+    save: function (m) { try { localStorage.setItem('hkAgentMem', JSON.stringify(m)); } catch (e) {} },
+    push: function (role, text) { var m = this.load(); m.history.push({ role: role, text: text, ts: Date.now() }); if (m.history.length > 40) m.history = m.history.slice(-40); this.save(m); },
+    fact: function (k, v) { var m = this.load(); if (v === undefined) return m.facts[k]; m.facts[k] = v; this.save(m); }
+  };
+  function agentTools() {
+    var st = (core && core.state) || {};
+    var jm = st.jianpuMeta;
+    var s1 = jm && jm.stage1;
+    var badges = hkGet('hkKeyBadges', {});
+    var practice = hkGet('hkPractice', { done: [], unlocked: [] });
+    var streak = 1;
+    try { streak = parseInt(JSON.parse(localStorage.getItem('hkStreak') || '1'), 10) || 1; } catch (e) {}
+    var lr = agentState.lastResult;
+    return {
+      lastKeyName: (lr && lr.key && lr.key.keyName) || null,
+      lastMode: (lr && lr.key && lr.key.mode) || null,
+      lastConfidence: (lr && lr.key && typeof lr.key.confidence === 'number') ? lr.key.confidence : null,
+      lastBpm: (s1 && !s1.fallback && s1.bpm) ? Math.round(s1.bpm) : null,
+      lastMeter: (s1 && !s1.fallback) ? s1.meter : null,
+      quantRate: (s1 && !s1.fallback) ? Math.round(s1.stats.successRate * 100) : null,
+      f0Warn: jm ? !!jm.f0Warn : false,
+      unquantized: (s1 && !s1.fallback) ? s1.stats.nTotal - s1.stats.nQuantized : 0,
+      mergedFrom: (s1 && s1.srcNoteCount) ? s1.srcNoteCount : 0,
+      badgeCount: Object.keys(badges).length,
+      practiceDone: (practice.done || []).length,
+      streak: streak
+    };
   }
+  // 润色器:分析数据 → 好朋友聊天式的猫语(本地模板;接 AI 后由远端替代,输出约定同格式)
+  function agentPolish(t) {
+    var out = [];
+    if (t.lastKeyName) {
+      var mood = t.lastMode === 'minor' ? '有一点心事，但说出来就轻松了～' : '像阳光晒在毛毯上，明亮又温暖～';
+      out.push('喵，你刚才唱的是 <b>' + esc(t.lastKeyName) + '</b>，' + mood);
+    }
+    if (t.lastConfidence != null) {
+      if (t.lastConfidence >= 0.75) out.push('这次我的耳朵竖得直直的，很有把握！');
+      else if (t.lastConfidence < 0.4) out.push('老实说我也在纠结……要不再哼一段？我听得更准。');
+    }
+    if (t.lastBpm) out.push('你哼的速度大约是 ♩=' + t.lastBpm + '，试听已经跟着你的速度走啦。');
+    if (t.quantRate != null && t.quantRate < 70) out.push('节奏稍微有点自由，我把谱面标得松快了些，跟着哼一遍会更好听～');
+    if (t.f0Warn) out.push('有几个音有点飘，像小猫走路踩偏了几步，稳住它们就更漂亮了～');
+    if (t.unquantized > 0) out.push('谱面里有 ' + t.unquantized + ' 个音我标了灰色（节奏不稳），仅供参考喵。');
+    if (t.mergedFrom > 0) out.push('你拖长的音我帮你并成了干净的长音，就像把猫毛捋顺了～');
+    return out.join('<br>');
+  }
+  function closeAgent() {
+    agentState.open = false;
+    var pop = $('agentPop'), float = $('agentFloat');
+    if (pop) pop.classList.remove('show');
+    if (float) float.classList.remove('on');
+    clearTimeout(agentState.timer);
+  }
+  // ★ 核心 API:让猫说出结果(后续接入 AI 模型后直接调用)
+  function showAgentResult(text, opts) {
+    opts = opts || {};
+    if (typeof text !== 'string' || !text) return;
+    var pop = $('agentPop'), float = $('agentFloat');
+    if (!pop || !float) return;
+    agentState.open = true;
+    float.classList.add('on'); // 浮标收起,原位让位给完整小猫
+    if (cat.hideCat) cat.hideCat(); // 结果页猫若在场先退场——全局同一只猫不双开
+    $('agentBubble').innerHTML = opts.html === false ? esc(text) : text;
+    $('agentCat').innerHTML = cat.catSvg(opts.expr || 'normal');
+    pop.classList.add('show');
+    clearTimeout(agentState.timer);
+    if (opts.stayMs !== 0) agentState.timer = setTimeout(closeAgent, opts.stayMs || 9000);
+  }
+  // 本地规则回答(无 API 时的离线大脑;意图匹配 → 工具取数 → 猫语)
+  function agentLocalReply(text) {
+    var t = agentTools();
+    var s = String(text || '');
+    if (agentState.pendingWhisper) { var w = agentState.pendingWhisper; agentState.pendingWhisper = null; return w; }
+    if (/你好|在吗|嗨|哈喽|hello/i.test(s)) return '喵～我在呢。唱一句给我听，或者问我「刚才唱得怎么样」？';
+    if (/什么调|哪个调|唱的啥|啥调|刚才|结果/.test(s)) {
+      if (t.lastKeyName) return agentPolish(t);
+      return '你还没唱呢喵～按住蒲公英按钮，哼一句副歌，我就能听出调来！';
+    }
+    if (/音准|准吗|跑调|偏/.test(s)) {
+      if (t.f0Warn) return '喵，刚才有几个音稍微飘了一点点，像小猫走路踩偏了几步——再哼一遍，稳一点会更漂亮！';
+      if (t.lastKeyName) return '喵，你刚才的音准挺稳的，我的耳朵很舒服～';
+      return '你唱一句我听听，音准怎么样我耳朵一竖就知道～';
+    }
+    if (/今天|每日|今日/.test(s)) return '今天的「今日一调」还没做吗？去测调页看看今天的调是什么，跟着小星星唱一遍～';
+    if (/进度|徽章|收集|多少/.test(s)) return '你已经收集了 ' + t.badgeCount + ' 个调的徽章，音准闯关过了 ' + t.practiceDone + ' 关，连续来了 ' + t.streak + ' 天。很棒喵！';
+    if (/怎么弹|变调|夹|指法/.test(s)) return '测完调之后点「怎么弹」页：左手和弦按法、右手节奏型都在里面，变调夹夹几品也会写清楚喵～';
+    if (/再见|拜拜|睡了|晚安/.test(s)) { closeAgent(); return '喵～我先睡会儿，耳朵给你留着。'; }
+    var m = SUMMON_MSGS[Math.floor(Math.random() * SUMMON_MSGS.length)];
+    return m[0];
+  }
+  // 远端大脑(智谱 GLM 直连,浏览器 CORS 已放行;key 存 localStorage.hkAgentKey,绝不进代码库)
+  function agentAskRemote(text) {
+    var key = null;
+    try { key = localStorage.getItem('hkAgentKey'); } catch (e) {}
+    if (!key) return false;
+    var t = agentTools();
+    var mem = AgentMem.load();
+    var hist = (mem.history || []).slice(-10).map(function (h) { return { role: h.role === 'user' ? 'user' : 'assistant', content: h.text }; });
+    var sys = '你是「唱一句·定调子」App 里的调调猫,一只懂音乐的小猫,是首页插画里那只猫的化身,陪伴怕乐理的吉他新手。' +
+      '你的职责:把音准分析/调性结果翻译成通俗、生动、有趣的猫语;语气像懂音乐的好朋友在聊天,绝不像机器报告;可以用猫的视角说话(喵、耳朵竖起来、爪子、毛毯、小鱼干等意象)。' +
+      '回答要求:不超过 3 句,中文,可以带 1 个 emoji,只输出纯文本(不用 markdown)。' +
+      '当前产品数据(工具上下文,请灵活引用):' + JSON.stringify(t) +
+      '。用户的轻量记忆:' + JSON.stringify(mem.facts || {}) +
+      '。若用户问的与产品无关,就俏皮地把话题带回唱歌。';
+    var body = { model: 'glm-4-flash', messages: [{ role: 'system', content: sys }].concat(hist).concat([{ role: 'user', content: text }]), temperature: 0.8 };
+    $('agentBubble').innerHTML = '<span class="ap-typing">喵……我想想</span>';
+    try {
+      fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify(body)
+      }).then(function (r) {
+        if (!r.ok) throw new Error('http ' + r.status);
+        return r.json();
+      }).then(function (j) {
+        var reply = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) ? String(j.choices[0].message.content).trim() : '';
+        if (!reply) throw new Error('empty');
+        AgentMem.push('assistant', reply);
+        showAgentResult(reply);
+      }).catch(function () {
+        var reply = agentLocalReply(text); // 网络/额度异常 → 落回本地小脑
+        AgentMem.push('assistant', reply);
+        showAgentResult(reply);
+      });
+    } catch (e) { showAgentResult(agentLocalReply(text)); }
+    return true;
+  }
+  function agentAsk(text) {
+    text = String(text == null ? '' : text);
+    if (text) AgentMem.push('user', text);
+    if (agentAskRemote(text)) return; // 有 AI key → 远端大脑
+    var cfg = window.__hkAgentConfig || {};
+    if (cfg.apiUrl) {
+      // 自定义远端接入点(预留):POST { text, memory, tools } → { reply };失败落回本地
+      try {
+        fetch(cfg.apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, memory: AgentMem.load().history, tools: agentTools() }) })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { var reply = (j && j.reply) ? String(j.reply) : '喵……我打了个盹，还没听清。'; AgentMem.push('assistant', reply); showAgentResult(reply); })
+          .catch(function () { var reply = agentLocalReply(text); AgentMem.push('assistant', reply); showAgentResult(reply); });
+      } catch (e) { showAgentResult(agentLocalReply(text)); }
+      return;
+    }
+    var reply = agentLocalReply(text);
+    AgentMem.push('assistant', reply);
+    showAgentResult(reply);
+  }
+  // 分析完成后自动低语:把结果润色成猫语(结果页礼物仪式结束之后再说;低置信时让位给既有的安慰猫)
+  function onAgentResult(key, notes) {
+    agentState.lastResult = { key: key, ts: Date.now() };
+    if (key && key.keyName) AgentMem.fact('lastKeyName', key.keyName);
+    var cfg = window.__hkAgentConfig || {};
+    if (cfg.autoWhisper === false || !key || key.confidence < 0.4) return;
+    var w = agentPolish(agentTools());
+    agentState.pendingWhisper = w;
+    clearTimeout(agentState.whisperT);
+    agentState.whisperT = setTimeout(function () { showAgentResult(w, { stayMs: 10000 }); }, 2600);
+  }
+  function agentFloatTap() {
+    if (agentState.open) { closeAgent(); return; }
+    agentAsk(agentState.pendingWhisper ? '刚才唱得怎么样' : '你好');
+  }
+  document.addEventListener('click', function (ev) {
+    if (!agentState.open) return;
+    var pop = $('agentPop'), float = $('agentFloat');
+    if (pop && !pop.contains(ev.target) && float && !float.contains(ev.target)) closeAgent();
+  }, true);
+  window.__hkAgentConfig = window.__hkAgentConfig || { apiUrl: null, autoWhisper: true };
+  window.__hkAgent = { showAgentResult: showAgentResult, ask: agentAsk, close: closeAgent, memory: AgentMem, polish: agentPolish, tools: agentTools };
 
   /* ============ 2. 今日一调（小星星，公版旋律） ============ */
   function todayKeyPc() {
@@ -5678,6 +5916,7 @@ window.addEventListener('unhandledrejection', function (e) {
     if (key.confidence < 0.4 && cat.showCat) {
       setTimeout(function () { cat.showCat('这次听得不太清喵…再哼长一点、响一点试试？', 'tilt', 5000); }, 2200);
     }
+    onAgentResult(key, notes); // v2.34.0 调调猫 Agent:分析结果润色成猫语(低置信时让位给上面那只安慰猫)
   };
   function renderStreak() {
     var el = $('streakLine');
@@ -5909,8 +6148,8 @@ window.addEventListener('unhandledrejection', function (e) {
   renderStreak();
   startStory();
   visitGreet();
-  var summonBtn = $('catSummon');
-  if (summonBtn) summonBtn.addEventListener('click', summonCat);
+  var floatBtn = $('agentFloat');
+  if (floatBtn) floatBtn.addEventListener('click', agentFloatTap);
   // 软陶猫脸录音按钮
   buildDandelion();
 

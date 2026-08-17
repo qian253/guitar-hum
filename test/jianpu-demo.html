@@ -27,6 +27,7 @@
   <button onclick="demo('chromatic')">离调音(阶段二预览)</button>
   <div id="diagOut"></div>
   <pre id="scoreDump" style="display:none;font-size:10px;white-space:pre-wrap;color:#4e4338"></pre>
+  <pre id="agentDump" style="display:none;font-size:10px;white-space:pre-wrap;color:#4e4338"></pre>
 </div>
 <iframe id="phone" src="../index.html"></iframe>
 <script>
@@ -68,6 +69,33 @@
     // 把 iframe 里渲染出的真实谱面 HTML 拷到父页(供 --dump-dom 验证)
     var pre = document.getElementById('scoreDump');
     pre.textContent = w.document.getElementById('jianpuLine').outerHTML + '\nTAG: ' + w.document.getElementById('jianpuTag').textContent;
+    // Agent 浮标/气泡(自动低语在分析后 2.6s 触发,延时拷贝)
+    setTimeout(function () {
+      try {
+        var f = w.document.getElementById('agentFloat');
+        var p = w.document.getElementById('agentPop');
+        var b = w.document.getElementById('agentBubble');
+        var dump = document.getElementById('agentDump');
+        dump.textContent = 'FLOAT: ' + (f ? f.outerHTML.slice(0, 400) : 'MISSING') + '\nPOP-CLASS: ' + (p ? p.className : 'MISSING') + '\nBUBBLE: ' + (b ? b.textContent : 'MISSING') + '\nCAT-SVG: ' + (w.document.querySelector('#agentCat svg') ? 'YES' : 'NO');
+      } catch (e) { document.getElementById('agentDump').textContent = 'ERR: ' + e.message; }
+    }, 5000);
+    // 真 API 验证:?key=...&agentask=... → 注入 key → 调 __hkAgent.ask → 延时拷贝 AI 回复
+    var apiKey = new URLSearchParams(location.search).get('key');
+    var aq = new URLSearchParams(location.search).get('agentask');
+    if (apiKey) {
+      try { w.localStorage.setItem('hkAgentKey', apiKey); } catch (e) {}
+    }
+    if (aq) {
+      setTimeout(function () {
+        try { w.__hkAgent.ask(aq); } catch (e) { document.getElementById('agentDump').textContent += '\nASK-ERR: ' + e.message; }
+      }, 3000);
+      setTimeout(function () {
+        try {
+          var b2 = w.document.getElementById('agentBubble');
+          document.getElementById('agentDump').textContent += '\nAI-REPLY: ' + (b2 ? b2.textContent : 'MISSING');
+        } catch (e) {}
+      }, 11000);
+    }
   }
 </script>
 </body>
