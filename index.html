@@ -1612,10 +1612,30 @@ window.addEventListener('unhandledrejection', function (e) {
     evidence.push('L4:归属接近，保持大调'); return { verdict: 'major', pc: candA.pc, evidence: evidence, confidence: 0.5, source: 'L4' };
   }
 
+  // 三度能量(音分感知版 v2.33):人声的 mi/降mi 常有 ±40~80 音分偏移,
+  // 四舍五入进直方图会把「略低的大三度」全丢进小三度(12 条真实人声实测 3 例大调被判小调的真凶)。
+  // 按每音与目标三度的音分距离软计数:≤75 音分计入,权重 1-|cents|/75。
+  function thirdEnergyCents(notes, rootPC, isMajor) {
+    var thirdPC = isMajor ? (rootPC + 4) % 12 : (rootPC + 3) % 12;
+    var e = 0;
+    for (var i = 0; i < notes.length; i++) {
+      var m = notes[i].midi;
+      var r = Math.round(m);
+      var d = ((((r % 12) + 12) - thirdPC) % 12 + 12) % 12;
+      if (d > 6) d -= 12;
+      var cents = d * 100 + (m - r) * 100;
+      if (Math.abs(cents) < 75) e += Math.max(0.05, notes[i].dur || 0.25) * (1 - Math.abs(cents) / 75);
+    }
+    return e;
+  }
+
   // 调式判定：主音已锁定（rootPC），只在「同主音大小调」之间二选一
   function decideMode(notes, rootPC, hist) {
-    var majorThird = hist[(rootPC + 4) % 12];
-    var minorThird = hist[(rootPC + 3) % 12];
+    // 三度证据用音分感知能量(v2.33 同步后端);三和弦/导音仍用直方图
+    var totalW = 0;
+    for (var i = 0; i < notes.length; i++) totalW += Math.max(0.05, notes[i].dur || 0.25);
+    var majorThird = totalW > 0 ? thirdEnergyCents(notes, rootPC, true) / totalW : hist[(rootPC + 4) % 12];
+    var minorThird = totalW > 0 ? thirdEnergyCents(notes, rootPC, false) / totalW : hist[(rootPC + 3) % 12];
     var majorTriad = hist[rootPC] + hist[(rootPC + 4) % 12] + hist[(rootPC + 7) % 12];
     var minorTriad = hist[rootPC] + hist[(rootPC + 3) % 12] + hist[(rootPC + 7) % 12];
     var leading = 0;
@@ -1651,6 +1671,9 @@ window.addEventListener('unhandledrejection', function (e) {
     // 结束音加权倍率：仅「非跨次累计 + 结束音>0.5s + 尾静音≥0.3s + 全曲>5s」才×1.5，否则×1.0
     var endingMult = (!opts.noEndingBoost && lastDur > 0.5 && trailingSilence >= 0.3 && totalDur > 5) ? ENDING_MAX_MULT : 1.0;
     var endingPC = pc(Math.round(lastM));
+    // 起始长音(镜像结束音 v2.33 同步后端):人唱歌常以主音起调,起始长音是主音的强信号
+    var firstDur = Math.max(0.05, (notes[0].dur || 0.25));
+    var firstPC = pc(Math.round(notes[0].midi + shiftCents / 100));
 
     // 重心音（加权平均音高，权重 = 时长 × 振幅/节拍强度）
     // basic-pitch 音符带 amplitude（强拍更响），用「相对响度」放大强拍音符的重心权重；
@@ -1741,8 +1764,10 @@ window.addEventListener('unhandledrejection', function (e) {
       var stabBonus = STABILITY_WEIGHT * ((stabTable[root].best - stabMin) / stabSpan); // 音级稳定性（v2.15）
       var chewBonus = chew ? CHEW_WEIGHT * (1 - chewDists[root] / chewMaxD) : 0; // 螺旋数组（v2.16）
       var eBonus = (endingPC === root && lastDur >= 0.5) ? ENDING_BONUS : 0; // 结尾长音=主音（v2.17）
+      var oBonus = 0; // 起始长音=主音（v2.33 同步后端：分级 0.20/0.15/0.05）
+      if (firstPC === root) oBonus = firstDur >= 0.8 ? 0.20 : (firstDur >= 0.5 ? 0.15 : 0.05);
       var guitarBonus = (GUILD.major.indexOf(root) >= 0 || GUILD.minor.indexOf(root) >= 0) ? GUITAR_BIAS : 0;
-      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + chewBonus + eBonus + guitarBonus;
+      var tScore = Math.max(majScore, minScore) + cBonus + stabBonus + chewBonus + eBonus + oBonus + guitarBonus;
       tonicScores[root] = tScore;
       tonicDetails.push({ root: root, major: majScore, minor: minScore, tonic: tScore });
     }

@@ -1,0 +1,122 @@
+[
+  {
+    "song_id": 28,
+    "truth_root": 0,
+    "truth_mode": "major",
+    "engine_root": 9,
+    "engine_mode": "major",
+    "engine_confidence": 0.12,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 27,
+    "truth_root": 1,
+    "truth_mode": "major",
+    "engine_root": 3,
+    "engine_mode": "major",
+    "engine_confidence": 0.055,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 26,
+    "truth_root": 2,
+    "truth_mode": "major",
+    "engine_root": 11,
+    "engine_mode": "major",
+    "engine_confidence": 0.244,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 25,
+    "truth_root": 3,
+    "truth_mode": "major",
+    "engine_root": 11,
+    "engine_mode": "major",
+    "engine_confidence": 0.718,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 24,
+    "truth_root": 4,
+    "truth_mode": "major",
+    "engine_root": 4,
+    "engine_mode": "minor",
+    "engine_confidence": 0.312,
+    "exact_match": false,
+    "tonic_match": true
+  },
+  {
+    "song_id": 23,
+    "truth_root": 5,
+    "truth_mode": "major",
+    "engine_root": 0,
+    "engine_mode": "major",
+    "engine_confidence": 0.454,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 22,
+    "truth_root": 6,
+    "truth_mode": "major",
+    "engine_root": 1,
+    "engine_mode": "major",
+    "engine_confidence": 0.456,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 21,
+    "truth_root": 7,
+    "truth_mode": "major",
+    "engine_root": 9,
+    "engine_mode": "major",
+    "engine_confidence": 0.884,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 20,
+    "truth_root": 8,
+    "truth_mode": "major",
+    "engine_root": 3,
+    "engine_mode": "major",
+    "engine_confidence": 0.547,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 19,
+    "truth_root": 9,
+    "truth_mode": "major",
+    "engine_root": 0,
+    "engine_mode": "major",
+    "engine_confidence": 0.364,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 18,
+    "truth_root": 10,
+    "truth_mode": "major",
+    "engine_root": 11,
+    "engine_mode": "minor",
+    "engine_confidence": 0.465,
+    "exact_match": false,
+    "tonic_match": false
+  },
+  {
+    "song_id": 17,
+    "truth_root": 11,
+    "truth_mode": "major",
+    "engine_root": 6,
+    "engine_mode": "major",
+    "engine_confidence": 0.62,
+    "exact_match": false,
+    "tonic_match": false
+  }
+]

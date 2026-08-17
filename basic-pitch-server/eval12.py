@@ -9,8 +9,9 @@ import sys
 import tonic_engine as te
 
 DATA = json.load(open("C:/Users/keyou/Downloads/哼唱标注数据.json", encoding="utf-8"))
-# v2 测试集(2026-08-17 20:40~21:00 小星星模板录制):最后 22 条取每调最后一录
-_PICKS = [40, 41, 44, 46, 50, 51, 52, 54, 56, 58, 60, 61]
+# v2 测试集(2026-08-17 小星星模板录制):同调多录取最后一录
+# 第一次:20:40~21:00(B A# A G# G F# F E D# D C# C);21:26~21:36 重录 A/E/G#/F#/D# 五个调
+_PICKS = [40, 41, 62, 65, 50, 66, 52, 64, 67, 58, 60, 61]
 SAMPLES = [DATA[i] for i in _PICKS]
 # v1 旧测试集(17:22~17:34 自由即兴,内容多与标签不符,作压力集):
 OLD_PICKS = list(range(16, 28))
