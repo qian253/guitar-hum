@@ -330,6 +330,7 @@
   .jp-warn { background: #FBF0D2; border: 2px solid #EAD9A8; color: #8A6D2F; font-size: 13px; border-radius: 12px 14px 12px 14px; padding: 7px 12px; margin-top: 8px; line-height: 1.5; }
   .melody-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
   .mel-note { font-size: 13px; font-weight: 700; background: #FFFFFF; border: 2px solid var(--line); padding: 7px 11px; border-radius: 12px; color: var(--ink2); display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 42px; }
+  .mel-note.off { background: #F6EBD8; color: var(--muted); border-style: dashed; font-weight: 600; } /* v2.34.1 调外音:如实显示音名 */
   .mel-note .sj { font-size: 17px; color: var(--ink); font-weight: 800; }
   .mel-note .abs { font-size: 11px; color: var(--muted); }
 
@@ -809,6 +810,11 @@
   #agentBubble { background: #FFFDF6; border: 2px dashed #DCCBAA; border-radius: 18px 18px 18px 6px; padding: 10px 14px; font-size: 13px; line-height: 1.7; color: var(--ink); font-weight: 600; box-shadow: 0 6px 16px rgba(90, 74, 66, 0.14); max-width: 250px; text-align: left; position: relative; }
   #agentBubble .ap-tail { position: absolute; right: 30px; bottom: -8px; width: 13px; height: 13px; background: #FFFDF6; border-right: 2px dashed #DCCBAA; border-bottom: 2px dashed #DCCBAA; transform: rotate(45deg); border-radius: 0 0 4px 0; }
   #agentBubble .ap-typing { color: var(--muted); letter-spacing: 2px; }
+  #agentInputRow { display: none; width: 252px; gap: 6px; align-items: stretch; }
+  #agentPop.show #agentInputRow { display: flex; }
+  #agentInput { flex: 1; min-height: 38px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 14px 10px 14px 10px; font-size: 13px; background: #FFFDF6; color: var(--ink); font-family: inherit; }
+  #agentInput:focus { outline: none; border-color: var(--line-strong); }
+  #agentSend { flex: 0 0 auto; min-height: 38px; padding: 0 14px; border: 2px solid var(--line-strong); border-radius: 12px; background: #FFF; color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
   #agentCat { width: 74px; height: 74px; margin-right: 12px; filter: drop-shadow(0 6px 12px rgba(214, 150, 120, 0.3)); }
   #agentCat svg { width: 100%; height: 100%; }
 
@@ -1133,7 +1139,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.34.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.34.1</span></div>
     </div>
   </section>
 
@@ -1184,6 +1190,10 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="agentPop" role="dialog" aria-label="调调猫小助手">
   <div id="agentBubble"><span class="ap-tail"></span></div>
+  <div id="agentInputRow">
+    <input id="agentInput" type="text" autocomplete="off" placeholder="问问猫…比如：刚才唱得怎么样？">
+    <button id="agentSend" aria-label="发送">问</button>
+  </div>
   <div id="agentCat"></div>
 </div>
 
@@ -2140,7 +2150,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.34.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.34.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2796,8 +2806,15 @@ window.addEventListener('unhandledrejection', function (e) {
       var solfegeIdx = scaleDegreeIndexes(notes, droot, dmode);
       notes.forEach(function (n, i) {
         var div = document.createElement('div');
-        div.className = 'mel-note';
-        div.innerHTML = '<span class="sj">' + solfegeIdx[i].sj + '</span><span class="abs">' + midiName(Math.round(n.midi)) + '</span>';
+        var si = solfegeIdx[i];
+        if (si.dist > 0) {
+          // v2.34.1 调外音:不硬贴唱名,如实显示音名(否则「do」会同时落在两个音高上)
+          div.className = 'mel-note off';
+          div.innerHTML = '<span class="sj">' + midiName(Math.round(n.midi)) + '</span>';
+        } else {
+          div.className = 'mel-note';
+          div.innerHTML = '<span class="sj">' + si.sj + '</span><span class="abs">' + midiName(Math.round(n.midi)) + '</span>';
+        }
         ml.appendChild(div);
       });
 
@@ -2936,7 +2953,7 @@ window.addEventListener('unhandledrejection', function (e) {
         var dd = Math.abs(scaleSems[i] - diff); if (dd > 6) dd = 12 - dd;
         if (dd < bestD) { bestD = dd; bestI = i; }
       }
-      return { sj: solfege[bestI] };
+      return { sj: solfege[bestI], dist: bestD }; // v2.34.1 dist=离调距离(0=调内,≥1=调外音)
     });
   }
 
@@ -5566,6 +5583,23 @@ window.addEventListener('unhandledrejection', function (e) {
   function agentFloatTap() {
     if (agentState.open) { closeAgent(); return; }
     agentAsk(agentState.pendingWhisper ? '刚才唱得怎么样' : '你好');
+    setTimeout(function () { var inp = $('agentInput'); if (inp) inp.focus(); }, 450);
+  }
+  function agentSendTap() {
+    var inp = $('agentInput');
+    if (!inp) return;
+    var v = inp.value.trim();
+    if (!v) { closeAgent(); return; }
+    inp.value = '';
+    agentAsk(v);
+  }
+  var agentSendBtn = $('agentSend');
+  if (agentSendBtn) agentSendBtn.addEventListener('click', agentSendTap);
+  var agentInputEl = $('agentInput');
+  if (agentInputEl) {
+    agentInputEl.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') agentSendTap(); });
+    agentInputEl.addEventListener('click', function (ev) { ev.stopPropagation(); }); // 点输入框不算点外部
+    agentInputEl.addEventListener('focus', function () { clearTimeout(agentState.timer); }); // 输入中不自动收起
   }
   document.addEventListener('click', function (ev) {
     if (!agentState.open) return;

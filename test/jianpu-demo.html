@@ -68,7 +68,8 @@
     }, null, 2);
     // 把 iframe 里渲染出的真实谱面 HTML 拷到父页(供 --dump-dom 验证)
     var pre = document.getElementById('scoreDump');
-    pre.textContent = w.document.getElementById('jianpuLine').outerHTML + '\nTAG: ' + w.document.getElementById('jianpuTag').textContent;
+    pre.textContent = w.document.getElementById('jianpuLine').outerHTML + '\nTAG: ' + w.document.getElementById('jianpuTag').textContent
+      + '\nMELODY: ' + w.document.getElementById('melodyLine').outerHTML;
     // Agent 浮标/气泡(自动低语在分析后 2.6s 触发,延时拷贝)
     setTimeout(function () {
       try {
