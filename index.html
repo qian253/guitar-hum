@@ -176,7 +176,7 @@
   #browserWarn.show { display: block; }
 
   .rec-area { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: center; padding: 20px 0 8px; }
-  .mic-wrap { position: relative; width: 196px; height: 196px; display: flex; align-items: center; justify-content: center; }
+  .mic-wrap { position: relative; width: 168px; height: 168px; display: flex; align-items: center; justify-content: center; }
   .mic-ring { position: absolute; border-radius: 50%; border: 2.5px dashed var(--peach); opacity: 0; pointer-events: none; }
   .mic-wrap::before, .mic-wrap::after {
     content: ''; position: absolute; border-radius: 50%;
@@ -190,7 +190,7 @@
     50% { transform: scale(1.06) rotate(4deg); opacity: 0.42; }
   }
   .mic {
-    width: 176px; height: 200px; border-radius: 50%;
+    width: 148px; height: 168px; border-radius: 50%;
     background: transparent; border: none;
     cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -199,7 +199,7 @@
   }
   .mic:active { transform: scale(0.93); }
   .mic.recording { transform: scale(0.97); }
-  .mic .mic-dande { width: 132px; height: 158px; animation: dandeSway 4.5s ease-in-out infinite; transform-origin: 50% 86%; }
+  .mic .mic-dande { width: 112px; height: 132px; animation: dandeSway 4.5s ease-in-out infinite; transform-origin: 50% 86%; }
   .mic .mic-dande svg { width: 100%; height: 100%; }
   @keyframes dandeSway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
   .dande-seed { transform-origin: 60px 64px; }
@@ -215,10 +215,11 @@
   .hint { color: var(--muted); font-size: 14px; text-align: center; margin-top: 20px; line-height: 1.8; animation: hintPulse 2.6s ease-in-out infinite; font-family: var(--font-hand); font-size: 16px; }
   .hint b { color: var(--ink2); font-weight: 800; }
   @keyframes hintPulse { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
-  .live { margin-top: 12px; text-align: center; min-height: 34px; }
+  .live { margin-top: 6px; text-align: center; min-height: 34px; }
   .live .note { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--coral-deep); }
   .live .cents { font-size: 14px; margin-left: 6px; color: var(--ink2); }
-  .live .cents.flat, .live .cents.sharp { color: var(--warn); }
+  .live .cents.flat { color: #C9A96E; }
+  .live .cents.sharp { color: #A8C8DC; }
   .live .cents.on { color: var(--good); }
   .live .stamp { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .bar { width: 100%; max-width: 260px; height: 6px; background: var(--line); border-radius: 3px; margin: 10px auto 0; overflow: hidden; }
@@ -707,11 +708,12 @@
   @keyframes earWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-2deg) scale(1.03); } 75% { transform: rotate(2deg) scale(1.03); } }
 
   #shareCardBtn svg { vertical-align: -3px; }
+  .rhythm-diag { width: 150px; height: auto; flex-shrink: 0; }
 
   /* v2.29 手绘场景升级(参考治愈系专注App设计语言) */
   #screenRecord { background: linear-gradient(180deg, var(--paper) 0%, #F7E6C0 58%, rgba(242,211,136,0.85) 130%); }
   .mic-wrap { border: 3px solid rgba(78,67,56,0.5); border-radius: 47% 53% 51% 49% / 49% 51% 47% 53%; }
-  .scene-area { margin-top: auto; margin-bottom: 2px; padding: 0 10px; opacity: 0.96; pointer-events: none; }
+  .scene-area { margin-top: auto; margin-bottom: 2px; padding: 0 10px; opacity: 0.96; pointer-events: none; max-height: 96px; overflow: hidden; }
   .scene-area svg { width: 100%; height: auto; display: block; }
   @media (prefers-reduced-motion: reduce) { .scene-area { opacity: 0.5; } }
 
@@ -722,8 +724,8 @@
 
   /* v2.26 上滑取消态:按钮变灰提示 */
   .mic.cancel { filter: grayscale(0.7); opacity: 0.72; transform: scale(0.92); }
-  .mic.cancel .t { color: #C96A5A; }
-  .rec-cancel .mic-wrap::before, .rec-cancel .mic-wrap::after { border-color: rgba(201,106,90,0.6); animation-play-state: paused; }
+  .mic.cancel .t { color: var(--ink2); }
+  .rec-cancel .mic-wrap::before, .rec-cancel .mic-wrap::after { border-color: rgba(125,108,95,0.5); animation-play-state: paused; }
 
   /* v2.23.1 怎么弹:横向滑动分页(3页) */
   .play-scroll { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -2px; scrollbar-width: none; }
@@ -859,10 +861,12 @@ window.addEventListener('unhandledrejection', function (e) {
         <button class="mic" id="micBtn">
           <span class="mic-dande" id="micDande">
             <svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
-              <g class="dande-seeds" id="dandeSeeds"></g>
-              <path class="dande-stem" d="M60 70 q 3 34, 8 72" stroke="#8A766C" stroke-width="3" fill="none" stroke-linecap="round"/>
-              <path class="dande-leaf" d="M63 96 q 14 -6, 18 -20 q -16 2, -18 20z" fill="#A8CFA2"/>
-              <circle class="dande-core" cx="60" cy="64" r="7" fill="#F0BC8A"/>
+              <circle cx="60" cy="62" r="52" fill="#FFFDF5" opacity="0.45"/>
+              <g id="dandeSeeds"><path d="M84.0 62.0 Q88.7 66.0 94.0 62.0" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="94.0" cy="62.0" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M78.4 77.4 Q79.4 83.6 86.0 83.9" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="86.0" cy="83.9" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M64.2 85.6 Q61.0 91.0 65.9 95.5" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="65.9" cy="95.5" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M48.0 82.8 Q42.1 84.8 43.0 91.4" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="43.0" cy="91.4" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M37.4 70.2 Q31.6 68.0 28.1 73.6" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="28.1" cy="73.6" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M37.4 53.8 Q34.4 48.4 28.1 50.4" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="28.1" cy="50.4" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M48.0 41.2 Q49.1 35.1 43.0 32.6" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="43.0" cy="32.6" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M64.2 38.4 Q69.0 34.4 65.9 28.5" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="65.9" cy="28.5" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M78.4 46.6 Q84.6 46.6 86.0 40.1" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="86.0" cy="40.1" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M93.7 66.4 Q97.6 72.4 103.6 67.7" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="103.6" cy="67.7" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M83.0 87.0 Q82.1 94.1 89.8 94.4" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="89.8" cy="94.4" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M61.5 96.0 Q56.3 100.8 62.0 106.0" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="62.0" cy="106.0" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M39.3 89.0 Q32.2 89.4 33.2 96.9" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="33.2" cy="96.9" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M26.8 69.4 Q21.1 65.1 17.1 71.6" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="17.1" cy="71.6" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M29.8 46.3 Q28.2 39.4 21.0 41.7" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="21.0" cy="41.7" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M47.0 30.6 Q50.2 24.2 43.1 21.4" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="43.1" cy="21.4" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M70.2 29.6 Q76.8 26.8 73.2 20.0" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="73.2" cy="20.0" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M88.7 43.7 Q95.5 45.8 97.1 38.3" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="97.1" cy="38.3" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M102.5 73.3 Q105.1 81.1 112.2 75.9" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="112.2" cy="75.9" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M85.3 98.0 Q82.3 105.6 91.1 106.2" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="91.1" cy="106.2" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M56.2 105.8 Q49.0 109.8 55.4 115.8" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="55.4" cy="115.8" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M28.9 93.2 Q20.9 91.5 21.9 100.3" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="21.9" cy="100.3" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M16.2 65.9 Q11.1 59.5 6.2 66.8" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="6.2" cy="66.8" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M23.9 36.8 Q24.1 28.6 15.7 31.1" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="15.7" cy="31.1" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M48.5 19.5 Q54.0 13.4 45.9 9.9" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="45.9" cy="9.9" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M78.5 22.1 Q86.6 20.9 82.7 13.0" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="82.7" cy="13.0" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/><path d="M99.8 43.3 Q106.8 47.6 108.9 39.1" stroke="#8A766C" stroke-width="1.1" fill="none" opacity="0.75"/><circle cx="108.9" cy="39.1" r="1.9" fill="#FFFDF5" stroke="#B3A494" stroke-width="0.8"/></g>
+              <path d="M60 72 q 4 30, 9 70" stroke="#7D6C5F" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <path d="M66 100 q 16 -8, 19 -24 q -17 4, -19 24z" fill="#A8CFA2" opacity="0.9"/>
+              <path d="M57 110 q -13 -6, -16 -20 q 14 2, 16 20z" fill="#A8CFA2" opacity="0.7"/>
+              <circle cx="60" cy="62" r="4.5" fill="#F0BC8A"/>
             </svg>
           </span>
           <span class="t">按住，吹散蒲公英</span>
@@ -870,10 +874,7 @@ window.addEventListener('unhandledrejection', function (e) {
         </button>
       </div>
       <div class="hint" id="recHint">按住哼唱，松开自动分析</div>
-      <div class="test-sound-wrap">
-        <button class="test-sound-btn" id="testSoundBtn">🔊 测试声音</button>
-        <span class="test-sound-tip" id="testSoundTip"></span>
-      </div>
+
       <div class="live" id="live">
         <span class="note" id="liveNote">—</span><span class="cents" id="liveCents"></span>
         <div class="stamp" id="liveStamp">按着按钮开始唱</div>
@@ -985,19 +986,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <div class="prog-dots" id="progDots"></div>
           <div class="tip" id="progTip"></div>
         </div>
-        <div class="play-slide">
-          <div class="hand-sec"><i class="ic" data-ic="target"></i>变调夹换算<span class="hand-sub">原调太高就移到自己舒服的调</span></div>
-          <div class="card" id="capoCard" style="display:none;margin-top:12px">
-            <div class="card-title"><i class="ic" data-ic="target"></i>变调夹换算 <span class="tag">原调太高？移到自己舒服的调</span></div>
-            <div class="capo-form">
-              <div class="capo-col"><span class="k">原曲调</span><select id="capoSrcSel"></select></div>
-              <div class="capo-arrow">→</div>
-              <div class="capo-col"><span class="k">你想唱的调</span><select id="capoDstSel"></select></div>
-            </div>
-            <div id="capoResult"></div>
-            <div class="capo-hint">乐理小抄：全音-全音-半音-全音-全音-全音-半音，从 do 顺着数，就能推出任何调的 do re mi。</div>
-          </div>
-        </div>
+
         <div class="play-slide">
           <div class="hand-sec"><i class="ic" data-ic="guitar"></i>右手 · 节奏型推荐<span class="hand-sub">听一遍,跟着扫</span></div>
           <div class="rhythm-tools"><button class="btn mini" id="rhythmShuffle"><i class="ic" data-ic="shuffle"></i>换一批</button></div>
@@ -1023,9 +1012,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="act-row act-mini">
         <button class="btn mini primary" id="addBtn"><i class="ic" data-ic="mic"></i>再哼一段</button>
         <button class="btn mini" id="replayBtn"><i class="ic" data-ic="music"></i>听旋律</button>
-        <button class="btn mini" id="selfTestBtn"><i class="ic" data-ic="bell"></i>测试旋律</button>
         <button class="btn mini" id="hearSelfBtn" style="display:none"><i class="ic" data-ic="headphones"></i>听自己</button>
-        <button class="btn mini" id="singBtn" style="display:none"><i class="ic" data-ic="volume"></i>唱名</button>
         <button class="btn mini" id="dlMelodyBtn" style="display:none"><i class="ic" data-ic="download"></i>下载</button>
       </div>
     </div>
@@ -1075,7 +1062,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.29.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.30.0</span></div>
     </div>
   </section>
 
@@ -2731,14 +2718,14 @@ window.addEventListener('unhandledrejection', function (e) {
       } else if (toneWarn) { toneWarn.remove(); }
 
       // 激活变调夹换算
-      $('capoCard').style.display = 'block';
+      var cc = $('capoCard'); if (cc) cc.style.display = 'block';
       populateCapoSelects();
       renderCapo();
 
       // 显示回放/唱名按钮（前提：有录音数据）
       if (state.recordedPcm) $('hearSelfBtn').style.display = 'block';
       $('dlMelodyBtn').style.display = 'block';
-      $('singBtn').style.display = 'block';
+      var sb = $('singBtn'); if (sb) sb.style.display = 'block';
 
       // 简谱视图（用当前显示调 dmode/droot，含关系调切换）
       renderJianpu(notes, droot, dmode);
@@ -2765,6 +2752,7 @@ window.addEventListener('unhandledrejection', function (e) {
   }
   function renderCapo() {
     try {
+      if (!$('capoSrcSel') || !$('capoDstSel')) return;
       var srcPc = parseInt($('capoSrcSel').value, 10);
       var dstPc = parseInt($('capoDstSel').value, 10);
       var diff = dstPc - srcPc; if (diff < -6) diff += 12; if (diff > 6) diff -= 12;
@@ -3260,6 +3248,26 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ---------- 常用节奏型（问题3）：5323/5321/4321/根音+扫弦，可试听 ---------- */
   var rhythmCtx = { dmode: 'major', droot: 0, offset: 0 };
+  // v2.30 节奏图:拍点+符号的简易节奏谱(分解=弦号,扫弦=方向)
+  function rhythmDiagramSVG(p) {
+    var beats = 4, boxW = 42, h = 30;
+    var toks = [];
+    if (p.type === 'strum') {
+      toks = String(p.tag || '↓ ↓↑ ↑↓↑').split(/\s+/).slice(0, beats);
+      while (toks.length < beats) toks.push('↓');
+    } else {
+      toks = (p.strings || [5, 3, 2, 3]).slice(0, beats).map(String);
+    }
+    var out = '';
+    for (var i = 0; i < beats; i++) {
+      out += '<text x="' + (i * boxW + boxW / 2) + '" y="' + (h / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#4E4338">' + toks[i] + '</text>';
+    }
+    out += '<line x1="2" y1="' + (h - 4) + '" x2="' + (beats * boxW - 2) + '" y2="' + (h - 4) + '" stroke="#E0CDAF" stroke-width="2" stroke-linecap="round"/>';
+    for (var j = 0; j < beats; j++) {
+      out += '<circle cx="' + (j * boxW + boxW / 2) + '" cy="' + (h - 4) + '" r="2.4" fill="#F0917F"/>';
+    }
+    return '<svg class="rhythm-diag" viewBox="0 0 ' + (beats * boxW) + ' ' + h + '">' + out + '</svg>';
+  }
   function renderRhythms(dmode, droot) {
     rhythmCtx.dmode = dmode; rhythmCtx.droot = droot;
     var rec = recommendFingering(dmode, droot);
@@ -3285,7 +3293,7 @@ window.addEventListener('unhandledrejection', function (e) {
       }
       var item = document.createElement('div');
       item.className = 'rhythm-item';
-      var tab = p.type === 'strum' ? '扫弦' : p.strings.join('');
+      var tab = rhythmDiagramSVG(p);
       item.innerHTML = '<button class="rhythm-play" aria-label="试听 ' + p.name + '">▶</button>' +
         '<div class="rhythm-info"><div class="rhythm-name">' + p.name + '<span class="tag">' + p.tag + '</span></div>' +
         '<div class="rhythm-desc">' + p.desc + '</div></div>' +
@@ -3659,7 +3667,7 @@ window.addEventListener('unhandledrejection', function (e) {
     $('replayStatus').style.display = 'none';
     $('hearSelfBtn').style.display = 'none';
     $('dlMelodyBtn').style.display = 'none';
-    $('singBtn').style.display = 'none';
+    var sb2 = $('singBtn'); if (sb2) sb2.style.display = 'none';
     $('timbreBar').style.display = 'none';
     errBox.innerHTML = '';
     liveNote.textContent = '—'; liveCents.textContent = ''; liveStamp.textContent = '按着按钮开始唱';
@@ -3669,11 +3677,11 @@ window.addEventListener('unhandledrejection', function (e) {
   $('againBtn').addEventListener('click', resetSession);
   $('addBtn').addEventListener('click', addMoreSegment);
   $('proToggleBtn').addEventListener('click', function () { setDisplayPro(!displayPro); });
-  $('capoSrcSel').addEventListener('change', renderCapo);
-  $('capoDstSel').addEventListener('change', renderCapo);
+  var cs = $('capoSrcSel'); if (cs) cs.addEventListener('change', renderCapo);
+  var cd = $('capoDstSel'); if (cd) cd.addEventListener('change', renderCapo);
   $('replayBtn').addEventListener('click', replayMelody);
   // 固定测试旋律：do-mi-sol-do（与录音无关）——区分「播放链路问题」和「转录数据问题」
-  $('selfTestBtn').addEventListener('click', async function () {
+  var stb = $('selfTestBtn'); if (stb) stb.addEventListener('click', async function () {
     stopAllTones();
     await ensureAudioStarted();
     try {
@@ -3726,7 +3734,7 @@ window.addEventListener('unhandledrejection', function (e) {
       if (dlt) { dlt.style.display = 'block'; dlt.className = 'replay-status ok'; dlt.textContent = '已下载 WAV（' + (dlPcm.length / dlSr).toFixed(1) + 's）· 请用系统播放器播放，听是不是所有音都在'; }
     } catch (e) { console.error('下载回放音频出错:', e); }
   });
-  $('singBtn').addEventListener('click', speakSolfege);
+  var sg = $('singBtn'); if (sg) sg.addEventListener('click', speakSolfege);
   $('hearSelfBtn').addEventListener('click', playSelfRecording);
 
   // 音色切换（问题1）
@@ -3735,7 +3743,7 @@ window.addEventListener('unhandledrejection', function (e) {
   });
 
   // 测试声音：播放标准音 A4，确认设备出声正常
-  $('testSoundBtn').addEventListener('click', async function () {
+  var tsb = $('testSoundBtn'); if (tsb) tsb.addEventListener('click', async function () {
     var tip = $('testSoundTip');
     try {
       await ensureAudioStarted();
@@ -4301,14 +4309,14 @@ window.addEventListener('unhandledrejection', function (e) {
     var sc = document.getElementById('playScroll');
     var dotsBox = document.getElementById('playDots');
     if (!sc || !dotsBox) return;
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 2; i++) {
       var d = document.createElement('i');
       if (i === 0) d.className = 'on';
       dotsBox.appendChild(d);
     }
     sc.addEventListener('scroll', function () {
       var idx = Math.round(sc.scrollLeft / Math.max(1, sc.clientWidth));
-      if (idx < 0) idx = 0; if (idx > 2) idx = 2;
+      if (idx < 0) idx = 0; if (idx > 1) idx = 1;
       var dots = dotsBox.querySelectorAll('i');
       for (var j = 0; j < dots.length; j++) dots[j].className = j === idx ? 'on' : '';
     }, { passive: true });
@@ -4896,22 +4904,7 @@ window.addEventListener('unhandledrejection', function (e) {
 
   /* ============ 4. 录音互动（__hkOnRec 钩子） ============ */
   function buildDandelion() {
-    // 静态绒毛(轻摆动);录音时的种子飘散由 canvas 粒子系统负责(见 dandeInit)
-    var g = $('dandeSeeds');
-    if (!g) return;
-    var NS = 'http://www.w3.org/2000/svg';
-    var n = 16;
-    for (var i = 0; i < n; i++) {
-      var ang = (i / n) * Math.PI * 2 + 0.2;
-      var x2 = 60 + Math.cos(ang) * 32, y2 = 64 + Math.sin(ang) * 32;
-      var tipX = 60 + Math.cos(ang) * 40, tipY = 64 + Math.sin(ang) * 40;
-      var seed = document.createElementNS(NS, 'g');
-      seed.setAttribute('class', 'dande-seed');
-      seed.innerHTML = '<line x1="60" y1="64" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#8A766C" stroke-width="1.6" stroke-linecap="round"/>' +
-        '<circle cx="' + tipX.toFixed(1) + '" cy="' + tipY.toFixed(1) + '" r="2.8" fill="#FFFDF5"/>' +
-        '<circle cx="' + tipX.toFixed(1) + '" cy="' + tipY.toFixed(1) + '" r="4.4" fill="none" stroke="#8A766C" stroke-width="1.1" opacity="0.45"/>';
-      g.appendChild(seed);
-    }
+    // 绒毛已画在静态 SVG 里;这里只初始化 canvas 粒子系统(录音时种子飘散)
     dandeInit();
   }
   /* ---- 蒲公英种子粒子(参考 tsParticles 的风场+生命周期,零依赖 canvas) ---- */
