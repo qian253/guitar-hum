@@ -708,6 +708,17 @@
   @keyframes earWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-2deg) scale(1.03); } 75% { transform: rotate(2deg) scale(1.03); } }
 
   #shareCardBtn svg { vertical-align: -3px; }
+
+  /* v2.31 猫的音乐小屋 */
+  .scene-float { animation: sceneFloat 5s ease-in-out infinite; }
+  .scene-float.sf2 { animation-delay: 1.4s; }
+  @keyframes sceneFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .rec-live #sceneCat { animation: sceneListen 1.1s ease-in-out infinite; transform-origin: 50% 62%; }
+  @keyframes sceneListen { 0%, 100% { transform: rotate(0) translateY(0); } 25% { transform: rotate(-3deg) translateY(-3px); } 75% { transform: rotate(3deg) translateY(-3px); } }
+  .rec-live .scene-area svg { transform: scale(1.012); }
+  .wall-badge { cursor: pointer; }
+  .scene-area { max-height: 226px; }
+  @media (prefers-reduced-motion: reduce) { .scene-float, .rec-live #sceneCat { animation: none; } }
   .rhythm-diag { width: 150px; height: auto; flex-shrink: 0; }
 
   /* v2.29 手绘场景升级(参考治愈系专注App设计语言) */
@@ -883,19 +894,32 @@ window.addEventListener('unhandledrejection', function (e) {
       </div>
     </div>
     <div class="status" id="status"></div>
-    <!-- v2.29 猫的音乐小窝:手绘场景(学治愈系专注App的"有人味"场景区) -->
+    <!-- v2.31 猫的音乐小屋:世界随用户唱歌而变化(学「椅子上有猫」的生命力) -->
     <div class="scene-area" aria-hidden="true">
-      <svg viewBox="0 0 340 150" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="170" cy="141" rx="122" ry="12" fill="#A8CFA2" opacity="0.4"/>
-        <rect x="16" y="10" width="62" height="54" rx="8" fill="#A8C8DC" opacity="0.5" stroke="#4E4338" stroke-width="2"/>
-        <line x1="47" y1="10" x2="47" y2="64" stroke="#4E4338" stroke-width="1.6"/>
-        <line x1="16" y1="37" x2="78" y2="37" stroke="#4E4338" stroke-width="1.6"/>
-        <rect x="256" y="14" width="56" height="44" rx="6" fill="#FFFDF5" stroke="#4E4338" stroke-width="2"/>
-        <text x="284" y="44" font-size="20" fill="#C05B45" text-anchor="middle">♪</text>
-        <rect x="96" y="92" width="128" height="40" rx="14" fill="#F6BFA6" stroke="#4E4338" stroke-width="2.4"/>
-        <line x1="120" y1="94" x2="120" y2="130" stroke="#4E4338" stroke-width="1.4" opacity="0.5"/>
-        <line x1="200" y1="94" x2="200" y2="130" stroke="#4E4338" stroke-width="1.4" opacity="0.5"/>
-        <svg x="130" y="22" width="88" height="88" viewBox="0 0 96 96">
+      <svg viewBox="0 0 360 226" xmlns="http://www.w3.org/2000/svg">
+        <!-- 地板与地毯 -->
+        <line x1="0" y1="202" x2="360" y2="202" stroke="#E0CDAF" stroke-width="2"/>
+        <ellipse cx="180" cy="216" rx="152" ry="11" fill="#A8CFA2" opacity="0.35"/>
+        <!-- 窗户:蓝天/太阳/云/飘出的音符 -->
+        <rect x="18" y="14" width="86" height="68" rx="8" fill="#A8C8DC" opacity="0.45" stroke="#4E4338" stroke-width="3"/>
+        <line x1="61" y1="14" x2="61" y2="82" stroke="#4E4338" stroke-width="2"/>
+        <line x1="18" y1="48" x2="104" y2="48" stroke="#4E4338" stroke-width="2"/>
+        <circle cx="40" cy="34" r="9" fill="#F8DF96"/>
+        <path d="M74 30 q6 -6 12 0 q-6 6 -12 0z" fill="#FFFDF5" opacity="0.9"/>
+        <text x="92" y="76" font-size="13" fill="#C9B3E9" class="scene-float">♪</text>
+        <!-- 吊灯 -->
+        <line x1="180" y1="0" x2="180" y2="20" stroke="#4E4338" stroke-width="1.6"/>
+        <path d="M164 20 h32 l-6 14 h-20 z" fill="#F8DF96" stroke="#4E4338" stroke-width="2"/>
+        <ellipse cx="180" cy="44" rx="34" ry="9" fill="#F8DF96" opacity="0.22"/>
+        <!-- 墙上的 12 调性徽章(收集一个亮一个;点击去我的页) -->
+        <g id="wallBadges"></g>
+        <!-- 沙发 + 猫 -->
+        <rect x="88" y="150" width="138" height="50" rx="16" fill="#F6BFA6" stroke="#4E4338" stroke-width="2.6"/>
+        <line x1="112" y1="152" x2="112" y2="198" stroke="#4E4338" stroke-width="1.4" opacity="0.45"/>
+        <line x1="204" y1="152" x2="204" y2="198" stroke="#4E4338" stroke-width="1.4" opacity="0.45"/>
+        <line x1="104" y1="200" x2="104" y2="207" stroke="#4E4338" stroke-width="2.4"/>
+        <line x1="210" y1="200" x2="210" y2="207" stroke="#4E4338" stroke-width="2.4"/>
+        <svg id="sceneCat" x="118" y="90" width="86" height="86" viewBox="0 0 96 96">
           <path d="M66 86 q10 -6 6 -20 q-2 8 -8 10 q-1 8 -8 10" fill="#8E7CC3"/>
           <ellipse cx="44" cy="66" rx="22" ry="17" fill="#FFC9A8"/>
           <path d="M26 66 q-3 4 -6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M62 66 q3 4 6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
@@ -910,17 +934,25 @@ window.addEventListener('unhandledrejection', function (e) {
           <path d="M26 44 h-8 M26 48 h-7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>
           <path d="M62 44 h8 M62 48 h7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>
         </svg>
-        <circle cx="272" cy="102" r="17" fill="#E8B98A" stroke="#4E4338" stroke-width="2.2"/>
-        <circle cx="272" cy="102" r="6" fill="none" stroke="#4E4338" stroke-width="1.6"/>
-        <line x1="263" y1="92" x2="254" y2="40" stroke="#4E4338" stroke-width="4" stroke-linecap="round"/>
-        <rect x="249" y="34" width="10" height="10" rx="2" fill="none" stroke="#4E4338" stroke-width="2"/>
-        <text x="52" y="86" font-size="16" fill="#C9B3E9" opacity="0.85">♫</text>
-        <text x="312" y="76" font-size="15" fill="#F0917F" opacity="0.85">♪</text>
+        <!-- 吉他靠墙 -->
+        <ellipse cx="250" cy="188" rx="15" ry="18" fill="#E8B98A" stroke="#4E4338" stroke-width="2.2"/>
+        <circle cx="250" cy="188" r="5.5" fill="none" stroke="#4E4338" stroke-width="1.4"/>
+        <line x1="258" y1="176" x2="272" y2="126" stroke="#4E4338" stroke-width="5" stroke-linecap="round"/>
+        <rect x="268" y="118" width="9" height="10" rx="2" fill="none" stroke="#4E4338" stroke-width="2"/>
+        <!-- 茶几与茶杯 -->
+        <ellipse cx="66" cy="190" rx="26" ry="8" fill="#D9C3A5" stroke="#4E4338" stroke-width="2"/>
+        <line x1="66" y1="198" x2="66" y2="206" stroke="#4E4338" stroke-width="2.4"/>
+        <ellipse cx="66" cy="186" rx="7" ry="3.4" fill="#FFFDF5" stroke="#4E4338" stroke-width="1.4"/>
+        <path d="M73 186 q5 0 5 4" stroke="#4E4338" stroke-width="1.4" fill="none"/>
+        <!-- 盆栽 -->
+        <path d="M322 176 q8 -14 2 -24 q-10 8 -12 20z" fill="#A8CFA2" stroke="#4E4338" stroke-width="1.4"/>
+        <path d="M332 178 q14 -4 10 -18 q-12 2 -12 16z" fill="#A8CFA2" stroke="#4E4338" stroke-width="1.4"/>
+        <path d="M314 200 h26 l-4 12 h-18 z" fill="#D9C3A5" stroke="#4E4338" stroke-width="2"/>
+        <!-- 漂浮音符 -->
+        <text x="148" y="58" font-size="16" fill="#F0917F" class="scene-float">♫</text>
+        <text x="206" y="42" font-size="14" fill="#C9B3E9" class="scene-float sf2">♪</text>
       </svg>
-    </div>
-    <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
-    <div id="dailyCard">
-      <div class="dc-ic"><i class="ic" data-ic="calendar" data-ic-sz="22"></i></div>
+    </div></div>
       <div class="dc-body">
         <div class="dc-title" id="dailyTitle">今日一调</div>
         <div class="dc-sub" id="dailySub">跟着示范哼一句小星星</div>
@@ -5099,7 +5131,31 @@ window.addEventListener('unhandledrejection', function (e) {
     var hm = $('histMore');
     if (hm) hm.addEventListener('click', function () { histShowAll = !histShowAll; renderHistoryList(); });
   }
+  function renderWallBadges() {
+    var g = $('wallBadges');
+    if (!g) return;
+    var badges = hkGet('hkKeyBadges', {});
+    var out = '';
+    for (var r = 0; r < 12; r++) {
+      var col = r % 6, row = (r / 6) | 0;
+      var x = 250 + col * 17, y = 18 + row * 25;
+      var b = badges[r];
+      if (b) {
+        out += '<g class="wall-badge" data-root="' + r + '"><rect x="' + x + '" y="' + y + '" width="15" height="20" rx="2.5" fill="#FFFDF5" stroke="#C05B45" stroke-width="1.6"/><text x="' + (x + 7.5) + '" y="' + (y + 14) + '" font-size="9" font-weight="800" fill="#C05B45" text-anchor="middle">' + NAMES[r].replace('#', '♯') + '</text></g>';
+      } else {
+        out += '<rect x="' + x + '" y="' + y + '" width="15" height="20" rx="2.5" fill="none" stroke="#E0CDAF" stroke-width="1.3" stroke-dasharray="3 2.5"/>';
+      }
+    }
+    g.innerHTML = out;
+    var got = g.querySelectorAll('.wall-badge');
+    for (var i = 0; i < got.length; i++) {
+      (function (el) {
+        el.addEventListener('click', function () { if (window.__hkNav) window.__hkNav('mine'); });
+      })(got[i]);
+    }
+  }
   function renderKeyBadges() {
+    renderWallBadges();
     var wall = $('keyBadgeWall');
     if (!wall) return;
     var badges = hkGet('hkKeyBadges', {});
