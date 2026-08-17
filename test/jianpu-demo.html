@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>简谱管线演示台(开发工具)</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: #eee; }
+  .ctl { width: 300px; padding: 14px; overflow: auto; background: #faf3e7; border-right: 2px solid #e0cdaf; }
+  .ctl h3 { margin-top: 0; color: #4e4338; }
+  button { display: block; width: 100%; margin: 6px 0; padding: 9px 12px; border: 2px solid #e0cdaf; border-radius: 12px; background: #fff; color: #4e4338; font-size: 13px; cursor: pointer; }
+  button:hover { background: #f6ebd8; }
+  #diagOut { margin-top: 12px; font-size: 11px; white-space: pre-wrap; color: #7d6c5f; }
+  #phone { flex: 1; border: none; }
+</style>
+</head>
+<body>
+<div class="ctl">
+  <h3>简谱三阶段管线 · 演示台</h3>
+  <p style="font-size:12px;color:#7d6c5f">合成音符注入 iframe 里的 App,渲染结果页简谱(开发调试用,不上线)</p>
+  <button onclick="demo('perfect')">完美演唱:120bpm 四分</button>
+  <button onclick="demo('sixteenth')">快速十六分</button>
+  <button onclick="demo('dotted')">附点节奏</button>
+  <button onclick="demo('triplet')">三连音</button>
+  <button onclick="demo('rest')">长音 + 休止</button>
+  <button onclick="demo('jitter')">环境噪严重(±80ms 抖动)</button>
+  <button onclick="demo('chromatic')">离调音(阶段二预览)</button>
+  <div id="diagOut"></div>
+  <pre id="scoreDump" style="display:none;font-size:10px;white-space:pre-wrap;color:#4e4338"></pre>
+</div>
+<iframe id="phone" src="../index.html"></iframe>
+<script>
+  // headless 截图用:?case=perfect 自动注入 + 隐藏控制栏让 iframe 占满视口
+  var auto = new URLSearchParams(location.search).get('case');
+  if (auto) {
+    document.querySelector('.ctl').style.display = 'none';
+    window.addEventListener('load', function () { setTimeout(function () { demo(auto); }, 1200); });
+  }
+  function mkNotes(onsets, durs, midis) {
+    return onsets.map(function (o, i) { return { start: o, end: o + (durs[i] || 0.4), dur: durs[i] || 0.4, midi: midis ? midis[i] : 60 + (i % 7) }; });
+  }
+  function lcg(seed) { var s = seed >>> 0; return function () { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; }
+  function demo(name) {
+    var w = document.getElementById('phone').contentWindow;
+    if (!w.__debug || !w.__hkCore) return setTimeout(function () { demo(name); }, 400);
+    var key = { rootPC: 0, mode: 'major', keyName: 'C 大调', confidence: 0.8, margin: 0.1, score: 0.5, bestShift: 0, doName: 'C', relMode: 'minor', relRoot: 9, relScore: 0.3, relKeyName: 'A 小调', judge: { verdict: 'major', source: 'demo', confidence: 0.8, evidence: [] } };
+    var notes;
+    switch (name) {
+      case 'perfect': notes = mkNotes([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], [0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45], [60, 62, 64, 65, 67, 69, 71, 72]); break;
+      case 'sixteenth': notes = mkNotes([0, 0.125, 0.25, 0.375, 0.5, 0.625], [0.11, 0.11, 0.11, 0.11, 0.11, 0.11], [72, 74, 76, 77, 79, 81]); break;
+      case 'dotted': notes = mkNotes([0, 0.75, 1.0, 1.5, 2.0], [0.7, 0.2, 0.45, 0.45, 0.45]); break;
+      case 'triplet': notes = mkNotes([0, 0.167, 0.333, 0.5, 0.75, 1.0, 1.25, 1.5], [0.15, 0.15, 0.15, 0.2, 0.2, 0.2, 0.2, 0.2]); break;
+      case 'rest': notes = mkNotes([0, 0.5, 1.5], [0.45, 0.45, 0.8]); break;
+      case 'jitter': { var r = lcg(20260817); var os = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(function (o) { return Math.round((o + (r() * 2 - 1) * 0.08) * 1000) / 1000; }); notes = mkNotes(os, os.map(function () { return 0.45; })); break; }
+      case 'chromatic': notes = mkNotes([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], [0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45], [60, 62, 64, 65, 67, 69, 71, 73]); break;
+    }
+    w.__hkCore.state.curNotes = notes;
+    w.__hkCore.state.jianpuMeta = w.__debug.runJianpuPipeline(notes, key);
+    w.__debug.renderResult(key, notes);
+    try { w.__hkNav.switchView('result'); } catch (e) {}
+    var jm = w.__hkCore.state.jianpuMeta, s1 = jm.stage1;
+    document.getElementById('diagOut').textContent = JSON.stringify({
+      bpm: s1.bpm, meter: s1.meter, gridUnit: s1.gridUnit, rate: +s1.stats.successRate.toFixed(2),
+      meanErrMs: +s1.stats.meanErrMs.toFixed(1), fallback: s1.fallback, f0Warn: jm.f0Warn,
+      rests: s1.rests, triplets: s1.triplets, unq: s1.qNotes.filter(function (x) { return x.unquantized; }).map(function (x) { return x.idx; })
+    }, null, 2);
+    // 把 iframe 里渲染出的真实谱面 HTML 拷到父页(供 --dump-dom 验证)
+    var pre = document.getElementById('scoreDump');
+    pre.textContent = w.document.getElementById('jianpuLine').outerHTML + '\nTAG: ' + w.document.getElementById('jianpuTag').textContent;
+  }
+</script>
+</body>
+</html>

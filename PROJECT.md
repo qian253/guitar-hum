@@ -5,12 +5,13 @@
 
 ---
 
-## 〇、近期版本纪要(v2.20~v2.32,2026-08-16~17)
+## 〇、近期版本纪要(v2.20~v2.33,2026-08-16~17)
 - v2.20~v2.22 体验层:故事引导/今日一调(4公版旋律)/礼物仪式/猫爪夹品/调性收集册/陪伴问候/分享卡片/猜调挑战/召唤猫/上滑取消录音/错误5秒淡出
 - v2.21~v2.27 设计系统:治愈系配色令牌(燕麦纸/玫瑰粉/四辅助色各司其职)/Lucide线性图标21个(替代emoji)/视图fixed覆盖层修复顶部空白(v2.14遗留bug)/去wobbly描边层/按钮分层/我的页单卡合并
 - v2.24~v2.25 算法:双轨转录校验(bp×YIN)+三支柱主音引擎(0.45/0.30/0.25,倾向带时长门)
 - v2.28~v2.32 打磨:结果页修复(变调夹删除引发的空引用连环bug)/蒲公英重绘+粒子/录音极简态(无任何红圈)/节奏库30种+播放逐拍对谱(根三二三记谱)/猫的音乐小屋场景(v2.31,墙上12调徽章随收集点亮)/技能库(.claude/skills 6个含humkey-ui)
-- 待办:千问简谱三阶段管线;用户12大调标注录音校准;真机验证
+- **v2.33.0 千问简谱三阶段管线·阶段一(节奏量化)**:①自研 IOI 直方图 BPM 估计(整数倍/细分双拟合+时长一致性+八度消歧,50~160 BPM,替代 madmom)+自适应网格吸附(1/8 或 1/16 拍,容差 min(50ms, 0.3×步长),出容差标 unquantized 灰色弱化)②时值分类(DUR_CLASSES 1~16 个16分单位,附点3/6/12类)+休止符插入+三连音检测+3/4 拍检测 ③简谱渲染升级为教材式记谱:减时线(8分1条/16分2条)+增时线(每拍一画)+小节线+休止符0+每拍等宽,量化不可用自动退回旧样式+「节奏不太稳,谱仅供参考」④BPM 联动 playRhythm(节奏型试听按哼唱速度)⑤诊断面板加「节奏」行(BPM/拍号/量化率/⚠F0)+管线入口 runJianpuPipeline(纯函数链,输入 curNotes)⑥回放高亮改 data-i 映射(.jp 铁律:每音符恰一个)⑦测试 test/verify-jianpu-quantize.js(9 场景 49 断言:完美/抖动/退化/附点/三连音/十六分/休止/小调/八度点)+演示台 test/jianpu-demo.html(?case=xxx 注入合成音符,headless 验证用)⑧阶段二(唱名映射)v2.34/阶段三(演奏渲染)v2.35 待做
+- 待办:简谱阶段二(二次调性校验/五声七声映射/冲突告警)与阶段三(articulation/humanization/按谱重放);用户12大调标注录音校准;真机验证
 - 详细规则见记忆文件 guitar-hum-key-project(用户好恶清单/环境/工作流)
 
 ## 一、这是什么
@@ -159,7 +160,9 @@ hum-key/
   /c/Users/keyou/.tools/node-v20.15.0-win-x64/node.exe test/e2e.js
   /c/Users/keyou/.tools/node-v20.15.0-win-x64/node.exe test/verify-ending.js
   /c/Users/keyou/.tools/node-v20.15.0-win-x64/node.exe test/verify-chords.js
+  /c/Users/keyou/.tools/node-v20.15.0-win-x64/node.exe test/verify-jianpu-quantize.js  # v2.33 简谱量化管线
   ```
+  （另:verify-new/verify-merge/verify-melody-buffer/verify-ks-processor/verify-essentia-vote/test-chew/test-harmony/test-stability 同命令跑;stub-test.js 与 judge-test.js 是历史遗留,前者在 Node 下崩溃、后者 10/11,均不纳入门禁。演示台:test/jianpu-demo.html?case=perfect 注入合成音符,配合 Edge headless --dump-dom 验证真实渲染)
 - **无浏览器/麦克风**：本环境无法真机测声音和哼唱，音频逻辑只能靠代码审查 + 合成音频测定调。
 
 ---

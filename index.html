@@ -311,6 +311,23 @@
   .jianpu-line .jp .hi-dot { top: -14px; }
   .jianpu-line .jp .lo-dot { bottom: -14px; }
   .jianpu-note { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
+  /* ===== 简谱教材式记谱（v2.33 阶段一：节奏量化） ===== */
+  .jianpu-line.score { flex-wrap: nowrap; overflow-x: auto; gap: 0; align-items: flex-start; padding: 16px 4px 18px; }
+  .jianpu-line.score .jp { display: inline-flex; align-items: flex-end; justify-content: flex-start; min-width: 22px; overflow: visible; }
+  .jianpu-line.score .jp.unq { color: var(--ink2); }
+  .jp-num { position: relative; }
+  .jp-num.u1 { border-bottom: 2px solid rgba(78,67,56,0.55); padding: 0 3px 3px; }
+  .jp-num.u2 { border-bottom: 2px solid rgba(78,67,56,0.55); box-shadow: 0 4px 0 -2px rgba(78,67,56,0.55); padding: 0 3px 4px; }
+  .jp-dot { font-size: 20px; color: var(--ink); }
+  .jp-dash { display: inline-block; min-width: 14px; text-align: center; color: var(--ink); font-weight: 800; }
+  .jp-rest { display: inline-flex; align-items: flex-end; justify-content: flex-start; min-width: 22px; color: var(--ink2); position: relative; }
+  .jp-rest .jp-num { color: var(--ink2); }
+  .jp-acc { font-size: 13px; font-weight: 700; color: var(--ink2); vertical-align: super; line-height: 0; margin-right: 1px; }
+  .jp-barsep { border-left: 2px solid var(--line-strong); margin: 0 3px; align-self: stretch; }
+  .jp-tri { display: inline-flex; flex-direction: column; align-items: center; }
+  .jp-tri-mark { font-size: 11px; font-weight: 700; color: var(--ink2); border-top: 2px solid var(--line-strong); padding: 0 6px; margin-bottom: 2px; }
+  .jp-tri-notes { display: inline-flex; align-items: flex-end; }
+  .jp-warn { background: #FBF0D2; border: 2px solid #EAD9A8; color: #8A6D2F; font-size: 13px; border-radius: 12px 14px 12px 14px; padding: 7px 12px; margin-top: 8px; line-height: 1.5; }
   .melody-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
   .mel-note { font-size: 13px; font-weight: 700; background: #FFFFFF; border: 2px solid var(--line); padding: 7px 11px; border-radius: 12px; color: var(--ink2); display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 42px; }
   .mel-note .sj { font-size: 17px; color: var(--ink); font-weight: 800; }
@@ -1002,8 +1019,9 @@ window.addEventListener('unhandledrejection', function (e) {
       <div class="tabpanel on" id="panelJianpu">
         <div class="melody-line" id="melodyLine"></div>
         <div class="jianpu-box" id="jianpuBox" style="display:none">
-          <div class="card-title" style="margin-bottom:8px">简谱 <span class="tag" id="jianpuTag"></span></div>
+          <div class="card-title" style="margin-bottom:8px">简谱 <span class="tag" id="jianpuTag"></span><button class="btn mini" id="playScoreBtn" style="display:none;float:right">♪ 按谱重放</button></div>
           <div class="jianpu-line" id="jianpuLine"></div>
+          <div class="jp-warn" id="jianpuWarn" style="display:none"></div>
           <div class="jianpu-note" id="jianpuNoteInfo"></div>
         </div>
       </div>
@@ -1095,7 +1113,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.30.1</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.33.0</span></div>
     </div>
   </section>
 
@@ -2058,7 +2076,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.14.4', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.33.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2070,6 +2088,7 @@ window.addEventListener('unhandledrejection', function (e) {
       ['采样', toneLoadFailed ? '降级拨弦（网络不通）' : (toneSamplerReady() ? '真实采样 ✓' : '采样加载中…')],
       ['采样率', (function () { var s = []; try { s.push(getPlayCtx().sampleRate + 'Hz'); } catch (e) {} try { if (window.Tone && Tone.getContext) s.push('Tone ' + Tone.getContext().rawContext.sampleRate + 'Hz'); } catch (e2) {} return s.join(' / ') || '—'; })()],
       ['最近回放', diag.lastReplay ? ('触发 ' + diag.lastReplay.fired + '/' + diag.lastReplay.total + ' · ' + diag.lastReplay.path) : '—'],
+      ['节奏', (function () { var jm = state.jianpuMeta; if (jm && jm.stage1 && !jm.stage1.fallback) { var s1 = jm.stage1; return Math.round(s1.bpm) + ' BPM · ' + s1.meter + ' · 量化 ' + Math.round(s1.stats.successRate * 100) + '%' + (jm.f0Warn ? ' · ⚠F0' : ''); } return '—'; })()],
       ['浏览器', diag.ua],
       ['AudioContext', ctxState],
       ['麦克风', diag.mic],
@@ -2473,6 +2492,8 @@ window.addEventListener('unhandledrejection', function (e) {
       state.prevConfidence = keyRes.confidence;
       recordedNotes = state.curNotes;
       lastKeyResult = keyRes;
+      // v2.33 简谱三阶段管线:量化/唱名映射/演奏渲染(阶段一先行,阶段二 v2.34 接入)
+      state.jianpuMeta = runJianpuPipeline(state.curNotes, keyRes);
       hideAnalyze();
       renderResult(keyRes, state.curNotes);
     } catch (e) { console.error('分析出错:', e); hideAnalyze(); showError('分析出错：' + (e && e.message ? e.message : e)); }
@@ -2883,34 +2904,349 @@ window.addEventListener('unhandledrejection', function (e) {
   function renderJianpu(notes, rootPC, mode) {
     var box = $('jianpuBox');
     if (!notes || notes.length < 2) { box.style.display = 'none'; return; }
-    var jp = buildJianpu(notes, rootPC, mode);
-    var line = $('jianpuLine'); line.innerHTML = '';
-    jp.forEach(function (j) {
-      var el = document.createElement('span');
-      el.className = 'jp';
-      el.title = midiName(j.midi) + ' · ' + (j.dur || 0.25).toFixed(2) + 's · 点按试听';
-      // 节奏可视化：数字横向间距按音长拉伸，眼睛看到的节奏≈哼唱的节奏
-      el.style.marginRight = Math.min(36, 2 + (j.dur || 0.25) * 26) + 'px';
-      var hi = '', lo = '';
-      if (j.oct > 0) hi = '<span class="hi-dot">' + '·'.repeat(j.oct) + '</span>';
-      if (j.oct < 0) lo = '<span class="lo-dot">' + '·'.repeat(-j.oct) + '</span>';
-      // j.num 已是唱名数字：大调 1=do；小调 6=la（不再用 tones 数组二次映射）
-      el.innerHTML = hi + String(j.num) + lo;
-      // 点击任意简谱符号 → 播放对应音高，验证准确性（问题2）
-      (function (midi) {
-        el.addEventListener('click', function (e) { e.stopPropagation(); playTone(midi, 0.45); });
-      })(j.midi);
-      line.appendChild(el);
-    });
-    // 简谱记谱规则标注：大调 do=主音；小调 la=主音，do=关系大调
-    if (mode === 'major') {
-      $('jianpuTag').textContent = 'do = ' + NOTE_NAMES[rootPC] + ' · 简谱 1 = ' + NOTE_NAMES[rootPC];
+    var line = $('jianpuLine');
+    var meta = state.jianpuMeta;
+    var s1 = meta && meta.stage1 && !meta.stage1.fallback ? meta.stage1 : null;
+    if (s1 && s1.qNotes && s1.qNotes.length) {
+      // ===== 教材式记谱(v2.33):量化谱面,每拍等宽 =====
+      var score = buildJianpuScore(s1, rootPC, mode, meta.stage2 || null);
+      line.className = 'jianpu-line score';
+      line.innerHTML = buildJianpuScoreHtml(score);
+      var els = line.querySelectorAll('.jp');
+      for (var i = 0; i < els.length; i++) {
+        (function (el) {
+          var mi = parseInt(el.getAttribute('data-midi'), 10);
+          if (!isNaN(mi)) el.addEventListener('click', function (e) { e.stopPropagation(); playTone(mi, 0.45); });
+        })(els[i]);
+      }
+      // 简谱记谱规则标注：大调 do=主音；小调 la=主音，do=关系大调
+      var tagTxt;
+      if (mode === 'major') {
+        tagTxt = 'do = ' + NOTE_NAMES[rootPC] + ' · 简谱 1 = ' + NOTE_NAMES[rootPC];
+      } else {
+        var doPc = (rootPC + 3) % 12;
+        tagTxt = 'la = ' + NOTE_NAMES[rootPC] + ' · do = ' + NOTE_NAMES[doPc] + '（6 = ' + NOTE_NAMES[rootPC] + '，1 = ' + NOTE_NAMES[doPc] + '）';
+      }
+      $('jianpuTag').textContent = tagTxt + ' · ' + s1.meter + ' · ♩=' + Math.round(s1.bpm);
+      var info = notes.length + ' 个音 · ' + s1.meter + ' ♩=' + Math.round(s1.bpm) + ' · 量化 ' + Math.round(s1.stats.successRate * 100) + '%';
+      if (s1.stats.nQuantized < s1.stats.nTotal) info += ' · ' + (s1.stats.nTotal - s1.stats.nQuantized) + ' 个音节奏不稳（灰色显示）';
+      if (meta.f0Warn) info += ' · 音高抖动偏多';
+      $('jianpuNoteInfo').textContent = info + ' · 点任意数字可试听对应音高 · 「♪ 听旋律」按你哼的节奏还原演奏';
+      $('jianpuWarn').style.display = 'none'; // 阶段二(v2.34)接管警示行
     } else {
-      var doPc = (rootPC + 3) % 12;
-      $('jianpuTag').textContent = 'la = ' + NOTE_NAMES[rootPC] + ' · do = ' + NOTE_NAMES[doPc] + '（6 = ' + NOTE_NAMES[rootPC] + '，1 = ' + NOTE_NAMES[doPc] + '）';
+      // ===== 旧版比例间距(量化不可用时的保底) =====
+      line.className = 'jianpu-line';
+      var jp = buildJianpu(notes, rootPC, mode);
+      line.innerHTML = '';
+      jp.forEach(function (j) {
+        var el = document.createElement('span');
+        el.className = 'jp';
+        el.title = midiName(j.midi) + ' · ' + (j.dur || 0.25).toFixed(2) + 's · 点按试听';
+        // 节奏可视化：数字横向间距按音长拉伸，眼睛看到的节奏≈哼唱的节奏
+        el.style.marginRight = Math.min(36, 2 + (j.dur || 0.25) * 26) + 'px';
+        var hi = '', lo = '';
+        if (j.oct > 0) hi = '<span class="hi-dot">' + dotRepeat(j.oct) + '</span>';
+        if (j.oct < 0) lo = '<span class="lo-dot">' + dotRepeat(-j.oct) + '</span>';
+        // j.num 已是唱名数字：大调 1=do；小调 6=la（不再用 tones 数组二次映射）
+        el.innerHTML = hi + String(j.num) + lo;
+        // 点击任意简谱符号 → 播放对应音高，验证准确性（问题2）
+        (function (midi) {
+          el.addEventListener('click', function (e) { e.stopPropagation(); playTone(midi, 0.45); });
+        })(j.midi);
+        line.appendChild(el);
+      });
+      // 简谱记谱规则标注：大调 do=主音；小调 la=主音，do=关系大调
+      if (mode === 'major') {
+        $('jianpuTag').textContent = 'do = ' + NOTE_NAMES[rootPC] + ' · 简谱 1 = ' + NOTE_NAMES[rootPC];
+      } else {
+        var doPc2 = (rootPC + 3) % 12;
+        $('jianpuTag').textContent = 'la = ' + NOTE_NAMES[rootPC] + ' · do = ' + NOTE_NAMES[doPc2] + '（6 = ' + NOTE_NAMES[rootPC] + '，1 = ' + NOTE_NAMES[doPc2] + '）';
+      }
+      var legacyInfo = notes.length + ' 个音 · 数字间距≈音长（节奏）· 点任意数字可试听对应音高 · 「♪ 听旋律」按你哼的节奏还原演奏';
+      if (meta && meta.stage1 && meta.stage1.fallback === 'tooUnstable') legacyInfo += ' · 节奏不太稳，谱仅供参考';
+      $('jianpuNoteInfo').textContent = legacyInfo;
+      $('jianpuWarn').style.display = 'none';
     }
-    $('jianpuNoteInfo').textContent = notes.length + ' 个音 · 数字间距≈音长（节奏）· 点任意数字可试听对应音高 · 「♪ 听旋律」按你哼的节奏还原演奏';
     box.style.display = 'block';
+  }
+
+  /* ================= 简谱三阶段管线(v2.33 阶段一:节奏量化) ================= */
+  // 千问提案参数表(2~15s 清唱初值,真机数据回来再标定)
+  var JIANPU_QUANT_OPTS = {
+    bpmMin: 50, bpmMax: 160,        // 哼唱 BPM 经验域(拍长 0.375~1.2s)
+    defaultBpm: 90,                 // 估计不可靠时降级假设
+    ioiMinMs: 60,                   // 更短的 IOI 视为毛刺/连音残差
+    grid8thThreshold: 0.45,         // min(IOI) > 0.45×拍 → 1/8 拍网格,否则 1/16
+    tolMsMax: 50, tolGridFrac: 0.3, // 吸附容差 = min(50ms, 0.3×网格步长)
+    restInsertMin: 2,               // 16分单位,余量 ≥2 才插休止符(1 单位吸收)
+    durClasses: [1, 2, 3, 4, 6, 8, 12, 16], // 时值类(16分单位;3/6/12=附点)
+    durComplexPenalty: 0.35,        // 时值选类惩罚:偏爱简单时值
+    durGapThreshold: 1.5,           // 音长比间距短 1.5 单位以上 → 按音长记谱+休止
+    fallbackMeanErrFrac: 0.35,      // 平均误差 > 0.35×网格步长 → 整体退回旧样式
+    fallbackSuccessMin: 0.4,        // 量化成功率 < 0.4 → 谱面虚构多于事实,整体退回旧样式(±80ms 抖动≈0.5 不触发)
+    f0WarnSuccess: 0.7,             // 成功率 < 0.7 → F0 提取告警(只标记不退回)
+    tripletMaxRatio: 1.6,           // 三连音组内最大/最小间距比上限
+    meter3Hit: 0.6, meter4Miss: 0.4 // 3/4 拍检测:mod3 命中 > 0.6 且 mod4 < 0.4
+  };
+  var DUR_NAMES_JP = { 1: '十六分', 2: '八分', 3: '附点八分', 4: '四分', 6: '附点四分', 8: '二分', 12: '附点二分', 16: '全音符' };
+
+  // BPM 估计:IOI 直方图(整数倍/细分双拟合 + 时长一致性 + 八度消歧)。
+  // 替代 madmom:清唱无打击乐,2~8s 片段上自研估计器更稳、零依赖、零延迟。
+  function estimateBpm(notes, opts) {
+    opts = opts || JIANPU_QUANT_OPTS;
+    var lo = 60 / opts.bpmMax, hi = 60 / opts.bpmMin, i, k;
+    var iois = [];
+    for (i = 0; i + 1 < notes.length; i++) {
+      var d = (notes[i + 1].start || 0) - (notes[i].start || 0);
+      if (d * 1000 >= opts.ioiMinMs) iois.push(d);
+    }
+    if (iois.length < 2) return { bpm: opts.defaultBpm, beat: 60 / opts.defaultBpm, score: 0, iois: iois, reliable: false };
+    function fold(p) { while (p < lo) p *= 2; while (p > hi) p /= 2; return p; }
+    var cands = {};
+    for (i = 0; i < iois.length; i++) for (k = 1; k <= 4; k++) { var p = fold(iois[i] / k); cands[p.toFixed(4)] = p; }
+    function scoreP(p) {
+      var s = 0, a, b;
+      for (a = 0; a < iois.length; a++) {
+        var io = iois[a], w = 0.5 + 0.5 * Math.min(1, io / 1.5);
+        var m = io / p;
+        if (m >= 1) { var k2 = Math.round(m); s += w * Math.max(0, 1 - Math.abs(m - k2) / 0.5); }
+        else { var inv = p / io, kinv = Math.round(inv); s += w * Math.max(0, 1 - Math.abs(inv - kinv) / 0.5); } // 细分(IOI = 拍/k)
+      }
+      for (b = 0; b < notes.length; b++) { // 时长一致性:半拍/双拍歧义消解
+        var dd = notes[b].dur || p, r = dd / p, kk = Math.max(1, Math.round(r));
+        s += 0.15 * Math.max(0, 1 - Math.abs(r - kk) / 0.5);
+      }
+      return s;
+    }
+    var bestP = null, bestS = -1, key;
+    for (key in cands) { var sc = scoreP(cands[key]); if (sc > bestS) { bestS = sc; bestP = cands[key]; } }
+    var meanIoi = 0;
+    for (i = 0; i < iois.length; i++) meanIoi += iois[i];
+    meanIoi /= iois.length;
+    for (var guard = 0; guard < 4; guard++) { // 八度消歧:均值离拍太远说明拍长估成了半拍/双拍
+      var ratio = meanIoi / bestP;
+      if (ratio < 0.8 && bestP * 2 <= hi + 1e-9) { var s2 = scoreP(bestP * 2); if (s2 > bestS) { bestS = s2; bestP *= 2; continue; } }
+      else if (ratio > 3.0 && bestP / 2 >= lo - 1e-9) { var sh = scoreP(bestP / 2); if (sh > bestS) { bestS = sh; bestP /= 2; continue; } }
+      break;
+    }
+    var totalW = 0;
+    for (i = 0; i < iois.length; i++) totalW += 0.5 + 0.5 * Math.min(1, iois[i] / 1.5);
+    totalW += 0.15 * notes.length;
+    var reliable = bestS > 0.5 * totalW && iois.length >= 2; // 3 音符旋律只有 2 个 IOI,靠时长一致性项防过拟合
+    return { bpm: Math.round(60 / bestP * 10) / 10, beat: bestP, score: bestS, iois: iois, reliable: reliable };
+  }
+
+  // 自适应网格吸附:onset → 16分单位网格,贪心+单调钳制。
+  // 出容差音符仍入网格但标 unquantized(谱面不断裂,诚实性靠统计+弱化样式+整体 fallback)。
+  function quantizeRhythm(notes, opts) {
+    opts = opts || JIANPU_QUANT_OPTS;
+    var res = { fallback: null, bpm: 0, bpmReliable: false, beat: 0, gridUnit: 8, snapStep16: 2, gridMs: 0, tolMs: 0, meter: '4/4',
+      qNotes: [], rests: [], bars: [], triplets: [], dotted: [],
+      stats: { meanErrMs: 0, maxErrMs: 0, successRate: 0, nQuantized: 0, nTotal: 0 } };
+    if (!notes || notes.length < 3) { res.fallback = 'tooShort'; return res; }
+    var eb = estimateBpm(notes, opts);
+    res.bpmReliable = eb.reliable;
+    res.bpm = eb.reliable ? eb.bpm : opts.defaultBpm;
+    res.beat = 60 / res.bpm;
+    res.gridMs = res.beat / 4; // 最小时值 = 1/16 拍(毫秒)
+    var minIoi = Infinity;
+    for (var i = 0; i + 1 < notes.length; i++) minIoi = Math.min(minIoi, (notes[i + 1].start || 0) - (notes[i].start || 0));
+    if (minIoi <= opts.grid8thThreshold * res.beat) { res.gridUnit = 16; res.snapStep16 = 1; } // 有快音 → 16 分网格
+    res.tolMs = Math.min(opts.tolMsMax, opts.tolGridFrac * res.gridMs * res.snapStep16 * 1000); // gridMs 是秒,×1000 归一到毫秒再与 tolMsMax 比
+    var t0 = notes[0].start || 0, last = 0, n;
+    for (n = 0; n < notes.length; n++) {
+      var rel = ((notes[n].start || 0) - t0) / res.gridMs;
+      var cand = Math.max(last, Math.round(rel / res.snapStep16) * res.snapStep16);
+      var errMs = Math.abs(cand * res.gridMs - rel * res.gridMs) * 1000; // 统一毫秒
+      res.qNotes.push({
+        midi: notes[n].midi, start: notes[n].start, end: notes[n].end, dur: notes[n].dur || 0.25,
+        amp: notes[n].amp, bends: notes[n].bends, idx: n,
+        qOnset16: cand, value16: 0, durClass: 0, unquantized: errMs > res.tolMs + 1e-9, errMs: errMs
+      });
+      last = cand;
+    }
+    var DC = opts.durClasses, cp = opts.durComplexPenalty;
+    function pickVal(v) {
+      var best = DC[0], bestCost = Infinity;
+      for (var c = 0; c < DC.length; c++) {
+        var cost = Math.abs(v - DC[c]) + cp * Math.log(DC[c]) / Math.log(2);
+        if (cost < bestCost) { bestCost = cost; best = DC[c]; }
+      }
+      return best;
+    }
+    for (n = 0; n < res.qNotes.length; n++) {
+      var q = res.qNotes[n];
+      var spacing16 = (n + 1 < res.qNotes.length) ? res.qNotes[n + 1].qOnset16 - q.qOnset16 : 0;
+      var dur16 = q.dur / res.gridMs;
+      if (n + 1 < res.qNotes.length) {
+        if (dur16 + opts.durGapThreshold < spacing16) {
+          // 音长明显短于间距(断音/换气)→ 按音长记谱,余量记休止
+          q.value16 = Math.max(1, Math.min(16, pickVal(dur16)));
+        } else {
+          q.value16 = spacing16; // 常规:连奏,时值 = 到下一起音的间距
+          if (q.value16 <= 16) q.value16 = pickVal(q.value16);
+        }
+      } else {
+        q.value16 = Math.max(1, Math.min(16, pickVal(Math.min(dur16, 16))));
+      }
+      q.durClass = q.value16;
+      if (n + 1 < res.qNotes.length) {
+        var rest16 = spacing16 - q.value16;
+        if (rest16 >= opts.restInsertMin) res.rests.push({ at16: q.qOnset16 + q.value16, value16: rest16 });
+      }
+    }
+    // 三连音:连续 3 音组总跨度 ≈ 1 拍(第四音起音收口)且组内间距均匀
+    for (n = 0; n + 2 < res.qNotes.length; n++) {
+      var a = res.qNotes[n], b = res.qNotes[n + 1], c = res.qNotes[n + 2];
+      var spanEnd = (n + 3 < res.qNotes.length) ? res.qNotes[n + 3].start : (c.start + (c.start - a.start) / 2);
+      var span = spanEnd - a.start;
+      var g1 = b.start - a.start, g2 = c.start - b.start;
+      if (Math.abs(span - res.beat) < Math.max(res.tolMs / 1000, 0.15 * res.beat) && Math.max(g1, g2) / Math.min(g1, g2) < opts.tripletMaxRatio) {
+        res.triplets.push({ from: n, to: n + 2 });
+        for (var t = n; t <= n + 2; t++) {
+          res.qNotes[t].value16 = 2; res.qNotes[t].durClass = 2; res.qNotes[t].triplet = true;
+          res.qNotes[t].unquantized = false; // 三连音落在 1/3 拍网格,非抖动
+        }
+        n += 2;
+      }
+    }
+    // 附点节奏对(诊断/测试用;记谱本身由 DUR_CLASSES 的 3/6/12 类自然产出)
+    for (n = 0; n + 1 < res.qNotes.length; n++) {
+      var v1 = res.qNotes[n].value16, v2 = res.qNotes[n + 1].value16;
+      if ((v1 === 3 && v2 === 1) || (v1 === 1 && v2 === 3) || (v1 === 6 && v2 === 2) || (v1 === 2 && v2 === 6)) res.dotted.push({ from: n, to: n + 1 });
+    }
+    // 拍号:默认 4/4,3/4 需 mod3 命中率明显占优
+    var hit3 = 0, hit4 = 0;
+    for (n = 0; n < res.qNotes.length; n++) {
+      var posBeat = res.qNotes[n].qOnset16 / 4;
+      if (posBeat % 3 === 0) hit3++;
+      if (posBeat % 4 === 0) hit4++;
+    }
+    if (hit3 / res.qNotes.length > opts.meter3Hit && hit4 / res.qNotes.length < opts.meter4Miss) res.meter = '3/4';
+    // 残差统计:只对 quantized 音符计均值;unquantized 单独列索引
+    var sumErr = 0, maxErr = 0, nq = 0;
+    for (n = 0; n < res.qNotes.length; n++) {
+      var qn = res.qNotes[n];
+      if (!qn.unquantized) { sumErr += qn.errMs; if (qn.errMs > maxErr) maxErr = qn.errMs; nq++; }
+    }
+    res.stats.nTotal = res.qNotes.length;
+    res.stats.nQuantized = nq;
+    res.stats.successRate = nq / res.qNotes.length;
+    res.stats.meanErrMs = nq ? sumErr / nq : 0;
+    res.stats.maxErrMs = maxErr;
+    var snapMs = res.gridMs * res.snapStep16 * 1000; // 网格步长(毫秒)
+    if (res.stats.successRate < opts.fallbackSuccessMin || res.stats.meanErrMs > opts.fallbackMeanErrFrac * snapMs) res.fallback = 'tooUnstable';
+    return res;
+  }
+
+  // 简谱三阶段管线入口:阶段一(量化)→阶段二(唱名映射,v2.34)→阶段三(演奏,v2.35)。
+  // 纯函数链,不改任何上游数据;调用方把返回值挂到 state.jianpuMeta。
+  function runJianpuPipeline(notes, keyRes) {
+    var meta = { stage1: null, stage2: null, renderLatencyMs: null, f0Warn: false, heptaHint: false };
+    try {
+      var q = quantizeRhythm(notes);
+      meta.stage1 = q;
+      meta.f0Warn = !q.fallback && q.stats.successRate < JIANPU_QUANT_OPTS.f0WarnSuccess;
+      // 阶段二(v2.34)在此接入:pentatonicFit + 冲突判定 + key_override/警示
+    } catch (e) { console.error('简谱量化出错:', e); }
+    return meta;
+  }
+
+  // 唱名映射(阶段一用七声静默吸附,与旧版一致;阶段二将替换为五声/七声自适应+升降号)
+  function jpMapDegrees(qNotes, rootPC, mode) {
+    var scale = mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
+    var deg = mode === 'major' ? [1, 2, 3, 4, 5, 6, 7] : [6, 7, 1, 2, 3, 4, 5];
+    var mids = qNotes.map(function (q) { return Math.round(q.midi); }).sort(function (a, b) { return a - b; });
+    var center = mids[Math.floor(mids.length / 2)];
+    var tonicMid = Math.round((center - rootPC) / 12) * 12 + rootPC;
+    if (tonicMid - center > 6) tonicMid -= 12; else if (tonicMid - center < -6) tonicMid += 12;
+    var octBase = mode === 'major' ? tonicMid : tonicMid - 9;
+    return qNotes.map(function (q) {
+      var midi = Math.round(q.midi);
+      var diff = ((((midi % 12) + 12) - (tonicMid % 12)) % 12 + 12) % 12;
+      var bestI = 0, bestD = 99;
+      for (var i = 0; i < 7; i++) { var d = Math.abs(scale[i] - diff); if (d > 6) d = 12 - d; if (d < bestD) { bestD = d; bestI = i; } }
+      return { num: deg[bestI], oct: Math.floor((midi - octBase) / 12), dist: bestD };
+    });
+  }
+
+  // 教材式记谱符号流:note(数字+升降号+减时线+增时线+八度点)/rest(0)/bar(小节线)/triplet(三连音组)
+  function buildJianpuScore(quant, rootPC, mode, stage2) {
+    var map = jpMapDegrees(quant.qNotes, rootPC, mode);
+    var qn = quant.qNotes;
+    var atoms = [], i;
+    for (i = 0; i < qn.length; i++) atoms.push({ at16: qn[i].qOnset16, kind: 'note', qi: i, m: map[i] });
+    for (var r = 0; r < quant.rests.length; r++) atoms.push({ at16: quant.rests[r].at16, kind: 'rest', value16: quant.rests[r].value16 });
+    atoms.sort(function (a, b) { return a.at16 - b.at16 || (a.kind === 'note' ? -1 : 1); });
+    var barLen = quant.meter === '3/4' ? 12 : 16;
+    var end16 = 0;
+    for (var e = 0; e < atoms.length; e++) end16 = Math.max(end16, atoms[e].at16 + (atoms[e].kind === 'note' ? qn[atoms[e].qi].value16 : atoms[e].value16));
+    var symbols = [], nextBar = barLen;
+    for (i = 0; i < atoms.length; i++) {
+      var at = atoms[i];
+      while (at.at16 >= nextBar) { symbols.push({ t: 'bar' }); nextBar += barLen; }
+      if (at.kind === 'rest') {
+        symbols.push({ t: 'rest', value16: at.value16, underlines: at.value16 <= 2 ? (at.value16 === 1 ? 2 : 1) : 0, dashes: Math.max(0, Math.round(at.value16 / 4) - 1), dot: at.value16 === 3 || at.value16 === 6 || at.value16 === 12 });
+      } else {
+        var q2 = qn[at.qi], mp = at.m;
+        symbols.push({
+          t: 'note', num: mp.num, oct: mp.oct, accidental: null,
+          value16: q2.value16, durClass: q2.durClass,
+          underlines: q2.value16 <= 2 ? (q2.value16 === 1 ? 2 : 1) : 0,
+          dashes: Math.max(0, Math.round(q2.value16 / 4) - 1),
+          dot: q2.value16 === 3 || q2.value16 === 6 || q2.value16 === 12,
+          midi: Math.round(q2.midi), noteIdx: q2.idx, unquantized: !!q2.unquantized, triplet: !!q2.triplet
+        });
+      }
+    }
+    // 三连音:把连续 3 个 triplet 音符符号包成组
+    var merged = [];
+    for (i = 0; i < symbols.length; i++) {
+      if (symbols[i].t === 'note' && symbols[i].triplet && i + 2 < symbols.length && symbols[i + 1].t === 'note' && symbols[i + 1].triplet && symbols[i + 2].t === 'note' && symbols[i + 2].triplet) {
+        merged.push({ t: 'triplet', items: [symbols[i], symbols[i + 1], symbols[i + 2]] });
+        i += 2;
+      } else merged.push(symbols[i]);
+    }
+    return { meter: quant.meter, bpm: quant.bpm, symbols: merged };
+  }
+
+  // 记谱 HTML 构建器(纯字符串,Node 可测)。
+  // 铁律:只有 note 主符号带 .jp 类,每音符恰一个,带 data-i —— 回放高亮按 DOM 序=音符序映射。
+  function jpNoteHtml(s) {
+    var title = midiName(s.midi) + ' · ' + (DUR_NAMES_JP[s.durClass] || (s.value16 + '个16分')) + ' · 点按试听' + (s.unquantized ? ' · 节奏不稳，仅供参考' : '');
+    var h = '<span class="jp' + (s.unquantized ? ' unq' : '') + '" data-i="' + s.noteIdx + '" data-midi="' + s.midi + '" title="' + title + '" style="width:' + Math.max(22, Math.round(s.value16 / 4 * 46)) + 'px">';
+    if (s.accidental) h += '<span class="jp-acc">' + s.accidental + '</span>';
+    h += '<span class="jp-num' + (s.underlines === 2 ? ' u2' : s.underlines === 1 ? ' u1' : '') + '">' + s.num + '</span>';
+    if (s.dot) h += '<span class="jp-dot">·</span>';
+    for (var d = 0; d < s.dashes; d++) h += '<span class="jp-dash">–</span>';
+    if (s.oct > 0) h += '<span class="hi-dot">' + dotRepeat(s.oct) + '</span>';
+    if (s.oct < 0) h += '<span class="lo-dot">' + dotRepeat(-s.oct) + '</span>';
+    h += '</span>';
+    return h;
+  }
+  function dotRepeat(n) { var s = ''; for (var i = 0; i < n; i++) s += '·'; return s; }
+  function buildJianpuScoreHtml(score) {
+    var out = '';
+    for (var i = 0; i < score.symbols.length; i++) {
+      var s = score.symbols[i];
+      if (s.t === 'bar') { out += '<span class="jp-barsep"></span>'; continue; }
+      if (s.t === 'rest') {
+        out += '<span class="jp-rest" style="width:' + Math.max(22, Math.round(s.value16 / 4 * 46)) + 'px">';
+        out += '<span class="jp-num' + (s.underlines === 2 ? ' u2' : s.underlines === 1 ? ' u1' : '') + '">0</span>';
+        if (s.dot) out += '<span class="jp-dot">·</span>';
+        for (var d = 0; d < s.dashes; d++) out += '<span class="jp-dash">–</span>';
+        out += '</span>';
+        continue;
+      }
+      if (s.t === 'triplet') {
+        out += '<span class="jp-tri"><span class="jp-tri-mark">3</span><span class="jp-tri-notes">';
+        for (var t = 0; t < 3; t++) out += jpNoteHtml(s.items[t]);
+        out += '</span></span>';
+        continue;
+      }
+      out += jpNoteHtml(s);
+    }
+    return out;
   }
 
   function drawFretboard(groups) {
@@ -3365,6 +3701,9 @@ window.addEventListener('unhandledrejection', function (e) {
     var rootString = shapeName === 'C' ? 5 : 6;
     var rootMidi = voicing[rootString];
     var beat = 0.46, t = 0.05, bars = 2;
+    // v2.33 BPM 联动:量化管线测出的哼唱速度优先(钳 75~150 BPM),检测失败退回固定拍
+    var jmB = state.jianpuMeta;
+    if (jmB && jmB.stage1 && !jmB.stage1.fallback && jmB.stage1.bpm) beat = Math.max(0.4, Math.min(0.8, 60 / jmB.stage1.bpm));
     var toks = String(p.tag || '').trim().split(/\s+/);
     if (!toks.length) toks = p.type === 'strum' ? ['下', '下上', '上下上', '下'] : ['根', '3', '2', '3'];
     function playDown(off, vel, gap) {
@@ -4125,17 +4464,18 @@ window.addEventListener('unhandledrejection', function (e) {
     }
     var rsEl = $('replayStatus');
     if (rsEl) { rsEl.style.display = 'block'; rsEl.className = 'replay-status'; rsEl.textContent = '正在演奏 ' + notes.length + ' 个音…'; }
+    function clearJpHighlight() { var line = $('jianpuLine'); var els = line.querySelectorAll('.jp'); for (var h0 = 0; h0 < els.length; h0++) els[h0].classList.remove('hl'); }
+    function jpEl(i) { var line = $('jianpuLine'); var el = line.querySelector('.jp[data-i="' + i + '"]'); if (el) return el; var els = line.querySelectorAll('.jp'); return els[i] || null; } // v2.33 记谱新结构:data-i 优先,旧 DOM 序兜底
     function scheduleHighlight(i, delayMs) {
       var tm = setTimeout(function () {
-        var els = $('jianpuLine').querySelectorAll('.jp');
-        for (var h0 = 0; h0 < els.length; h0++) els[h0].classList.remove('hl');
-        if (els[i]) els[i].classList.add('hl');
+        clearJpHighlight();
+        var el = jpEl(i);
+        if (el) el.classList.add('hl');
       }, delayMs);
       melodyTimers.push(tm);
     }
     var endCleanup = function () {
-      var els = $('jianpuLine').querySelectorAll('.jp');
-      if (els) for (var e3 = 0; e3 < els.length; e3++) els[e3].classList.remove('hl');
+      clearJpHighlight();
       var rsEl2 = $('replayStatus');
       if (rsEl2) { rsEl2.className = 'replay-status ok'; rsEl2.textContent = '回放完成 · ' + notes.length + ' 个音（节奏与重音按你哼的还原）'; }
     };
@@ -4168,9 +4508,9 @@ window.addEventListener('unhandledrejection', function (e) {
             var tm = setTimeout(function () {
               playNote(ev.midi, 0.02, ev.dur, ev.vel); // 采样器优先；异常自动落 K-S
               if (diag.lastReplay) diag.lastReplay.fired++;
-              var els = $('jianpuLine').querySelectorAll('.jp');
-              for (var h = 0; h < els.length; h++) els[h].classList.remove('hl');
-              if (els[ev.idx]) els[ev.idx].classList.add('hl');
+              clearJpHighlight();
+              var el = jpEl(ev.idx);
+              if (el) el.classList.add('hl');
             }, ev.delay);
             melodyTimers.push(tm);
           });
@@ -4254,7 +4594,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var __hkOrigStartRec = startRecording, __hkOrigStopRec = stopRecording;
   startRecording = function () { __hkOrigStartRec(); if (window.__hkOnRec) window.__hkOnRec(true); };
   stopRecording = function () { __hkOrigStopRec(); if (window.__hkOnRec) window.__hkOnRec(false); };
-  window.__debug = { renderResult: renderResult, analyze: analyze, stopRecording: stopRecording, startRecording: startRecording, drawFretboard: drawFretboard };
+  window.__debug = { renderResult: renderResult, analyze: analyze, stopRecording: stopRecording, startRecording: startRecording, drawFretboard: drawFretboard, runJianpuPipeline: runJianpuPipeline, quantizeRhythm: quantizeRhythm };
 })();
 </script>
 <script>
