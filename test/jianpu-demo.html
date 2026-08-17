@@ -23,6 +23,7 @@
   <button onclick="demo('triplet')">三连音</button>
   <button onclick="demo('rest')">长音 + 休止</button>
   <button onclick="demo('jitter')">环境噪严重(±80ms 抖动)</button>
+  <button onclick="demo('vibrato')">大颤音碎片(机枪声根治)</button>
   <button onclick="demo('chromatic')">离调音(阶段二预览)</button>
   <div id="diagOut"></div>
   <pre id="scoreDump" style="display:none;font-size:10px;white-space:pre-wrap;color:#4e4338"></pre>
@@ -51,6 +52,7 @@
       case 'triplet': notes = mkNotes([0, 0.167, 0.333, 0.5, 0.75, 1.0, 1.25, 1.5], [0.15, 0.15, 0.15, 0.2, 0.2, 0.2, 0.2, 0.2]); break;
       case 'rest': notes = mkNotes([0, 0.5, 1.5], [0.45, 0.45, 0.8]); break;
       case 'jitter': { var r = lcg(20260817); var os = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(function (o) { return Math.round((o + (r() * 2 - 1) * 0.08) * 1000) / 1000; }); notes = mkNotes(os, os.map(function () { return 0.45; })); break; }
+      case 'vibrato': { notes = []; for (var vi = 0; vi < 14; vi++) notes.push({ start: vi * 0.125, end: vi * 0.125 + 0.2, dur: 0.2, midi: (vi % 2 === 0 ? 63.4 : 64.4) }); notes.push({ start: 2.2, end: 2.8, dur: 0.6, midi: 69 }); notes.push({ start: 3.0, end: 3.5, dur: 0.5, midi: 64 }); break; }
       case 'chromatic': notes = mkNotes([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], [0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45], [60, 62, 64, 65, 67, 69, 71, 73]); break;
     }
     w.__hkCore.state.curNotes = notes;

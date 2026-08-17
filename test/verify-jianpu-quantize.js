@@ -50,7 +50,7 @@ const ctx = { NOTE_NAMES, midiName, JIANPU_QUANT_OPTS: extractVarObj('JIANPU_QUA
 function evalInto(name) {
   ctx[name] = new Function('with(this){ return (' + extractFn(html, name) + '); }').call(ctx);
 }
-['estimateBpm', 'quantizeRhythm', 'runJianpuPipeline', 'jpMapDegrees', 'buildJianpuScore', 'buildJianpuScoreHtml', 'jpNoteHtml', 'dotRepeat'].forEach(evalInto);
+['estimateBpm', 'quantizeRhythm', 'runJianpuPipeline', 'mergeFragments', 'jpMapDegrees', 'buildJianpuScore', 'buildJianpuScoreHtml', 'jpNoteHtml', 'dotRepeat'].forEach(evalInto);
 
 // 确定性抖动源(乘法 LCG)
 function lcg(seed) {
@@ -214,6 +214,39 @@ console.log('=== 场景9 八度点 ===');
   const h = ctx.buildJianpuScoreHtml(score);
   ok('HTML:hi-dot 渲染', h.indexOf('hi-dot') >= 0);
   ok('HTML:lo-dot 渲染', h.indexOf('lo-dot') >= 0);
+}
+
+console.log('=== 场景10 长音碎片合并(v2.33.1 机枪声根治) ===');
+{
+  // A. 大颤音碎片:1.8s 稳态音被切成 14 片(重叠 75ms、Δ≤1、交替振荡)→ 应并回 1 个长音
+  const frags = [];
+  for (let i = 0; i < 14; i++) frags.push({ start: i * 0.125, dur: 0.2, end: i * 0.125 + 0.2, midi: (i % 2 === 0 ? 63.4 : 64.4) });
+  const mergedA = ctx.mergeFragments(frags);
+  ok('14 片颤音碎片 → 1 个长音', mergedA.length === 1, 'len=' + mergedA.length);
+  ok('合并后音高=加权均值', Math.abs(mergedA[0].midi - 63.9) < 0.1, 'midi=' + mergedA[0].midi.toFixed(2));
+  ok('合并后时长=总跨度', Math.abs(mergedA[0].dur - 1.825) < 0.01, 'dur=' + mergedA[0].dur.toFixed(2));
+  // B. 音阶跑动保护:单调同向 Δ=1 → 不得合并
+  const run = mkNotes([0, 0.12, 0.24, 0.36], [0.11, 0.11, 0.11, 0.11], [60, 61, 62, 63]);
+  ok('音阶跑动不合并', ctx.mergeFragments(run).length === 4, 'len=' + ctx.mergeFragments(run).length);
+  // C. 回音 1-2-1 保护:Δ=1 交替但 <4 片 → 不得合并
+  const turn = mkNotes([0, 0.12, 0.24], [0.11, 0.11, 0.11], [60, 61, 60]);
+  ok('回音 1-2-1 不合并', ctx.mergeFragments(turn).length === 3, 'len=' + ctx.mergeFragments(turn).length);
+  // D. 同音碎片(无颤音型交替):三个 60 贴近 → 合并
+  const same = mkNotes([0, 0.15, 0.3], [0.12, 0.12, 0.12], [60, 60, 60]);
+  const mergedD = ctx.mergeFragments(same);
+  ok('同音碎片合并', mergedD.length === 1 && Math.round(mergedD[0].midi) === 60, JSON.stringify(mergedD.map(x => Math.round(x.midi))));
+  // E. 真实旋律两音(Δ=4)不误并
+  const real2 = mkNotes([0, 0.5], [0.45, 0.45], [60, 64]);
+  ok('Δ=4 真实旋律不合并', ctx.mergeFragments(real2).length === 2);
+  // F. 管道集成:碎片 + 两个真音 → 谱面 3 个长音,回放/高亮同源
+  const frags2 = frags.concat(mkNotes([2.2, 3.0], [0.6, 0.5], [69, 64]));
+  const metaF = ctx.runJianpuPipeline(frags2);
+  ok('管线:mergedNotes=3 音(1并+2真)', metaF.stage1.mergedNotes.length === 3, 'len=' + metaF.stage1.mergedNotes.length);
+  ok('管线:谱面音符数=3', metaF.stage1.qNotes.length === 3, 'qNotes=' + metaF.stage1.qNotes.length);
+  ok('管线:首音为合并长音', metaF.stage1.qNotes[0].value16 >= 8, 'value16=' + metaF.stage1.qNotes[0].value16);
+  const scoreF = ctx.buildJianpuScore(metaF.stage1, 0, 'major', null);
+  const hF = ctx.buildJianpuScoreHtml(scoreF);
+  ok('谱面:3 个 note 符号 + 增时线', (hF.match(/data-i="/g) || []).length === 3 && hF.indexOf('jp-dash') >= 0, 'h=' + hF.slice(0, 160));
 }
 
 console.log('\n' + (failures === 0 ? '...阶段一全部通过 ✓' : failures + ' 项失败 ✗'));

@@ -1113,7 +1113,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.33.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.33.1</span></div>
     </div>
   </section>
 
@@ -2076,7 +2076,7 @@ window.addEventListener('unhandledrejection', function (e) {
   var lastKeyResult = null;
 
   /* ---------- 诊断面板 ---------- */
-  var diag = { version: 'v2.33.0', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
+  var diag = { version: 'v2.33.1', ctxState: '未创建', mic: '未请求', callCount: 0, peak: 0, ua: navigator.userAgent.slice(0, 120), lastReplay: null };
   function updateDiag() {
     var p = $('diagRows'), dot = $('diagDot');
     if (!p) return;
@@ -2929,6 +2929,7 @@ window.addEventListener('unhandledrejection', function (e) {
       }
       $('jianpuTag').textContent = tagTxt + ' · ' + s1.meter + ' · ♩=' + Math.round(s1.bpm);
       var info = notes.length + ' 个音 · ' + s1.meter + ' ♩=' + Math.round(s1.bpm) + ' · 量化 ' + Math.round(s1.stats.successRate * 100) + '%';
+      if (s1.srcNoteCount && s1.srcNoteCount > notes.length) info = '哼唱 ' + s1.srcNoteCount + ' 音 · 连音合并为 ' + notes.length + ' 音 · ' + s1.meter + ' ♩=' + Math.round(s1.bpm);
       if (s1.stats.nQuantized < s1.stats.nTotal) info += ' · ' + (s1.stats.nTotal - s1.stats.nQuantized) + ' 个音节奏不稳（灰色显示）';
       if (meta.f0Warn) info += ' · 音高抖动偏多';
       $('jianpuNoteInfo').textContent = info + ' · 点任意数字可试听对应音高 · 「♪ 听旋律」按你哼的节奏还原演奏';
@@ -2986,7 +2987,10 @@ window.addEventListener('unhandledrejection', function (e) {
     fallbackSuccessMin: 0.4,        // 量化成功率 < 0.4 → 谱面虚构多于事实,整体退回旧样式(±80ms 抖动≈0.5 不触发)
     f0WarnSuccess: 0.7,             // 成功率 < 0.7 → F0 提取告警(只标记不退回)
     tripletMaxRatio: 1.6,           // 三连音组内最大/最小间距比上限
-    meter3Hit: 0.6, meter4Miss: 0.4 // 3/4 拍检测:mod3 命中 > 0.6 且 mod4 < 0.4
+    meter3Hit: 0.6, meter4Miss: 0.4, // 3/4 拍检测:mod3 命中 > 0.6 且 mod4 < 0.4
+    mergeMaxGapMs: 80,              // 长音碎片合并:相邻片重叠/间隙 < 80ms 且 Δ≤1 半音视为同长音
+    mergeMaxPitchDiff: 1,           // 合并的音高差上限(半音;实测颤音碎片 Δ≤1)
+    mergeMinRunForAlt: 4            // 交替振荡型碎片至少 4 片才合并(保护 1-2-1 回音)
   };
   var DUR_NAMES_JP = { 1: '十六分', 2: '八分', 3: '附点八分', 4: '四分', 6: '附点四分', 8: '二分', 12: '附点二分', 16: '全音符' };
 
@@ -3034,6 +3038,56 @@ window.addEventListener('unhandledrejection', function (e) {
     totalW += 0.15 * notes.length;
     var reliable = bestS > 0.5 * totalW && iois.length >= 2; // 3 音符旋律只有 2 个 IOI,靠时长一致性项防过拟合
     return { bpm: Math.round(60 / bestP * 10) / 10, beat: bestP, score: bestS, iois: iois, reliable: reliable };
+  }
+
+  // 长音碎片合并(根治「唱得很稳但回放一顿顿」):大颤音/气息波动把稳态长音切成
+  // 一堆重叠碎片(实测:±80音分颤音 1.8s 被切成 14 片,重叠 -70ms、Δ≤1 半音、交替振荡)
+  // → 回放变机枪声。规则:相邻片重叠或贴近(<80ms)且 Δ≤1 半音视为同一长音的碎片;
+  // 整组同音(四舍五入),或组内音高交替振荡且 ≥4 片且总跨度 ≤2 半音(颤音特征) → 合并。
+  // 保护:音阶跑动(单调同向)不合并;快速回音 1-2-1(Δ=1 交替但 <4 片)不合并。
+  function mergeFragments(notes, opts) {
+    opts = opts || JIANPU_QUANT_OPTS;
+    if (!notes || notes.length < 2) return notes || [];
+    notes = notes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
+    var out = [], run = [notes[0]];
+    function endOf(p) { return p.end != null ? p.end : (p.start || 0) + (p.dur || 0.25); }
+    function flush() {
+      if (run.length < 2) { out.push(run[0]); run = []; return; }
+      var samePc = true, r0 = Math.round(run[0].midi), alt = true, prevSign = 0, minM = r0, maxM = r0;
+      for (var i = 1; i < run.length; i++) {
+        var m = Math.round(run[i].midi);
+        if (m !== r0) samePc = false;
+        if (m < minM) minM = m; if (m > maxM) maxM = m;
+        var d = m - Math.round(run[i - 1].midi);
+        if (d !== 0 && prevSign !== 0 && d === prevSign) alt = false; // 同向两次 → 音阶跑动
+        if (d !== 0) prevSign = d;
+      }
+      var mergeable = samePc || (run.length >= opts.mergeMinRunForAlt && alt && (maxM - minM) <= 2);
+      if (!mergeable) { for (var j = 0; j < run.length; j++) out.push(run[j]); run = []; return; }
+      var t0 = run[0].start || 0, t1 = endOf(run[0]), wSum = 0, mSum = 0, longest = run[0];
+      for (var k = 0; k < run.length; k++) {
+        var p = run[k], pe = endOf(p);
+        if (pe > t1) t1 = pe;
+        var w = Math.max(0.05, p.dur || 0.25);
+        wSum += w; mSum += (p.midi || 60) * w;
+        if (w > (longest.dur || 0.25)) longest = p;
+      }
+      var mn = { start: t0, end: t1, dur: t1 - t0, midi: mSum / wSum };
+      if (run[0].amp != null) mn.amp = Math.max.apply(null, run.map(function (x) { return x.amp || 0; }));
+      if (longest.bends) mn.bends = longest.bends;
+      if (run[0].conf != null) { var cs = 0; for (var c = 0; c < run.length; c++) cs += run[c].conf || 0; mn.conf = cs / run.length; }
+      out.push(mn);
+      run = [];
+    }
+    for (var n = 1; n < notes.length; n++) {
+      var prev = notes[n - 1], cur = notes[n];
+      var gap = (cur.start || 0) - endOf(prev);
+      var dm = Math.abs((cur.midi || 60) - (prev.midi || 60));
+      if (gap < opts.mergeMaxGapMs / 1000 && dm <= opts.mergeMaxPitchDiff + 1e-6) run.push(cur);
+      else { flush(); run = [cur]; }
+    }
+    flush();
+    return out;
   }
 
   // 自适应网格吸附:onset → 16分单位网格,贪心+单调钳制。
@@ -3144,8 +3198,10 @@ window.addEventListener('unhandledrejection', function (e) {
   function runJianpuPipeline(notes, keyRes) {
     var meta = { stage1: null, stage2: null, renderLatencyMs: null, f0Warn: false, heptaHint: false };
     try {
-      var q = quantizeRhythm(notes);
+      var merged = mergeFragments(notes); // 先并碎片(颤音/气息切出的重叠短音),谱面与回放共用
+      var q = quantizeRhythm(merged);
       meta.stage1 = q;
+      if (!q.fallback) { meta.stage1.mergedNotes = merged; meta.stage1.srcNoteCount = notes.length; }
       meta.f0Warn = !q.fallback && q.stats.successRate < JIANPU_QUANT_OPTS.f0WarnSuccess;
       // 阶段二(v2.34)在此接入:pentatonicFit + 冲突判定 + key_override/警示
     } catch (e) { console.error('简谱量化出错:', e); }
@@ -4444,7 +4500,12 @@ window.addEventListener('unhandledrejection', function (e) {
     stopAllTones();
     await ensureAudioStarted();
     // 防御性排序：basic-pitch 曾返回逆序音符（v2.11.15 根因），一切下游都依赖时间序
-    var notes = recordedNotes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
+    // v2.33.1:谱面量化成功时,回放改用碎片合并后的音符(与谱面/高亮同源,根治机枪声);
+    // 量化不可用(旧样式谱面)则保持原始转录 1:1
+    var jmRp = state.jianpuMeta;
+    var srcNotes = (jmRp && jmRp.stage1 && !jmRp.stage1.fallback && jmRp.stage1.mergedNotes && jmRp.stage1.mergedNotes.length)
+      ? jmRp.stage1.mergedNotes : recordedNotes;
+    var notes = srcNotes.slice().sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
     var ctx = getPlayCtx();
     var sr = ctx.sampleRate || 44100;
     var t0 = notes[0].start || 0;
