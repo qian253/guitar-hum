@@ -708,6 +708,13 @@
 
   #shareCardBtn svg { vertical-align: -3px; }
 
+  /* v2.29 手绘场景升级(参考治愈系专注App设计语言) */
+  #screenRecord { background: linear-gradient(180deg, var(--paper) 0%, #F7E6C0 58%, rgba(242,211,136,0.85) 130%); }
+  .mic-wrap { border: 3px solid rgba(78,67,56,0.5); border-radius: 47% 53% 51% 49% / 49% 51% 47% 53%; }
+  .scene-area { margin-top: auto; margin-bottom: 2px; padding: 0 10px; opacity: 0.96; pointer-events: none; }
+  .scene-area svg { width: 100%; height: auto; display: block; }
+  @media (prefers-reduced-motion: reduce) { .scene-area { opacity: 0.5; } }
+
   /* v2.28 线性图标 */
   .icon { vertical-align: -3px; margin-right: 4px; flex-shrink: 0; }
   .btn .icon, .tab .icon, .hand-sec .icon, .card-title .icon { vertical-align: -2px; }
@@ -875,6 +882,41 @@ window.addEventListener('unhandledrejection', function (e) {
       </div>
     </div>
     <div class="status" id="status"></div>
+    <!-- v2.29 猫的音乐小窝:手绘场景(学治愈系专注App的"有人味"场景区) -->
+    <div class="scene-area" aria-hidden="true">
+      <svg viewBox="0 0 340 150" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="170" cy="141" rx="122" ry="12" fill="#A8CFA2" opacity="0.4"/>
+        <rect x="16" y="10" width="62" height="54" rx="8" fill="#A8C8DC" opacity="0.5" stroke="#4E4338" stroke-width="2"/>
+        <line x1="47" y1="10" x2="47" y2="64" stroke="#4E4338" stroke-width="1.6"/>
+        <line x1="16" y1="37" x2="78" y2="37" stroke="#4E4338" stroke-width="1.6"/>
+        <rect x="256" y="14" width="56" height="44" rx="6" fill="#FFFDF5" stroke="#4E4338" stroke-width="2"/>
+        <text x="284" y="44" font-size="20" fill="#C05B45" text-anchor="middle">♪</text>
+        <rect x="96" y="92" width="128" height="40" rx="14" fill="#F6BFA6" stroke="#4E4338" stroke-width="2.4"/>
+        <line x1="120" y1="94" x2="120" y2="130" stroke="#4E4338" stroke-width="1.4" opacity="0.5"/>
+        <line x1="200" y1="94" x2="200" y2="130" stroke="#4E4338" stroke-width="1.4" opacity="0.5"/>
+        <svg x="130" y="22" width="88" height="88" viewBox="0 0 96 96">
+          <path d="M66 86 q10 -6 6 -20 q-2 8 -8 10 q-1 8 -8 10" fill="#8E7CC3"/>
+          <ellipse cx="44" cy="66" rx="22" ry="17" fill="#FFC9A8"/>
+          <path d="M26 66 q-3 4 -6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M62 66 q3 4 6 2" stroke="#F0B79A" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="44" cy="36" rx="24" ry="21" fill="#FFC9A8"/>
+          <path d="M24 24 q-4 -16 6 -14 q14 -4 12 12 z" fill="#FFC9A8"/><path d="M26 22 q0 -8 4 -9 q8 -3 8 7 z" fill="#F7A8A0"/>
+          <path d="M64 24 q4 -16 -6 -14 q-14 -4 -12 12 z" fill="#FFC9A8"/><path d="M62 22 q0 -8 -4 -9 q-8 -3 -8 7 z" fill="#F7A8A0"/>
+          <path d="M20 34 a24 24 0 0 1 48 0" stroke="#8E7CC3" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <rect x="17" y="30" width="8" height="12" rx="4" fill="#8E7CC3"/><rect x="63" y="30" width="8" height="12" rx="4" fill="#8E7CC3"/>
+          <g class="cat-blink"><circle cx="34" cy="40" r="3.2" fill="#5A4A42"/><circle cx="54" cy="40" r="3.2" fill="#5A4A42"/></g>
+          <path d="M41 47 q3 3 6 0" stroke="#5A4A42" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          <circle cx="29" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"/><circle cx="59" cy="46" r="3.5" fill="#FBA8A0" opacity="0.7"/>
+          <path d="M26 44 h-8 M26 48 h-7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>
+          <path d="M62 44 h8 M62 48 h7" stroke="#5A4A42" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+        <circle cx="272" cy="102" r="17" fill="#E8B98A" stroke="#4E4338" stroke-width="2.2"/>
+        <circle cx="272" cy="102" r="6" fill="none" stroke="#4E4338" stroke-width="1.6"/>
+        <line x1="263" y1="92" x2="254" y2="40" stroke="#4E4338" stroke-width="4" stroke-linecap="round"/>
+        <rect x="249" y="34" width="10" height="10" rx="2" fill="none" stroke="#4E4338" stroke-width="2"/>
+        <text x="52" y="86" font-size="16" fill="#C9B3E9" opacity="0.85">♫</text>
+        <text x="312" y="76" font-size="15" fill="#F0917F" opacity="0.85">♪</text>
+      </svg>
+    </div>
     <!-- v2.20.0 今日一调：每天一个小任务，给「再来一次」一个理由 -->
     <div id="dailyCard">
       <div class="dc-ic"><i class="ic" data-ic="calendar" data-ic-sz="22"></i></div>
@@ -1033,7 +1075,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <option value="piano">钢琴</option>
         </select>
       </div>
-      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.28.0</span></div>
+      <div class="settings-row"><span class="sr-l">ℹ️ 关于</span><span class="sr-r" id="setAbout">唱一句·定调子 v2.29.0</span></div>
     </div>
   </section>
 
