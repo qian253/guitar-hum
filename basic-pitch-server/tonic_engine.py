@@ -178,7 +178,7 @@ def _amp_weight(n, amp_mean):
     return d * max(0.3, min(2.0, a / amp_mean))
 
 
-# ---------- 大小调判定（同根音二选一；小调须明显占优 ×1.25） ----------
+# ---------- 大小调判定（同根音二选一；小调须明显占优 ×1.5） ----------
 def decide_mode(notes, root, hist):
     major_third = hist[(root + 4) % 12]
     minor_third = hist[(root + 3) % 12]
@@ -190,7 +190,8 @@ def decide_mode(notes, root, hist):
             leading += 1
     major_e = major_third * 2 + (major_triad - minor_triad) * 0.4 + leading * 0.4
     minor_e = minor_third * 2 + (minor_triad - major_triad) * 0.4
-    mode = "minor" if minor_e > major_e * 1.25 else "major"
+    # v2.25.6 minor 阈值 1.25→1.5:哼唱音准漂移常致小三度虚高
+    mode = "minor" if minor_e > major_e * 1.5 else "major"
     return {
         "mode": mode, "major_third": major_third, "minor_third": minor_third,
         "major_triad": major_triad, "minor_triad": minor_triad, "leading": leading,
@@ -231,8 +232,8 @@ def triad_skeleton_scores(notes):
 def tendency_scores(notes):
     """支柱3·序列倾向(音与音之间的引力,而非统计频率):
     半音上行→目标音 +0.3(导音解决) / 纯五度下行→目标音 +0.2(V→I) / 纯四度上行→目标音 +0.15(V→I 上行)。
-    时长门:目标音时长 ≥1.5×来源音才计——滤掉经过音(E→F 这类音阶内半音上行
-    不是导音解决,自然小调 5→6、大调 3→4 都是它,不带门会系统性误赞 IV 级)。"""
+    时长门:目标音时长 ≥1.0×来源音才计(v2.25.1: 1.5×→1.0× 放宽,
+    阶段四诊断显示原门控命中率仅 3.5%、5/12 样本完全无 P3 信号)。"""
     tend = [0.0] * 12
     pairs = 0
     for i in range(1, len(notes)):
@@ -240,7 +241,7 @@ def tendency_scores(notes):
         pairs += 1
         src_dur = max(0.05, notes[i - 1].get("dur", 0.25))
         dst_dur = max(0.05, notes[i].get("dur", 0.25))
-        if dst_dur < src_dur * 1.5:
+        if dst_dur < src_dur * 1.0:
             continue
         if iv == 1:
             tend[_pc(notes[i]["midi"])] += 0.3
@@ -396,6 +397,23 @@ def analyze_tonic(notes, recording_dur=None):
         if root in GUILD["major"] or root in GUILD["minor"]:
             s += GUITAR_BIAS
         root_scores.append({"root": root, "major": maj, "minor": mn, "score": s})
+    # [优化] 原因：K-S模板主属音双峰致五度圈互判，依据：阶段一发现五度圈相邻调互判4次(#17 B→F#, #20 G#→D#, #22 F#→C#, #23 F→C)
+    # 主音-属音共现强化：主音和属音同时出现是主音的典型特征，给属音也强的根音加分
+    # v2.25.2 属音缺失惩罚：候选自身突出但属音在样本中完全缺失→减分
+    #   (参考 #22 F#major 误判 G#：G# 占比 42% 但其属音 D# 缺失)
+    # v2.25.3 主属比例门控：哼唱中主音通常 ≥ 属音时长；若属音 > 主音 ×1.5，
+    #   该候选很可能是把属音误判为主音(参考 #22 Db 误判：其"属音"Ab 占比 42% 远超 Db 自身 9.6%)
+    for root in range(12):
+        dom_root = (root + 7) % 12
+        tonic_w = pc_dur[root]
+        dom_w = pc_dur[dom_root]
+        if tonic_w > 0 and dom_w > 0:
+            cooccur = min(tonic_w, dom_w) / max(tonic_w, dom_w)
+            root_scores[root]["score"] += 0.08 * cooccur
+            if dom_w > tonic_w * 1.5:
+                root_scores[root]["score"] -= 0.15
+        elif tonic_w > 0 and dom_w == 0:
+            root_scores[root]["score"] -= 0.20
     # ---- v2.25.0 P1 三支柱融合:0.45×音级统计 + 0.30×三和弦骨架 + 0.25×序列倾向 ----
     p1_raw = [root_scores[i]["score"] for i in range(12)]
     p2_raw = triad_skeleton_scores(notes)
