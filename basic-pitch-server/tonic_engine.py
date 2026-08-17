@@ -496,6 +496,15 @@ def analyze_tonic(notes, recording_dur=None):
     modulation = detect_modulation(notes)
     if modulation:
         confidence = round(confidence * 0.8, 3)
+        # v2.19 文档化行为「整体判后段目标调」的显式实现(此前缺失,靠融合打分碰巧过关)。
+        # 切换条件(168 基准扫边界):后段 margin ≥0.15 且后段 > 前段——真转调是旋律
+        # 「进入」新调(后段更强);minor_nontonic_end 12 例是前段极强(m1=0.428)后段
+        # 偏弱(m2=0.139)的非主音结尾,不切换。
+        if modulation["second_half"]["margin"] >= 0.15 \
+                and modulation["second_half"]["margin"] > modulation["first_half"]["margin"]:
+            best_root = modulation["second_half"]["root"]
+            md = decide_mode(notes, best_root, hist)
+            mode = md["mode"]
 
     # ---- 和弦验证（模块6） ----
     harmony = harmony_verify(notes, best_root, mode)
